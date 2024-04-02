@@ -73,6 +73,10 @@ cat file1 file2 ...
 
 
 
+`ll` 显示指定目录，但以列表的形式打印
+
+
+
 `cp` 复制文件
 
 ~~~bash
@@ -189,6 +193,8 @@ diff file1 file2
 - 使用模式匹配参数（如`*`），但是必须加引号（`'*'`），以免shell自动将它们展开
 
 `locate` 与 `file` 类似，但是它在系统创建的文件索引中查找文件。这个索引由操作系统周期性地进行更新，查找速度比 `find` 更快。但是 `locate` 对于查找新创建的文件可能会无能为力，因为它们有可能还没有被加入到索引中。
+
+`whereis` 快速查找指定文件名在哪里
 
 
 
@@ -389,6 +395,23 @@ head /proc/cpuinfo | tr a-z A-Z
   
 
 `-R` 选项可以递归修改权限。
+
+
+
+`chown`是一个在Unix和Linux类型操作系统上用来更改文件或者目录所有者的命令：
+
+~~~bash
+chown [OPTION]... [OWNER][:[GROUP]] FILE...
+~~~
+
+- `OWNER`可以是一个用户名或者用户ID。
+- `GROUP`可以是一个组名或者组ID。
+
+~~~bash
+chown newowner:newgroup filename
+~~~
+
+这个命令将`filename`的所有者改为`newowner`，所属的组改为`newgroup`。
 
 ### 目录结构
 
@@ -672,13 +695,21 @@ uptime
 
 ## 网络配置
 
+虚拟机（VM）和宿主机（主机）之间的通信依赖于虚拟网络适配器（vNIC）。以下是三种常见的络配置模式：
+
+1. **桥接模式（Bridged Networking）**
+2. **NAT（Network Address Translation）模式**
+3. **主机模式（Host-only Networking）**
+
+当计算机需要发送一个数据包时，会先查找路由表来决定通过哪个网络接口发送，然后通过ARP 协议找到对方的 MAC 地址。数据包最终经由指定的网络接口，携带着目标的 MAC 地址发送出去。
 
 
-NAT转换技术
+
+
+
+默认情况下，WSL 使用基于 NAT（网络地址转换）的网络体系结构。 请牢记以下注意事项：
 
 ![image-20240312005601495](assets/image-20240312005601495.png)
-
-默认情况下，WSL 使用基于 NAT（网络地址转换）的网络体系结构。 使用基于 NAT 的网络体系结构时，请牢记以下注意事项：
 
 1. 端口号都是共用的
 
@@ -759,9 +790,63 @@ linux服务器配置DNS解析的三种方法：
    service network restart #重启网络使配置生效
    ~~~
 
-   
 
 优先级：本地Hosts > 网卡配置 > 系统默认DNS配置
+
+
+
+
+
+curl 获取指定 URL 的内容
+
+- `-I` 获取响应头
+- `-e`： 指定一个 Referers
+
+
+
+
+
+有关防火墙的设定：
+
+1. 开启防火墙
+
+   ~~~bash
+   systemctl start firewalld
+   ~~~
+
+2. 重启防火墙
+
+   ~~~bash
+   systemctl restart firewalld
+   ~~~
+
+3. 重载规则
+
+   ~~~bash
+   firewall-cmd --reload
+   ~~~
+
+4. 查看已配置规则
+
+   ~~~bash
+   firewall-cmd --list-all
+   ~~~
+
+5. 指定端口和 ip 访问
+
+   ~~~bash
+   firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.44.101"
+   port protocol="tcp" port="8080" accept'
+   ~~~
+
+6. 移除规则
+
+   ~~~bash
+   firewall-cmd --permanent --remove-rich-rule="rule family="ipv4" source
+   address="192.168.44.101" port port="8080" protocol="tcp" accept"
+   ~~~
+
+
 
 ## Shell脚本
 

@@ -116,8 +116,6 @@ Spring Boot 的起步依赖之后，此类问题就能得到缓解，同一版�
 </dependencies>
 ~~~
 
-
-
 起步依赖背后使用的其实就是 **Maven 的传递依赖机制**。我们前面提及过pom.xml会继承`org.springframework.boot:spring-boot-starter-parent` 父项目文件，而`org.springframework.boot:spring-boot-starter-parent` 又继承了 `org.springframework.boot:spring-boot-dependencies`。`spring-boot-dependencies.pom`在`<properties>` 内定义了很多版本号
 
 <img src="assets/16dc39cfebc2bea1tplv-t2oaga2asx-jj-mark3024000q75.webp" alt="img" style="zoom: 25%;" />
@@ -144,19 +142,17 @@ public class BinaryTeaApplication {
 
 
 
-此外，还可以通过`@EnableAutoConfiguration`启用`spring-boot-autoconfigure`模块中的自动配置类来加载`Bean`（**约定大于配置**）。如果不想启用自动配置功能，可以在配置文件中配置`spring.boot.enableautoconfiguration=false`。
+通过`@EnableAutoConfiguration`启用`spring-boot-autoconfigure`模块中的自动配置类来加载`Bean`（**约定大于配置**）。如果不想启用自动配置功能，可以在配置文件中配置`spring.boot.enableautoconfiguration=false`。
 
 自动配置类是如何被加载的呢？关键在于 `@EnableAutoConfiguration` 上的 `@Import(AutoConfigurationImportSelector.class)`。`AutoConfigurationImportSelector` 类是 `ImportSelector` 的实现，这个接口的作用就是根据特定条件决定可以导入哪些配置类。`AutoConfigurationImportSelector`会读取
 
 - `/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件（或者是`META-INF/spring.factories`）来加载我们自己定义的自动配置类。
 
-  > 有些读者可能困惑这与之前介绍的@ComponentScan来加载自动配置类有什么区别呢？ 这种方式一般在自定义spring-boot-starter时使用，相当于向其他模块暴露本项目的自动配置类。而通过@ComponentScan来加载自动配置类是本项目的私有自动配置类
+  > 有些读者可能困惑这与之前介绍的 @ComponentScan 来加载自动配置类有什么区别呢？ 这种方式一般在自定义 spring-boot-starter 时使用，相当于向其他模块暴露本项目的自动配置类。而通过 @ComponentScan 来加载自动配置类是本项目的私有自动配置类
 
 - `AutoConfigurationImportSelector`会扫描所有在`spring-boot-autoconfigure`模块中的自动配置类，这些配置类一般以`“xxxAutoConfiguration”`来命名。
 
 **这样容器都有根据配置类预先装配好的Bean对象了**。
-
-
 
 ### 配置
 
@@ -236,8 +232,6 @@ public class JdbcTemplateAutoConfiguration {
 
 1. 需要在 `DataSourceAutoConfiguration` 之后再配置（可以用 `@AutoConfigureBefore`、`@AutoConfigureAfter` 和 `@AutoConfigureOrder` 来控制自动配置的顺序）。
 2. 同时导入 `JdbcTemplateConfiguration` 和 `NamedParameterJdbcTemplateConfiguration` 里的配置。
-
-
 
 
 
@@ -401,8 +395,6 @@ class MailModuleProperties {
   | `mappings`         | 否            | 是           | 提供 `@RequestMapping` 的映射列表                            |
   | `scheduledtasks`   | 否            | 是           | 提供系统中的调度任务列表                                     |
 
-  默认只有 `info` 是开启了 HTTP 访问的，因此在运行程序后，通过浏览器或者其他方式访问 `http://localhost:8080/actuator/health` 就能访问到 `health` 端点的信息。
-
 - 监控类端点：
 
   | 端点 ID      | 默认开启 HTTP | 默认开启 JMX | 端点说明                             |
@@ -482,7 +474,7 @@ management.endpoints.web.exposure.include=*
 
 
 
-因SpringBoot Actuator会暴露服务的详细信息，为了保障安全性，建议添加安全控制的相关依赖spring-boot-starter-security。但是就算做了保护，黑客也能通过端点信息推断出这个系统是通过 Spring Boot 实现的，进而利用Spring Boot 存在的漏洞来进行攻击。如何解决这个问题呢？
+因 SpringBoot Actuator 会暴露服务的详细信息，为了保障安全性，建议添加安全控制的相关依赖 spring-boot-starter-security。但是就算做了保护，黑客也能通过端点信息推断出这个系统是通过 Spring Boot 实现的，进而利用Spring Boot 存在的漏洞来进行攻击。如何解决这个问题呢？
 
 - 在防火墙或者负载均衡层面，禁止外部访问 Spring Boot Actuator 的 URL，例如，直接禁止访问 `/actuator` 及其子路径。
 
@@ -504,17 +496,11 @@ management.endpoints.web.exposure.include=*
 
 
 
-
-
 ### 定制端点信息
-
-可以在 `org.springframework.boot:spring-boot-actuator-autoconfigure` 包中查看各种以 `Properties` 结尾的属性类，也可以直接通过 `configprops` 端点来查看属性类，**这些属性类包括了每个端点的私有配置属性**，这些配置属性会改变端点的行为。
-
-例如，`EnvironmentEndpointProperties` 就对应了 `management.endpoint.env` 中的属性，其中其中的 `keysToSanitize` 就是环境中要过滤的自定义敏感信息键名清单，在设置了 `management.endpoint.env.keys-to-sanitize=java.*,sun.*` 后，`env` 端点返回的属性中，所有 `java` 和 `sun` 打头的属性值都会以 `*` 显示。
 
 #### 定制info端点信息
 
-根据 `InfoEndpointAutoConfiguration` 可以得知，`InfoEndpoint` 中会被注入从 Spring 上下文中搜索到的所有 `InfoContributor` Bean 实例，这些`InfoContributor`实例包含了更多的端点信息。`InfoContributorAutoConfiguration` 已经自动注入了 `env`、`git` 和 `build` 这三个 `InfoContributor` Bean，我们也可以注入自己的`InfoContributor` Bean实例
+根据 `InfoEndpointAutoConfiguration` 可以得知，`InfoEndpoint` 会被注入从 Spring 上下文中搜索到的所有 `InfoContributor` Bean 实例，这些`InfoContributor`实例包含了更多的端点信息。`InfoContributorAutoConfiguration` 已经自动注入了 `env`、`git` 和 `build` 这三个 `InfoContributor` Bean，我们也可以注入自己的`InfoContributor` Bean实例
 
 | ID      | Name                                                         | Description                                                  | Prerequisites                                |
 | :------ | :----------------------------------------------------------- | :----------------------------------------------------------- | :------------------------------------------- |
@@ -529,7 +515,6 @@ management.endpoints.web.exposure.include=*
 假设在配置文件中设置了如下内容（`EnvironmentInfoContributor`）：
 
 ~~~xml
-<!--这不是之前介绍的私有配置属性，而是用户自定义设置的属性，由EnvironmentInfoContributor负责加载-->
 info.app=HelloWorld
 info.welcome=Welcome to the world of Spring.
 ~~~
@@ -553,7 +538,7 @@ public SimpleInfoContributor simpleInfoContributor() {
 }
 ~~~
 
-With no prerequisites to indicate that they should be enabled, the `env`, `java`, and `os` contributors are disabled by default. Each can be enabled by setting its `management.info.<id>.enabled` property to `true`.
+
 
 The `build` and `git` info contributors are enabled by default. Each can be disabled by setting its `management.info.<id>.enabled` property to `false`. Alternatively, to disable every contributor that is usually enabled by default, set the `management.info.defaults.enabled` property to `false`.
 
@@ -593,28 +578,9 @@ management.endpoint.health.status.http-mapping.fatal=503
 
 
 
-Spring Boot Actuator 默认开启了所有的 `HealthIndicator`。以通过 `management.health.defaults.enabled=false` 开关（默认关闭），随后使用 `management.health.<name>.enabled` 选择性地开启 `HealthIndicator`。
+Spring Boot Actuator 默认开启了所有的 `HealthIndicator`。可以通过 `management.health.defaults.enabled=false` 开关（默认关闭），随后使用 `management.health.<name>.enabled` 来选择性地开启 `HealthIndicator`。
 
-例如，`DataSourceHealthContributorAutoConfiguration` 是这样定义的：
-
-~~~java
-@Configuration(proxyBeanMethods = false)
-@ConditionalOnClass({ JdbcTemplate.class, AbstractRoutingDataSource.class })
-@ConditionalOnBean(DataSource.class)
-@ConditionalOnEnabledHealthIndicator("db")
-@AutoConfigureAfter(DataSourceAutoConfiguration.class)
-public class DataSourceHealthContributorAutoConfiguration extends
-    CompositeHealthContributorConfiguration<AbstractHealthIndicator, DataSource>
-    implements InitializingBean {
-    
-}
-~~~
-
-那么它的生效条件是这样的：
-
-- CLASSPATH 中存在 `JdbcTemplate` 和 `AbstractRoutingDataSource` 类；
-- Spring 上下文中存在 `DataSource` 类型的 Bean；
-- 默认开关打开，或者 `management.health.db.enabled=true`，此处 `@ConditionalOnEnabledHealthIndicator` 中的 `db` 就是 `name`
+- `@ConditionalOnEnabledHealthIndicator` 中的 `db` 就是 `name`
 
 
 
@@ -662,18 +628,6 @@ public class ShopReadyHealthIndicator extends AbstractHealthIndicator {
     "status": "UP"
 }
 ~~~
-
->**优先通过 `ObjectProvider` 获取 Bean**
->
->容器中没有Bean时，或者有多个未决候选者Bean时，那么就在编译时抛出异常。而通过ObjectProvider类型，可以将这些问题放在运行时来处理，例如：
->
->~~~java
->public IndexService(ObjectProvider<B> b) {
->    this.b = b.getIfAvailable();
->}
->~~~
->
->上述代码在没有发现B类型的Bean对象时，返回`null`，而不是抛出异常。
 
 
 
@@ -725,7 +679,7 @@ management.endpoints.web.exposure.include=health,info,shop
 |    JMX     |       否       |  客户端聚合  |   客户端推   |
 | Prometheus |       是       |  服务端聚合  |   服务端拉   |
 
- `Meter` 接口表示从系统收集来的度量数据，内置的 `Meter` 实现如下：
+ `Meter` 接口表示从系统收集来的度量数据， `Meter` 实现如下：
 
 |     `Meter` 类型      |                             说明                             |
 | :-------------------: | :----------------------------------------------------------: |
@@ -737,7 +691,7 @@ management.endpoints.web.exposure.include=health,info,shop
 |   `FunctionCounter`   |           函数计数器，追踪某个单调递增函数的计数器           |
 |    `FunctionTimer`    |    函数计时器，追踪两个单调递增函数，一个计数，另一个计时    |
 
- `MeterRegistry` 负责创建并管理这些 `Meter`。`Micrometer` 所支持的各种监控系统都有自己的 `MeterRegistry` 实现。创建 `Meter`，并向`MeterRegistry`注册的两种方式：
+ `MeterRegistry` 负责创建并管理这些 `Meter`。`Micrometer` 所支持的各种监控系统都有自己的 `MeterRegistry` 实现。向`MeterRegistry`注册`Meter`，同时创建`Meter`的两种方式：
 
 - `MeterRegistry` 上的方法：`registry.timer("foo")`，
 -  `Fluent` 风格的构建方法：` Timer.builder("foo").tags("bar").register(registry)`
@@ -795,12 +749,6 @@ Spring Boot 还自动为我们向`MeterRegistry`注册了以下`Metrics`：
 | `ProcessorMetrics`   | 收集 CPU 负载情况      |
 | `JvmThreadMetrics`   | 收集 JVM 中的线程情况  |
 
-下面的语句就能向`MeterRegistry`注册一个 `ClassLoaderMetrics`
-
-~~~java
-new ClassLoaderMetrics().bindTo(registry);
-~~~
-
 Spring Boot 通过 `JvmMetricsAutoConfiguration` 之类的自动配置类已经替我们做好了注册工作。此外，它还自动给 Spring MVC、HTTP 客户端和数据源定义并注册了其他度量指标，例如：
 
 - 默认情况下，所有基于 Spring MVC 的 Web 请求都会被记录下来（`management.metrics.web.server.request.autotime.enabled=true`），通过 `/actuator/metrics/http.server.requests`可以查看这些记录
@@ -809,7 +757,7 @@ Spring Boot 通过 `JvmMetricsAutoConfiguration` 之类的自动配置类已经�
 
 
 
-每一个内置Meter对象都有可配置的属性，例如，我们注册了一个名为order.summary的Timer类型的Metrics对象，那么我们可以做如下配置，来设置该Metrics对象的分布统计百分比为95%：
+每一个内置Meter对象都有可配置的属性，例如，我们注册了一个名为 order.summary 的 Timer 类型的 Metrics 对象，那么我们可以做如下配置，来设置该Metrics 对象的分布统计百分比为95%：
 
 ~~~xml
 management.metrics.distribution.percentiles.order.summary=0.95

@@ -28,7 +28,7 @@ Spring Security 主要提供了如下一些特性：
 
 
 
-在 Spring Security 中，有一个安全上下文的概念，即存储"**当前用户**"认证授权的相关信息。
+在 Spring Security 中，有一个安全上下文的概念，即存储「当前用户」认证授权的相关信息。
 
 ~~~java
 public interface SecurityContext extends Serializable {
@@ -38,7 +38,7 @@ public interface SecurityContext extends Serializable {
 }
 ~~~
 
-"**当前用户**"实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。`SecurityContextHolder`工具类就是把`SecurityContext`存储在当前线程中（`ThreadLocal`）。
+当前用户实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。`SecurityContextHolder`工具类就是把`SecurityContext`存储在当前线程中（`ThreadLocal`）。
 
 ~~~java
 public class SecurityContextHolder {
@@ -50,7 +50,7 @@ public interface SecurityContextHolderStrategy {
 }
 ~~~
 
-请求结束后，`SpringSecurity`将认证结果存储到Session，对应的Key是：`SPRING_SECURITY_CONTEXT`。每次请求再从Session对象中取回认证信息。
+请求结束后，`SpringSecurity`将认证结果存储到 `Session`，对应的 `Key` 是：`SPRING_SECURITY_CONTEXT`。每次请求再从 `Session` 对象中取回认证信息。
 
 
 
@@ -105,13 +105,13 @@ public interface UserDetails extends Serializable {
 </dependency>
 ~~~
 
-启动程序后，在输出的日志中能看到类似下面这样的一段输出，这是 Spring Boot 的自动配置类 `SecurityProperties.User` 中用 UUID 生成的一段密码，对应的用户名默认是 `user`，用 UUID 做密码（如果配置了`User`，那么就不会生成这个默认用户）：
+启动程序后，在输出的日志中能看到类似下面这样的一段输出
 
 ```
 Using generated security password: 40e5d02a-de50-46d6-97a6-970252c35d57
 ```
 
-在浏览器中，如果访问 http://localhost:8080/order 页面，会被 `302 Found` 重定向到 Spring Security 提供的默认登录页面
+这是 Spring Boot 的自动配置类 `SecurityProperties.User` 中用 UUID 生成的一段密码，对应的用户名默认是 `user`。在浏览器中，如果访问页面，会被 `302 Found` 重定向到 Spring Security 提供的默认登录页面。
 
 可以在 `application.properties` 中配置下面的属性，将用户名和密码变成我们指定的内容：
 
@@ -119,8 +119,6 @@ Using generated security password: 40e5d02a-de50-46d6-97a6-970252c35d57
 spring.security.user.name=binarytea
 spring.security.user.password=showmethemoney
 ```
-
-
 
 
 
@@ -177,8 +175,8 @@ public class SecurityConfig {
 
 | 配置方法               | 作用                                                         |
 | :--------------------- | :----------------------------------------------------------- |
-| `usernameParameter()`  | 配置表单中的用户名字段                                       |
-| `passwordParameter()`  | 配置表单中的密码字段                                         |
+| `usernameParameter()`  | 指定表单中的用户名字段名                                     |
+| `passwordParameter()`  | 指定表单中的密码字段名                                       |
 | `defaultSuccessUrl()`  | 登录成功后跳转的 URL                                         |
 | `failureUrl()`         | 登录失败后跳转的 URL                                         |
 | `loginProcessingUrl()` | 处理验证的URL。POST                                          |
@@ -235,7 +233,7 @@ formLogin
 @Slf4j
 public class TokenController {
     
-    // 依赖注入一个验证器
+    // 依赖注入一个验证器，之后我们会讲解它
     @Autowired
     private AuthenticationManager authenticationManager;
     
@@ -318,9 +316,7 @@ public interface AuthenticationProvider {
 }
 ~~~
 
-
-
-默认提供一个`DaoAuthenticationProvider`来做检验。在启动时，会给`DaoAuthenticationProvider`配置好所需的数据（例如，`UserDetailsService`）。我们可以注入一个`DaoAuthenticationProvider`子类来代替这个默认的`DaoAuthenticationProvider`，这样就可以在登录时做额外的检测逻辑（例如验证码）
+默认提供一个`DaoAuthenticationProvider`来做检验。我们可以注入一个`DaoAuthenticationProvider`子类来代替这个默认的`DaoAuthenticationProvider`，这样就可以在登录时做额外的检测逻辑（例如验证码）
 
 ~~~java
 @Component
@@ -387,7 +383,7 @@ http.formLogin(formLogin -> {
 })
 ~~~
 
-那么`DaoAuthenticationProvider`可以在`additionalAuthenticationChecks()`方法中的`UsernamePasswordAuthenticationToken`类型对象获取这些信息
+那么`DaoAuthenticationProvider`子类可以在`additionalAuthenticationChecks()`方法的`UsernamePasswordAuthenticationToken`参数获取这些信息
 
 ~~~java
 @Component
@@ -410,108 +406,105 @@ public class MyDaoAuthenticationProvider extends DaoAuthenticationProvider {
 }
 ~~~
 
-实际上，在自定义过滤器中，也可以完成`WebAuthenticationDetails`所作的工作。
-
-
-
-
-
 
 
 下面介绍一种更加通用的自定义认证的方式。
 
-- 实现`Authentication`接口，包含更多的验证信息，例如验证码、JWT
-- 一个自定义的过滤器，针对特定的请求，封装认证信息，调用认证逻辑。
-- 一个 `AuthenticationProvider` 的实现类，提供认证逻辑
+- 实现`Authentication`接口，封装更多的验证信息，例如验证码、JWT
 
-~~~java
-public class SmsCodeAuthenticationProcessingFilter extends AbstractAuthenticationProcessingFilter {
-    @Override
-    public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException, IOException, ServletException {
-		// 构造认证信息
-        Authentication authentication;
-        
-        // 开始认证
-        return this.getAuthenticationManager().authenticate(authRequest);
-    }
-}
-~~~
+- 一个自定义的过滤器，针对特定的请求，封装认证信息，调用**认证逻辑**。
 
+  ~~~java
+  public class SmsCodeAuthenticationProcessingFilter extends AbstractAuthenticationProcessingFilter {
+      @Override
+      public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException, IOException, ServletException {
+  		// 构造认证信息
+          Authentication authentication;
+          
+          // 开始认证
+          return this.getAuthenticationManager().authenticate(authRequest);
+      }
+  }
+  ~~~
 
+- 一个 `AuthenticationProvider` 的实现类，提供**认证逻辑**
 
-~~~java
-public class SmsCodeAuthenticationProvider implements AuthenticationProvider {
-    private UserDetailsService userDetailsService; // 获取认证数据源
-    
-    @Override
-    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        // 这里无需设置安全上下文，因为过滤器还未执行完成。
-        
-        // 认证逻辑的处理
-    }
-}
-~~~
+  ~~~java
+  public class SmsCodeAuthenticationProvider implements AuthenticationProvider {
+      private UserDetailsService userDetailsService; // 获取认证数据源
+      
+      @Override
+      public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+          // 这里无需设置安全上下文，因为过滤器还未执行完成。
+          
+          // 认证逻辑的处理
+      }
+  }
+  ~~~
 
+- 定义认证成功以及失败的处理器
 
+  ~~~java
+  public class SmsCodeAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+      @Override
+      public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+          response.setContentType("text/plain;charset=UTF-8");
+          response.getWriter().write(authentication.getName());
+      }
+  }
+  ~~~
 
-下面定义认证成功以及失败的处理器：
+  ~~~java
+  public class SmsCodeAuthenticationFailureHandler implements AuthenticationFailureHandler {
+      @Override
+      public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+          response.setContentType("text/plain;charset=UTF-8");
+          response.getWriter().write("认证失败");
+      }
+  }
+  ~~~
 
-~~~java
-public class SmsCodeAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
-    @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        response.setContentType("text/plain;charset=UTF-8");
-        response.getWriter().write(authentication.getName());
-    }
-}
-~~~
+- 组装
 
-~~~java
-public class SmsCodeAuthenticationFailureHandler implements AuthenticationFailureHandler {
-    @Override
-    public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
-        response.setContentType("text/plain;charset=UTF-8");
-        response.getWriter().write("认证失败");
-    }
-}
-~~~
+  ~~~java
+  @Component
+  @RequiredArgsConstructor
+  public class SmsCodeAuthenticationSecurityConfig extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
+      
+      // 从这里获认证的数据源
+      private final UserDetailsService userDetailsService;
+  
+      @Override
+      public void configure(HttpSecurity http) {
+          // 创建过滤器
+          SmsCodeAuthenticationProcessingFilter smsCodeAuthenticationFilter = new SmsCodeAuthenticationProcessingFilter();
+          
+          // 为过滤器设置认证器管理器
+  		smsCodeAuthenticationFilter
+      		.setAuthenticationManager(http.getSharedObject(AuthenticationManager.class));
+          
+          // 为过滤器设置成功处理器
+          smsCodeAuthenticationFilter
+              .setAuthenticationSuccessHandler(new SmsCodeAuthenticationSuccessHandler());
+          
+          smsCodeAuthenticationFilter
+              .setAuthenticationFailureHandler(new SmsCodeAuthenticationFailureHandler());
+  
+          // 创建过滤器
+          SmsCodeAuthenticationProvider smsCodeAuthenticationProvider = new SmsCodeAuthenticationProvider();
+          smsCodeAuthenticationProvider.setUserDetailsService(userDetailsService);
+  
+          // 注册认证器，注册过滤器
+          http
+              .authenticationProvider(smsCodeAuthenticationProvider)
+              .addFilterAfter(
+              	smsCodeAuthenticationFilter,
+              	UsernamePasswordAuthenticationFilter.class);
+      }
+  }
+  ~~~
 
-最后将上面这些组装起来：
-
-~~~java
-@Component
-@RequiredArgsConstructor
-public class SmsCodeAuthenticationSecurityConfig extends SecurityConfigurerAdapter<DefaultSecurityFilterChain, HttpSecurity> {
-    private final UserDetailsService userDetailsService;
-
-    @Override
-    public void configure(HttpSecurity http) {
-        // 创建过滤器
-        SmsCodeAuthenticationProcessingFilter smsCodeAuthenticationFilter = new SmsCodeAuthenticationProcessingFilter();
-        
-        // 为过滤器设置认证器管理器
-		smsCodeAuthenticationFilter
-    		.setAuthenticationManager(http.getSharedObject(AuthenticationManager.class));
-        
-        // 为过滤器设置成功处理器
-        smsCodeAuthenticationFilter
-            .setAuthenticationSuccessHandler(new SmsCodeAuthenticationSuccessHandler());
-        
-        smsCodeAuthenticationFilter
-            .setAuthenticationFailureHandler(new SmsCodeAuthenticationFailureHandler());
-
-        // 创建过滤器
-        SmsCodeAuthenticationProvider smsCodeAuthenticationProvider = new SmsCodeAuthenticationProvider();
-        smsCodeAuthenticationProvider.setUserDetailsService(userDetailsService);
-
-        // 注册认证器，注册过滤器
-        http.authenticationProvider(smsCodeAuthenticationProvider)
-                .addFilterAfter(smsCodeAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-    }
-}
-~~~
-
-
+  
 
 ## 过滤器
 
@@ -519,7 +512,6 @@ public class SmsCodeAuthenticationSecurityConfig extends SecurityConfigurerAdapt
 
 ~~~java
 public interface Filter {
-
     public void init(FilterConfig filterConfig) throws ServletException;
 	
     public void doFilter(
@@ -556,12 +548,10 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
 ~~~java
 LoginFilter loginFilter = new LoginFilter();
-loginFilter.setAuthenticationManager(...);		// SpringSecurity提供的默认LoginFilter已经在启动时设置了权限检验器，但是我们自己的却没有。因此这里推荐依赖注入一个authenticationManager
+loginFilter.setAuthenticationManager(...);		// SpringSecurity提供的默认 LoginFilter 已经在启动时设置了权限检验器，但是我们自己的却没有。因此这里推荐依赖注入一个authenticationManager
 
 http.addFilterAt(loginFilter, UsernamePasswordAuthenticationFilter.class);		// 替换掉过滤器
 ~~~
-
-
 
 
 
@@ -595,6 +585,21 @@ http.addFilterBefore(new OncePerRequestFilter(), UsernamePasswordAuthenticationF
 - 用户校验数据的来源是什么？
 
 ~~~java
+
+~~~
+
+
+
+`Spring Security`支持各种来源的用户验证数据，包括内存、数据库等。它们被抽象为一个`UserDetailsService`接口，任何实现了`UserDetailsService` 接口的对象都可以作为**进行认证的数据源**。
+
+SrpingSecurity提供了两个`UserDetailsService`的实现类：
+
+- `InMemoryUserDetailsManager`
+- `JdbcUserDetailsManager`
+
+`InMemoryUserDetailsManager` 的示例：
+
+~~~java
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -615,14 +620,9 @@ public class SecurityConfig {
 }
 ~~~
 
-`Spring Security`支持各种来源的用户验证数据，包括内存、数据库等。它们被抽象为一个`UserDetailsService`接口，任何实现了`UserDetailsService` 接口的对象都可以作为**进行认证的数据源**。
 
-SrpingSecurity提供了两个`UserDetailsService`的实现类：
 
-- `InMemoryUserDetailsManager`：
-- `JdbcUserDetailsManager`：
-
-JdbcUserDetailsManager定义了一个默认的数据库表，Spring Security将该表定义在`org/springframework/security/core/userdetails/jdbc/users.ddl`
+JdbcUserDetailsManager 定义了一个默认的数据库表，Spring Security将该表定义在`org/springframework/security/core/userdetails/jdbc/users.ddl`
 
 ~~~sql
 drop table if exists users;
@@ -640,30 +640,6 @@ create table authorities (
 );
 
 create unique index ix_auth_username on authorities (username, authority);
-~~~
-
-~~~java
-@Configuration
-@EnableWebSecurity
-public class WebSecurityConfiguration {
-    @Autowired
-    DataSource dataSource;
-    
-    @Bean
-    public UserDetailsService userDetailsService(
-        ObjectProvider<DataSource> dataSources) {
-        
-        JdbcUserDetailsManager userDetailsManager = new JdbcUserDetailsManager();
-        userDetailsManager.setDataSource(dataSources.getIfAvailable());
-        UserDetails manager = User.builder()
-            .username("HanMeimei")
-            .password("1234567");
-        
-        // 向表中插入一个用户
-        userDetailsManager.createUser(manager);
-    	return userDetailsManager;
-    }
-}
 ~~~
 
 显然，这张表并不满足我们的业务需求，例如支持下面这张权限表：
@@ -763,16 +739,12 @@ PasswordEncoder passwordEncode() {
 
 
 
-
-
-
-
 ## 权限控制
 
 在Spring Security 中，有四种常见的权限控制方式：
 
-- 利用Ant表达式实现权限控制；
-- 利用授权注解结合SpEl表达式实现权限控制；
+- 利用 Ant 表达式实现权限控制；
+- 利用授权注解结合 SpEl 表达式实现权限控制；
 - 利用过滤器注解实现权限控制；
 - 利用动态权限实现权限控制。
 

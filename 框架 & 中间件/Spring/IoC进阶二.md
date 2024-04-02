@@ -18,6 +18,12 @@
 
 ~~~java
 public void refresh() throws BeansException, IllegalStateException {
+     //第一步：容器刷新前的准备，设置上下文状态，获取属性，验证必要的属性等
+     prepareRefresh();
+            
+    //第二步：获取新的beanFactory，销毁原有beanFactory、为每个bean生成BeanDefinition
+    ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
+    
     synchronized (this.startupShutdownMonitor) {
         // 1. 初始化前的预处理
         prepareRefresh();
@@ -1024,11 +1030,54 @@ protected void finishRefresh() {
 
 ## 循环依赖
 
-## 容器刷新
+三种循环依赖的情况;
 
-## 缓存
+1. 构造器的循环依赖：这种依赖spring是处理不了的，直接抛出BeanCurrentlylnCreationException异常。
+2. 单例模式下的setter循环依赖：通过“三级缓存”处理循环依赖，能处理。
+3. 非单例循环依赖：无法处理。
 
-## @Bean方法的代理
+<img src="./assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NyaXN0aWFub3ht,size_16,color_FFFFFF,t_70.png" alt="在这里插入图片描述" style="zoom:50%;" />
+
+<img src="./assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2NyaXN0aWFub3ht,size_16,color_FFFFFF,t_70-1711175058784-3.png" alt="在这里插入图片描述" style="zoom:50%;" />
+
+Spring内部维护了三个Map，也就是我们通常说的三级缓存：
+
+~~~java
+
+public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
+	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
+	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
+~~~
+
+- singletonObjects （一级缓存）存储已经完全初始化了的 singleton bean 的缓存
+- earlySingletonObjects（二级缓存）这个是一个早期 singleton bean 的缓存。早期的 singleton bean 是指已经实例化但还未完全初始化的 bean。
+- singletonFactories（三级缓存）这是一个工厂bean的缓存
+
+以 A，B 形成的循环依赖来举例三级缓存的使用：
+
+1. 实例化 A，此时 A 还未完成属性填充，A 只是一个半成品。为 A 创建一个 Bean工厂，并放入到 singletonFactories 中（三级缓存）。
+2. 发现 A 需要注入 B 对象，但是一级、二级、三级缓存均为发现对象 B
+3. 实例化 B，此时 B 还未完成属性填充。B 只是一个半成品。为 B 创建一个 Bean工厂，并放入到 singletonFactories 中（三级缓存）。
+4. 发现 B 需要注入 A 对象，三级缓存中发现了对象 A，从三级缓存中得到对象 A，并将对象 A 注入到对象 B 中。同时将对象 A 放入二级缓存中，并且删除三级缓存中的对象 A
+5. 对象 B 完成属性填充，执行初始化方法，并放入到一级缓存中，同时删除三级缓存中的对象 B
+6. 对象 A 得到对象 B，将对象 B 注入到对象 A 中。对象 A完成属性填充，执行初始化方法，并放入到一级缓存中，同时删除二级缓存中的对象 A。
+
+![img](./assets/v2-91760e98daa2e93b0d63e123657e5bb7_720w.webp)
+
+
+
+面试题：为什么包装一层 ObjectFacotry 对象
+
+如果创建的`Bean`有对应的代理，那其他对象注入时，注入的应该是对应的代理对象。Spring在对象外面包一层`ObjectFactory`，提前曝光的是`ObjectFactory`对象，在被注入时才在`ObjectFactory.getObject`方式内实时生成代理对象。
+
+![img](./assets/v2-8bb643d24b7c1ca5e929861c923c5ed6_720w.webp)
+
+面试题：三级缓存是否可以减少为二级缓存
+
+不可以，因为如果这么做的话，那么在实例化阶段就得执行后置处理器，判断有 AnnotationAwareAspectJAutoProxyCreator 并创建代理对象。这与违反了 Bean 生命周期的流程。因为 创建代理对象应该在初始化结束后进行，而不是在实例化阶段进行。 
+
+## 
 
 
 

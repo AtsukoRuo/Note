@@ -10,7 +10,7 @@ Go语言的演化主要分为三个分支
 - 从Module-2、Oberon等语言借鉴了包、模块化地概念
 - Go also is inspired by the concept of **communicating sequential processes (CSP)** from TonyHoare’s seminal 1978 paper on the found ations of concurrency. In CSP,a program is a parallel composition of processes that have no shared state; the processes communicate and synchronize using channels.
 
-![image-20231224150022801](C:\Users\AtsukoRuo\AppData\Roaming\Typora\typora-user-images\image-20231224150022801.png)
+![img](./assets/ch0-01.png)
 
 
 
@@ -75,19 +75,17 @@ Go对于代码格式有着十分苛刻的要求，以下情况都会编译失败
 
 ## 声明
 
-声明是给一个实体命名，并且指定该实体的性质。Go语言主要有四种类型的声明语句：`var`、`const`、`type`和`func`，分别对应变量、常量、类型和函数实体对象的声明。
+声明是给一个实体命名，并且指定该实体的性质。Go语言主要有四种类型的声明语句：`var`、`const`、`type` 和 `func`，分别对应变量、常量、类型和函数实体对象的声明。
 
 ## 变量
 
-var声明语句可以创建一个特定类型的变量，语法如下
+var 声明语句可以创建变量，并指定它的类型，语法如下：
 
 ~~~go
 var 变量名字 类型 = 初始化表达式
 ~~~
 
-初始化表达式可以是字面量或任意的表达式。在包级别声明的变量会在main入口函数执行前完成初始化，局部变量将在声明语句被执行到的时候完成初始化。
-
-
+初始化表达式可以是「字面量」或任意的「表达式」。在包级别声明的变量会在执行 main() 函数前完成初始化，局部变量将在声明语句被执行到的时候完成初始化。
 
 如果省略类型，那么将根据初始化表达式来推导变量的类型。
 
@@ -108,8 +106,6 @@ var i, j, k int
 var b, f, s = true, 2.3, "four"
 ~~~
 
-
-
 在函数内部，有一种简短变量声明语句的形式，可用于声明和初始化局部变量，语法如下：
 
 ~~~go
@@ -125,14 +121,9 @@ t := 0.0
 i, j := 0, 1 	//声明和初始化一组变量
 ~~~
 
-var形式的声明语句往往是用于
-
-- 需要显式指定变量类型的地方
-- 变量稍后会被重新赋值，并且初始值无关紧要的地方。
 
 
-
-**请记住“:=”是一个变量声明语句，而“=”是一个变量赋值操作。**这里有一个比较微妙的地方：简短变量声明左边的有一些变量，已经在**相同的作用域**声明过了，此时对于已经声明过的变量就只有赋值行为了。
+**请记住“:=”是一个变量声明语句，而“=”是一个变量赋值操作。**这里有一个比较微妙的地方：简短变量声明左边的有一些变量，已经在**相同的作用域**声明过了，此时对于这些已经声明过的变量就只有赋值行为了。
 
 ~~~go
 in, err := os.Open(infile)
@@ -140,17 +131,13 @@ in, err := os.Open(infile)
 out, err := os.Create(outfile)
 ~~~
 
-简短变量声明语句中必须至少要声明一个新的变量，下面的代码将不能编译通过：
+简短变量声明语句中必须至少要声明一个新的变量
 
 ~~~go
 f, err := os.Open(infile)
 // ...
 f, err := os.Create(outfile) // compile error: no new variables
 ~~~
-
-解决的方法是第二个简短变量声明语句改用普通的多重赋值语句。
-
-
 
 ### 指针
 
@@ -165,7 +152,7 @@ func f() *int {
 }
 ~~~
 
-在 Go 语言中，如果可能，编译器会在函数的栈帧中为局部变量分配空间。然而，如果编译器确定某个变量必须在函数返回后继续存在，那么该变量将被分配在堆上，用Go语言的术语说，这个x局部变量从函数f中逃逸了。
+在 Go 语言中，如果可能，编译器会在函数的栈帧中为局部变量分配空间。然而，如果编译器确定某个变量必须在函数返回后继续存在，那么该变量将被分配在堆上，用Go语言的术语说，这个局部变量从函数中逃逸了。
 
 ~~~go
 fmt.Println(f() == f()) // "false"
@@ -173,7 +160,7 @@ fmt.Println(f() == f()) // "false"
 
 
 
-另一个创建变量的方法是调用内建的new函数。表达式new(T)将创建一个T类型的匿名变量，初始化为T类型的零值，然后返回该变量的地址。
+还可以调用内建的 new 函数，来创建一个对象，并获取它的指针。表达式new(T)将创建一个T类型的匿名变量，初始化为T类型的零值，然后返回该变量的地址。
 
 ~~~go
 p := new(int)   // p, *int 类型, 指向匿名的 int 变量
@@ -182,7 +169,7 @@ fmt.Println(*p) // "0"
 fmt.Println(*p) // "2"
 ~~~
 
-每次调用new函数都是返回一个新的变量的地址，因此下面两个地址是不同的：
+每次调用 new 函数都是返回一个新的变量的地址，因此下面两个地址是不同的：
 
 ```
 p := new(int)
@@ -200,10 +187,7 @@ fmt.Println(p == q) // "false"
 
 - 对于在包一级声明的变量来说，它们的生命周期和整个程序的运行周期是一致的。
 
-- 局部变量的生命周期则是由Go语言的自动垃圾收集器来负责。
-
-  函数的参数变量和返回值变量都是局部变量。它们在函数每次被调用的时候创建。
-
+- 局部变量的生命周期则是由 Go 语言的自动垃圾收集器来负责。函数的参数变量和返回值变量都是局部变量。它们在函数每次被调用的时候创建。
 
 
 ### 赋值
@@ -215,7 +199,7 @@ person.name = "bob"         // 结构体字段赋值
 count[x] = count[x] * scale // 数组、slice或map的元素赋值
 ~~~
 
-元组赋值是另一种形式的赋值语句，它允许同时更新多个变量的值。在赋值之前，赋值语句右边的所有表达式将会先进行求值，然后再统一更新左边对应变量的值。
+「元组赋值」是另一种形式的赋值语句，它允许同时更新多个变量的值。在赋值之前，赋值语句右边的所有表达式将会先进行求值，然后再统一更新左边对应变量的值。
 
 ~~~go
 x, y = y, x
@@ -238,7 +222,7 @@ _, ok = x.(T)              // 只检测类型，忽略具体值
 
 变量或表达式的类型定义了其属性特征，例如数值在内存的存储大小，它们在内部是如何表达的，是否支持一些操作符，以及它们自己关联的方法集等。
 
-而类型的语义是由程序员自己来解释的。例如，一个int类型的变量可以用来表示一个循环的迭代索引、或者一个时间戳、或者一个文件描述符、或者一个月份；一个float64类型的变量可以用来表示每秒移动几米的速度、或者是不同温度单位下的温度；一个字符串可以用来表示一个密码或者一个颜色的名称。
+而类型的语义是由程序员自己来解释的。例如，一个 int 类型的变量可以用来表示一个循环的迭代索引、或者一个时间戳、或者一个文件描述符、或者一个月份；一个 float64 类型的变量可以用来表示每秒移动几米的速度、或者是不同温度单位下的温度；一个字符串可以用来表示一个密码或者一个颜色的名称。
 
 一个类型声明语句创建了一个新的类型，和现有类型具有相同的底层结构，**并且提供了更加丰富的语义信息**。**但是新的类型和原类型是不兼容的，即使它们具有相同的底层结构。**
 
@@ -261,16 +245,12 @@ fmt.Println(c.String()) // "100°C"
 
 **在 Go 语言中，不存在隐式类型转换。**
 
-类型转换通常不会改变值本身，但是一定会使它们的语义发生变化。对于每一个类型T，都有一个对应的类型转换操作T(x)，用于将x转为T类型。只有当两个类型的底层基础类型相同时，或者是两者都是指向相同底层结构的指针类型，才允许这种转型操作。
+类型转换通常不会改变值本身，但是一定会使它们的语义发生变化。对于每一个类型T，都有一个对应的类型转换操作 T(x)，用于将 x 转为 T 类型。只有当两个类型的底层基础类型相同时，或者是两者都是指向相同底层结构的指针类型，才允许这种转型操作。
 
-
-
-数值类型之间的显式转型也是允许的，并且在字符串和一些特定类型的slice之间也是可以转换的。这类转换可能有改变值的行为，例如：
+数值类型之间的显式转型是允许的，并且在字符串和一些特定类型的 slice 之间也是可以转换的。这类转换可能有改变值的行为，例如：
 
 1. 将一个大尺寸的整数类型转为一个小尺寸的整数类型
 2. 将一个浮点数转为整数
-
-
 
 ### 作用域
 
@@ -279,11 +259,11 @@ fmt.Println(c.String()) // "100°C"
 - 作用域对应的是一个名字的可见性；它是一个编译时的属性
 - 生命周期作用对象是一个位于内存中的变量；它是一个运行时的属性
 
-例如，for循环语句的作用域包括循环体以及初始化部分。
+例如，for 循环语句的作用域包括循环体以及初始化部分。
 
 
 
-同一个作用域中，禁止包括多个同名的声明。当编译器遇到一个名字引用时，它会对其定义进行查找，查找过程从最内层的词法域向全局的作用域进行。如果查找失败，则报告“未声明的名字”这样的错误。如果该名字在内部和外部的块分别声明过，则内部块的声明首先被找到。在这种情况下，内部声明屏蔽了外部同名的声明：
+同一个作用域中，禁止包括多个同名的声明。当编译器遇到一个名字引用时，它会对其定义进行查找，查找过程从最内层的词法域向全局的作用域进行。如果查找失败，则报告「未声明的名字」这样的错误。如果该名字在内部和外部的块分别声明过，则内部块的声明首先被找到。在这种情况下，内部声明屏蔽了外部同名的声明：
 
 ~~~go
 func main() {
@@ -314,8 +294,8 @@ Go语言同时提供了有符号和无符号类型的整数运算
 此外，还有以下整型类型
 
 - `int`、`uint`，它们的大小取决于机器的具体实现。
-- `rune`，是和int32等价的类型，通常用于表示一个Unicode码点
-- `byte`，是uint8类型的等价类型，通常用于表示二进制原始数据
+- `rune`，是和 int32 等价的类型，通常用于表示一个Unicode码点
+- `byte`，是 uint8 类型的等价类型，通常用于表示二进制原始数据
 - `uintptr`，用于存储指针值
 
 
@@ -331,18 +311,16 @@ for i := len(medals) - 1; i >= 0; i-- {
 
 出于避免溢出情况的考量，我们一般在操纵二进制数据时才使用无符号类型。
 
-
-
 ### 浮点数
 
-Go语言提供了两种精度的浮点数，float32和float64。它们的算术规范由IEEE754浮点数国际标准定义。
+Go语言提供了两种精度的浮点数，float32 和 float64。它们的算术规范由IEEE754浮点数国际标准定义。
 
 - 常量`math.MaxFloat32`表示`float32`能表示的最大数值，大约是 `3.4e38`；对应的`math.MaxFloat64`常量大约是`1.8e308`。
-- 一个`float32`类型的浮点数可以提供大约6个十进制数的精度，而`float64`则可以提供约15个十进制数的精度
+- 一个`float32`类型的浮点数可以提供大约 6 个十进制数的精度，而`float64`则可以提供约 15 个十进制数的精度
 
 
 
-小数点前面或后面的数字都可能被省略（例如`.707`或`1.`）
+小数点前面的数字或后面的都可以被省略（例如`.707`或`1.`）
 
 ~~~go
 const e = 2.71828 // (approximately)
@@ -352,7 +330,7 @@ const Planck   = 6.62606957E-34 // 普朗克常数
 
 
 
-我们看一下float类型的误差问题：
+我们看一下 float 类型的误差问题：
 
 ~~~go
 var f float32 = 16777216 // 1 << 24
@@ -375,7 +353,7 @@ fmt.Println(real(x*y))           // "-5"
 fmt.Println(imag(x*y))           // "10"
 ~~~
 
-如果一个浮点数面值或一个十进制整数面值后面跟着一个i，例如`3.141592i`或`2i`，它将构成一个复数的虚部。
+如果一个浮点数面值或一个十进制整数面值后面跟着一个 i，例如`3.141592i`或`2i`，它将构成一个复数的虚部。
 
 Go语言中的复数还支持`+`、`-`、`*`、`\`。我们可以通过`+`来将一个复数虚部字面量可以加到另一个普通数值字面量上，从而构成一个复数。
 
@@ -384,9 +362,9 @@ x := 1 + 2i
 y := 4i + 3 // OK
 ~~~
 
-复数也可以用==和!=进行相等比较。只有两个复数的实部和虚部都相等的时候它们才是相等的（注意，实部和虚部是由浮点数来实现的）。
+复数也可以用 == 和 != 进行相等比较。只有两个复数的实部和虚部都相等的时候它们才是相等的（注意，实部和虚部是由浮点数来实现的）。
 
-math/cmplx包提供了复数处理的许多函数，例如求复数的平方根函数和求幂函数。
+math/cmplx 包提供了复数处理的许多函数，例如求复数的平方根函数和求幂函数。
 
 ```go
 fmt.Println(cmplx.Sqrt(-1)) // "(0+1i)"
@@ -394,9 +372,9 @@ fmt.Println(cmplx.Sqrt(-1)) // "(0+1i)"
 
 ### 布尔
 
-一个布尔类型的值只有两种：true和false。
+一个布尔类型的值只有两种：true 和 false。
 
-在Go语言中，不支持隐式转换。因此布尔值并不会隐式转换为数字值0或1，反之亦然。
+在Go语言中，不支持隐式转换。因此布尔值并不会隐式转换为数字值 0 或 1 ，反之亦然。
 
 ### 字符串
 
@@ -408,7 +386,7 @@ fmt.Println(len(s))     // "12"
 fmt.Println(s[0], s[7]) // "104 119" ('h' and 'w')
 ~~~
 
-如果试图访问超出字符串索引范围的字节将会导致panic异常：
+如果试图访问超出字符串索引范围的字节将会导致 panic 异常：
 
 ~~~go
 c := s[len(s)] // panic: index out of range
@@ -431,13 +409,13 @@ fmt.Println(s[7:]) // "world"
 fmt.Println(s[:])  // "hello, world"
 ~~~
 
-由于string类型的不可修改性，所以两个字符串共享相同数据的行为也是安全的。而且字符串切片操作代价也是低廉的。
+由于 string 类型的不可修改性，所以两个字符串共享相同数据的行为也是安全的。而且字符串切片操作代价也是低廉的。
 
 ![img](assets/ch3-04.png)
 
 
 
-其中+操作符将两个字符串连接构造一个新字符串：
+其中 + 操作符将两个字符串连接构造一个新字符串：
 
 ```go
 fmt.Println("goodbye" + s[5:]) // "goodbye, world"
@@ -468,27 +446,22 @@ Go语言中的转义字符如下：
 
 
 
-原生的字符串字面量的语法为
+在原生字面量内，转义序列不起作用。原生字符串包括所有的文本内容，甚至包括反斜杠和换行。唯一的特殊处理是，回车符会被删除（换行符会被保留）。原生字符串字面量的语法为
 
 ~~~go
 const GoUsage = `Go is a tool for managing Go source code.
-
 Usage:
 	go command [arguments]
 ...`
 ~~~
 
-在原生字面量内，转义序列不起作用。原生字符串包括所有的文本内容，甚至包括反斜杠和换行。唯一的特殊处理是，回车符会被删除（换行符会被保留）。
-
 原生字符串字面量广泛应用于HTML模板、JSON面值、命令行提示信息等需要多行或者有大量转义字符的场景。
 
 
 
-Unicode（ [http://unicode.org](http://unicode.org/) ）字符集包括了世界上大部分文字符号，甚至包括重音符号。每个符号都分配一个唯一的Unicode码点。
+Unicode（ [http://unicode.org](http://unicode.org/) ）字符集包括了世界上大部分文字符号，甚至包括重音符号。每个符号都分配一个唯一的Unicode码点。在Go语言中，提供了`rune`类型（与`int32`类型等价）来表示一个Unicode码点。
 
-在Go语言中，提供了`rune`类型（与`int32`类型等价）来表示一个Unicode码点。
-
-UTF8是变长编码方案，用1到4个字节来表示每个Unicode字符。它有一个前缀编码来支持变长方案
+UTF8是变长编码方案，用1到4个字节来表示每个 Unicode 字符。它有一个前缀编码来支持变长方案。
 
 ~~~
 0xxxxxxx                             runes 0-127    
@@ -510,7 +483,7 @@ UTF8是变长编码方案，用1到4个字节来表示每个Unicode字符。它�
 
 
 
-len内置函数只能获取字符串的字节长度，要获取字符长度要使用`utf8.RuneCountInString`
+len 内置函数只能获取字符串的字节长度，要获取字符长度要使用`utf8.RuneCountInString`
 
 ~~~go
 import "unicode/utf8"
@@ -520,7 +493,7 @@ fmt.Println(len(s))                    // "13"
 fmt.Println(utf8.RuneCountInString(s)) // "9"
 ~~~
 
-`utf8.DecodeRuneInString`函数接收一个字符串作为输入参数，返回首个有效Unicode字符对应的rune值以及该字符的字节长度。
+`utf8.DecodeRuneInString`函数接收一个字符串作为输入参数，返回首个有效Unicode 字符对应的 rune 值以及该字符的字节长度。
 
 ```go
 for i := 0; i < len(s); {
@@ -530,11 +503,11 @@ for i := 0; i < len(s); {
 }
 ```
 
-幸运的是，Go语言的range循环在处理字符串的时候，会自动隐式地解码UTF8字符串。
+幸运的是，Go语言的range循环在处理字符串的时候，会自动隐式地解码 UTF8 字符串。
 
 ~~~go
 for i, r := range "Hello, 世界" {
-    fmt.Printf("%d\t%q\t%d\n", i, r, r)
+    fmt.Printf("%d\t %q\t %d\n", i, r, r)
 }
 /**
 0       'H'     72
@@ -551,11 +524,11 @@ for i, r := range "Hello, 世界" {
 
 ![img](assets/ch3-05.png)
 
-每一个UTF8字符解码，不管是显式地调用utf8.DecodeRuneInString解码或是在range循环中隐式地解码，如果遇到一个错误的UTF8编码输入，将生成一个特别的Unicode字符`\uFFFD` �
+每一个UTF8字符解码，不管是显式地调用 utf8.DecodeRuneInString 解码或是在range 循环中隐式地解码，如果遇到一个错误的 UTF8 编码输入，将生成一个特别的Unicode字符`\uFFFD` �
 
-UTF8字符串作为数据交换格式是非常方便的，但是在程序内部采用rune序列可能更方便，因为rune大小一致，支持数组索引和方便切割。
+UTF8字符串作为数据交换格式是非常方便的，但是在程序内部采用 rune 序列可能更方便，因为rune大小一致，支持数组索引和方便切割。
 
-UTF8和[]rune之间的转换
+UTF8和 []rune 之间的转换
 
 ~~~go
 s := "プログラム"
@@ -572,7 +545,7 @@ string(0x4eac)	// "京"
 string(1234567)	// 如果对应码点的字符是无效的，则用\uFFFD无效字符代替
 ~~~
 
-FormatInt和FormatUint函数可以用不同的进制来格式化数字：
+FormatInt 和 FormatUint 函数可以用不同的进制来格式化数字：
 
 ~~~go
 x := 123
@@ -658,7 +631,7 @@ const (
 
 - 常量间的所有算术运算、逻辑运算和比较运算
 - 对常量的类型转换操作
-- 对常量调用len、cap、real、imag、complex和unsafe.Sizeof
+- 对常量调用len、cap、real、imag、complex 和 unsafe.Sizeof
 
 
 
@@ -682,7 +655,7 @@ iota常量生成器，用于生成一组以相似规则初始化的常量，它�
 ~~~go
 type Weekday int
 const (
-    Sunday Weekday = iota		// 0
+    Sunday Weekday = iota		  // 0
     Monday						// 1
     Tuesday						// 2
     Wednesday					// 3
@@ -720,11 +693,11 @@ const (
 
 
 
-常量的底层类型必须兼容int，float，complex，boolean和string之一。
+常量的底层类型必须兼容 int，float，complex，boolean 和 string 之一。
 
 一个常量声明如果没有指定类型，那么类型将从右边的表达式推断出。这个常量被称为**未类型化的**。此外，字面量也是一种未类型化的常量。
 
-编译器为这些未类型化的常量，提供比基础类型更高精度的算术运算；你可以认为至少有256bit的运算精度。例如，`YiB`常量（1208925819614629174706176）已经超出任何整数类型所能表达的范围，但是它依然是合法的常量。
+编译器为这些未类型化的常量，提供比基础类型更高精度的算术运算；你可以认为至少有 256bit 的运算精度。例如，`YiB`常量（1208925819614629174706176）已经超出任何整数类型所能表达的范围，但是它依然是合法的常量。
 
 未类型化的常量可以直接使用，无需做类型转换
 
@@ -807,34 +780,30 @@ Go语言还提供了以下的bit位操作运算符，前面4个操作运算符�
 
 数组和结构体是聚合类型，数组是由同构的元素组成，即每个数组元素都是完全相同的类型，而结构体则是由异构的元素组成的
 
-数组和结构体都是有固定内存大小的数据结构。相比之下，slice和map则是动态的数据结构，它们将根据需要动态增长。
+数组和结构体都是有固定内存大小的数据结构。相比之下，slice 和 map 则是动态的数据结构，它们将根据需要动态增长。
 
 默认情况下，数组的每个元素都被初始化为元素类型对应的零值。
 
 ### 数组
 
-数组是一个由特定类型元素组成的、固定长度的序列。
-
-一个简单的示例：
+数组是一个由特定类型元素组成的、固定长度的序列。一个简单的示例：
 
 ~~~go
-var a [3]int             // array of 3 integers
-a[0]					// the first element
-a[len(a)-1]				// the last element
+var a [3]int                  // array of 3 integers
+a[0]					    // the first element
+a[len(a) - 1]				// the last element
 
 for i, v := range a {
     fmt.Printf("%d %d\n", i, v)
 }
 ~~~
 
-
-
 默认情况下，数组的每个元素都被初始化为元素类型对应的零值。我们可以使用数组字面值语法来初始化数组：
 
 ~~~go
 var q [3]int = [3]int{} 		// OK
 var q [3]int = [3]int{1}		// OK
-var q [3]int					// nil
+var q [3]int				   // nil
 ~~~
 
 在数组字面值中，可以用索引指定要初始化的元素
@@ -852,7 +821,7 @@ const (
 symbol := [...]string{USD: "$", EUR: "€", GBP: "￡", RMB: "￥"}
 ~~~
 
-在数组字面值中，如果在数组的长度位置出现的是“...”省略号，则表示数组的长度是根据初始化值的个数来计算
+在数组字面值中，如果在数组的长度位置出现的是 “...” 省略号，则表示数组的长度是根据初始化值的个数来计算
 
 ~~~go
 q := [...]int{1, 2, 3}
@@ -867,8 +836,6 @@ r := [...]int{99: -1}
 
 定义了一个含有100个元素的数组r，最后一个元素被初始化为-1，其它元素都是用0初始化。
 
-
-
 错误用法：
 
 ~~~go
@@ -881,14 +848,14 @@ var q [3]int = [3]int			// Error
 
 
 
-数组的长度是数组类型的一个组成部分，因此[3]int和[4]int是两种不同的数组类型。数组的长度必须是常量表达式，因为数组的长度需要在编译阶段确定。
+数组的长度是数组类型的一个组成部分，因此 [3]int 和 [4]int 是两种不同的数组类型。数组的长度必须是常量表达式，因为数组的长度需要在编译阶段确定。
 
 ~~~go
 q := [3]int{1, 2, 3}
 q = [4]int{1, 2, 3, 4} // compile error: cannot assign [4]int to [3]int
 ~~~
 
-如果一个数组的元素类型是可以相互比较的，那么数组类型也是可以相互比较的，这时候我们可以直接通过==比较运算符来比较两个数组
+如果一个数组的元素类型是可以相互比较的，那么数组类型也是可以相互比较的，这时候我们可以直接通过 == 比较运算符来比较两个数组
 
 ~~~go
 a := [2]int{1, 2}
@@ -917,11 +884,11 @@ Slice字面量
 
 ~~~go
 s []int = []int{};	 			// OK
-s []int = []int{0, 1, 2, 3}	 	// OK
-s []int;			 			// nil
+s []int = []int{0, 1, 2, 3}	 	 // OK
+s []int;			 		   // nil
 ~~~
 
-内置的make函数创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况下，容量将等于长度。
+可以通过内置的 make 函数，创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况下，容量将等于长度。
 
 ~~~go
 make([]T, len)
@@ -938,20 +905,18 @@ s []int = []int;	 			// Error
 
 ![img](assets/ch4-01.png)
 
-slice的底层引用一个数组对象，而且多个slice之间可以共享底层的数据。
+slice的底层引用一个数组对象，而且多个 slice 之间可以共享底层的数据。
 
-如果切片操作超出`cap(s)`的上限将导致一个panic异常，但是超出`len(s)`则是意味着扩展了slice
+如果切片操作超出`cap(s)`的上限将导致一个 panic 异常，但是超出`len(s)`则是意味着扩展了 slice
 
 ~~~go
-months := [...]string{1: "January", /* ... */, 12: "December"}	// 数组
+months := [...]string{1: "January",  ... , 12: "December"}	// 数组
 summer := months[6:9] 			// ["June" "July" "August"]
 summer[:20]						// panic: out of range
 endlessSummer := summer[:5] 	// extend a slice (within capacity) "[June July August September October]"
 ~~~
 
-
-
-slice与数组的转换
+slice 与数组的转换
 
 ~~~go
 var a [3]byte = [...]byte{1, 2, 3}
@@ -961,7 +926,7 @@ fmt.Println(s1)		// [100 2 3]
 fmt.Println(a)		// [100 2 3]
 ~~~
 
-slice之间是浅复制。
+slice 之间是浅复制。
 
 ~~~go
 func reverse(s []int) {}
@@ -977,7 +942,7 @@ reverse(a[:])
 - 如果直接比较引用的话，与数组的行为不一致（一个比较引用、一个比较元素值），容易造成混淆。
 - 切片可以引用自身，有循环引用的问题（例如[]interface{}中元素可以是任何类型，当然包括自己）
 
-不过，标准库提供了充分优化的bytes.Equal函数来判断两个[]byte类型的slice是否相等（两两元素是否相等）
+不过，标准库提供了充分优化的 bytes.Equa l函数来判断两个 []byte 类型的 slice 是否相等（两两元素是否相等）
 
 slice唯一合法的比较操作是和nil比较
 
@@ -992,13 +957,9 @@ s = []int(nil) // len(s) == 0, s == nil
 s = []int{}    // len(s) == 0, s != ni
 ~~~
 
-所以，如果你需要测试一个slice是否是空的，使用len(s) == 0来判断，而不应该用s == nil来判断。
+Go语言约定，以相同的方式对待 nil 值的 slice 和 0 长度的 slice。这对于内置函数、range循环来说都成立
 
-Go语言约定，以相同的方式对待nil值的slice和0长度的slice。这对于内置函数、range循环来说都成立
-
-
-
-内置的append函数用于向slice追加元素：
+内置的 append 函数用于向 slice 追加元素：
 
 ~~~go
 var x []int
@@ -1039,7 +1000,7 @@ func appendInt(x []int, y int) []int {
 
 ![img](assets/ch4-03.png)
 
-这里要说明的是内置的append函数可能使用比appendInt更复杂的内存扩展策略。因此，通常我们并不知道append调用是否导致了内存的重新分配，因此我们也不能确认新的slice和原始的slice是否引用的是相同的底层数组空间。所以，通常是将append返回的结果直接赋值给输入的slice变量
+这里要说明的是内置的 append 函数使用比 appendInt 更复杂的内存扩展策略。因此，通常我们并不知道 append 调用是否导致了内存的重新分配，因此我们也不能确认新的 slice 和原始的 slice 是否引用的是相同的底层数组空间。所以，通常是将 append 返回的结果直接赋值给输入的 slice 变量
 
 ~~~go
 runes = append(runes, r)
@@ -1061,8 +1022,6 @@ type Employee struct {
 var dilbert Employee
 ~~~
 
-
-
 如果相邻成员的类型相同的话（例如，Name、Address），那么可以合并到同一行
 
 ~~~go
@@ -1073,29 +1032,24 @@ type Employee struct {
 }
 ~~~
 
-
-
-注意，即使两个结构体中的成员数量、类型、名称都相同，但顺序不同，那么也会被视为不同的类型。
+在 Go 语言中，结构体类型的成员顺序是有意义的，也就是说，即使两个结构体中的成员名称、数量和类型都相同，但只要它们的顺序不同，那么就被视为不同的类型。
 
 ~~~go
 type Employee struct {
 	ID   int
 	name string
 }
-
 type Employee2 struct {
 	name string
 	ID   int
 }
-
-// OK
 ~~~
 
 如果结构体成员名字是以大写字母开头的，那么该成员就是导出的；这是Go语言导出规则决定的。
 
+**结构体之间的复制是深拷贝！**
 
-
-结构体字面量
+**结构体字面量**
 
 ~~~go
 type Point struct{ X, Y int }
@@ -1106,13 +1060,9 @@ p := Point{Y : 2, X : 1}		// 可以按名称传入，可以忽略某些成员，
 // 不能混合使用两种不同形式的写法
 ~~~
 
-
-
 如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的。
 
-
-
-访问成员
+**访问成员**
 
 ~~~go
 dilbert.Salary -= 5000
@@ -1121,9 +1071,7 @@ position := &dilbert.Position
 *position = "Senior " + *position
 ~~~
 
-
-
-一个关于指针访问的语法糖
+**指针访问的语法糖**
 
 ~~~go
 var employeeOfTheMonth *Employee = &dilbert
@@ -1133,9 +1081,7 @@ employeeOfTheMonth.Position;
 (*employeeOfTheMonth).Position;
 ~~~
 
-
-
-一个命名为S的结构体类型将不能再包含S类型的成员：因为一个聚合的值不能包含它自身。但是S类型的结构体可以包含`*S`指针类型的成员
+一个命名为 S 的结构体类型将不能再包含 S 类型的成员：因为一个聚合的值不能包含它自身。但是 S 类型的结构体可以包含`*S`指针类型的成员
 
 ~~~go
 type tree struct {
@@ -1146,7 +1092,7 @@ type tree struct {
 
 
 
-嵌套结构体：
+通过**「嵌套结构体」**来扩展类型：
 
 ~~~go
 type Point struct {
@@ -1170,10 +1116,13 @@ w.Circle.Radius = 5
 w.Spokes = 20
 ~~~
 
+Go 语言的匿名成员特性，让我们可以**只声明一个成员对应的数据类型，而不需要指名成员的名字**；当要访问成员时，无需给出完整的访问路径：
 
-
-Go语言的匿名成员特性，让我们可以只声明一个成员对应的数据类型，而不需要指名成员的名字；当要访问成员时，无需给出完整的访问路径：
 ~~~go
+type Point struct {
+    X, Y int
+}
+
 type Circle struct {
     Point
     Radius int
@@ -1206,6 +1155,44 @@ type circle struct {
 type Wheel struct {
     circle
     Spokes int
+}
+~~~
+
+
+
+这种嵌套关系并不是 is-a 的关系（继承关系），而是 has-a 关系。我们通过这个示例来认识到这一点：
+
+~~~go
+import "image/color"
+
+type Point struct{ X, Y float64 }
+
+type ColoredPoint struct {
+    Point
+    Color color.RGBA
+}
+
+func (p *Point) Distance(Point p) float32 { ... }
+
+cp := ColoredPoint{Point{1, 2}, color.RGBA{255,0,0,255}}
+Point{1, 2}.Distance(cp)		// compile error: cannot use cp (ColoredPoint) as Point
+~~~
+
+可以通过结构体变量，直接访问到匿名字段所关联的方法，无需给出完整的访问路径。这与访问匿名结构体成员的字段一样。
+
+~~~go
+type Point struct{ X, Y float64 }
+
+type ColoredPoint struct {
+	Point
+	Color color.RGBA
+}
+
+func (p *Point) Distance(q Point) float64 { ... }
+
+func main() {
+	cp := ColoredPoint{Point{0, 0}, color.RGBA{255, 0, 0, 0}}
+	cp.Distance(Point{2, 3})
 }
 ~~~
 
@@ -1269,7 +1256,7 @@ func main() {
 
 `e`和`f`的打印值相同，但是比较为false，这是Go有意为之的。`==` 操作符对于 `zero-size` 变量有着特殊的逻辑。当空结构体变量未发生逃逸时候，指向该变量的指针是不等的，当空结构体变量发生逃逸之后，指向该变量是相等的。
 
-发生逃逸时，new操作在堆上进行分配。特别地，对于zero-size的变量会返回zerobase变量的引用。未发生逃逸时，new操作仅仅在栈上进行分配。
+发生逃逸时，new操作在堆上进行分配。特别地，对于zero-size的变量会返回zerobase 变量的引用。未发生逃逸时，new操作仅仅在栈上进行分配。
 
 ~~~go
 // base address for all 0-byte allocations
@@ -1301,13 +1288,11 @@ if _, ok := seen[s]; !ok {
 }
 ~~~
 
-
-
 ### Map
 
-一个map就是一个哈希表的引用，map类型可以写为`map[K]V`，其中K对应的key必须是支持==比较运算符的数据类型
+一个 map 就是一个哈希表的引用，map 类型可以写为`map[K]V`，其中 K 对应的 key 必须是支持 == 比较运算符的数据类型。
 
-map字面量
+Map 字面量
 
 ~~~go
 ages := map[string]int{
@@ -1320,7 +1305,7 @@ ages := map[string]int{}
 ages map[string]int 	// nil
 ~~~
 
-内置的make函数可以创建一个map：
+内置的 make 函数可以创建一个 Map：
 
 ~~~go
 ages := make(map[string]int) // mapping from strings to ints
@@ -1334,13 +1319,13 @@ ages["alice"] = 31
 ages["charlie"] = 34
 ~~~
 
-使用内置的delete函数可以删除元素：
+使用内置的 delete 函数可以删除元素：
 
 ~~~go
 delete(ages, "alice") // remove element ages["alice"]
 ~~~
 
-访问map
+访问 map
 
 ~~~go
 ages["alice"] = 32
@@ -1354,25 +1339,19 @@ age, ok := ages["bob"]
 if !ok { /* "bob" is not a key in this map; age == 0. */ }
 ~~~
 
-一个语法糖：
-
-~~~go
-if age, ok := ages["bob"]; !ok { /* ... */ }
-~~~
 
 
-
-我们不能对map的元素进行取址操作：
+我们不能对 map 的元素进行取址操作：
 
 ~~~go
 _ = &ages["bob"] // compile error: cannot take address of map element
 ~~~
 
-这样做的原因是map可能随着元素数量的增长而重新分配更大的内存空间，从而可能导致之前的地址无效。
+这样做的原因是 map 可能随着元素数量的增长而重新分配更大的内存空间，从而可能导致之前的地址无效。
 
 
 
-遍历map
+遍历 map
 
 ~~~go
 for name, age := range ages {
@@ -1382,7 +1361,7 @@ for name, age := range ages {
 
 遍历的顺序是随机的，每一次遍历的顺序都不相同。这是故意的，每次都使用随机的遍历顺序可以强制要求程序不会依赖具体的哈希函数实现
 
-如果要按顺序遍历key/value对，就按下面这样做：
+如果要按顺序遍历 key/value 对，就按下面这样做：
 
 ~~~go
 import "sort"
@@ -1404,7 +1383,7 @@ for _, name := range names {
 
 
 
-与slice类似，map上的大部分操作，包括查找、删除、len和range循环都可以安全工作在nil值的map上，它们的行为和一个空的map类似。但是向一个nil值的map存入元素将导致一个panic异常：
+与 slice 类似，map 上的大部分操作，包括查找、删除、len 和 range 循环都可以安全工作在 nil map 上，它们的行为和一个空的 map 类似。但是向一个 nil 值的 map 存入元素将导致一个 panic 异常：
 
 ~~~go
 var ages map[string]int
@@ -1413,7 +1392,7 @@ ages["carol"] = 21 // panic: assignment to entry in nil map
 
 
 
-和slice一样，map之间也不能进行相等比较，我们必须通过一个循环实现：
+和 slice 一样，map 之间也不能进行相等比较，我们必须通过一个循环实现：
 
 ~~~go
 func equal(x, y map[string]int) bool {
@@ -1431,7 +1410,7 @@ func equal(x, y map[string]int) bool {
 
 
 
-map之间的赋值是浅复制的
+**map 之间的赋值是浅复制的**
 
 ~~~go
 m1 := map[string]int{}
@@ -1447,7 +1426,7 @@ delete(m2, "a")
 fmt.Println(m1)		// map[]
 ~~~
 
-另一个例子，由于是浅复制，所以value是共享的：
+另一个例子，由于是浅复制，所以 value 是共享的：
 
 ~~~go
 m1 := map[string][]int{}
@@ -1627,6 +1606,12 @@ if condition {
 } else {
     // code to execute if condition is false
 }
+~~~
+
+一个语法糖：
+
+~~~go
+if age, ok := ages["bob"]; !ok { /* ... */ }
 ~~~
 
 

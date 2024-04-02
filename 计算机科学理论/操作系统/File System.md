@@ -8,7 +8,7 @@ The purpose of a file system is to organize and store data **persistently**.
 
 本质上文件系统就是一个在磁盘上的数据结构。以xv6文件系统为例，它在磁盘上的布局如下：
 
-![image-20230806092110852](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\image-20230806092110852.png)
+![image-20230806092110852]( assets\image-20230806092110852.png)
 
 - superblock:  保存文件系统的元信息，例如有多少数据块、inode的数量
 - boot：在qemu上，直接把代码复制到内存0x80000000上，无需考虑boot块。
@@ -27,7 +27,7 @@ The file system addresses several challenges:
 
 
 
-![image-20230806091931347](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\image-20230806091931347.png)
+![image-20230806091931347]( assets\image-20230806091931347.png)
 
 - Disk：提供持久化存储服务
 - Buffer cache：提供同步以及缓存服务
@@ -96,7 +96,7 @@ struct buf {
 
 
 
-![1691462686359-screenshot](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\1691462686359-screenshot.png)
+![1691462686359-screenshot]( assets\1691462686359-screenshot.png)
 
 ~~~c
 // Return a locked buf with the contents of the indicated block.
@@ -298,13 +298,13 @@ bunpin(struct buf *b) {
 
 
 
-![image-20230808092543354](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\image-20230808092543354.png)
+![image-20230808092543354]( assets\image-20230808092543354.png)
 
 如果在write33与wrtie46中发生crash，那么我们将丢失inode x，因为没有任何一个目录记录它。下面我们来看一个引入log的写入操作
 
 
 
-![image-20230808101542829](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\image-20230808101542829.png)
+![image-20230808101542829]( assets\image-20230808101542829.png)
 
 第一个bwrite2是更新log flag，第二个bwrite2是清除log flag。从中我们还观察到，写入操作再重复执行了2次，效率并不高。
 
@@ -377,7 +377,7 @@ begin_op(void)
 
 ~~~
 
-![1691464847620-screenshot](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\1691464847620-screenshot.png)
+![1691464847620-screenshot]( assets\1691464847620-screenshot.png)
 
 ~~~c
 // Caller has modified b->data and is done with the buffer.
@@ -463,7 +463,7 @@ void end_op(void)
 }
 ~~~
 
-![1691464796677-screenshot](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\1691464796677-screenshot.png)
+![1691464796677-screenshot]( assets\1691464796677-screenshot.png)
 
 
 
@@ -876,7 +876,7 @@ iupdate(struct inode *ip)
 
 ### Inode Content
 
-![image-20230806212114066](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\image-20230806212114066.png)
+![image-20230806212114066]( assets\image-20230806212114066.png)
 
 ~~~c
 // Inode content
@@ -1130,7 +1130,7 @@ dirlink(struct inode *dp, char *name, uint inum)
 
 ## Pathname
 
-![1691636282124-screenshot](C:\Users\AtsukoRuo\Desktop\note\操作系统\assets\1691636282124-screenshot.png)
+![1691636282124-screenshot]( assets\1691636282124-screenshot.png)
 
 ~~~c
 // Paths

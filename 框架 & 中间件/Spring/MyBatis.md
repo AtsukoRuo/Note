@@ -189,7 +189,7 @@ Mapper的使用
 <!--从这里注册Mapper-->
 <mapper resource="mapper/department.xml"/>
 
- <!-- class 级别的指定 -->  
+<!-- class 级别的指定 -->  
 <mapper class="com.bestcxx.stu.springmvc.mapper.UserModelMapper"/>
 
 <!-- 包扫描 -->

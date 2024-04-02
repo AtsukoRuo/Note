@@ -19,6 +19,8 @@
 
 
 
+## 创建/管理 Flutter 项目
+
 
 
 ## 项目的分层设计
@@ -26,8 +28,6 @@
 ![image.png](assets/351f96dc06184f2486781f49050988d1tplv-k3u1fbpfcp-jj-mark1663000q75.webp)
 
 在自定义Widget类代码中，只实现UI构建的逻辑。对于数据处理的业务逻辑一律在ViewModel层来实现。这里我们使用Bloc框架来实现MVVM结构。
-
-
 
 - `Repository`
   - `Model`：数据对象
@@ -51,12 +51,6 @@
   - font：字体资源
   - config：配置文件
 - `main.dart`：应用初始化的代码
-
-
-
-## 项目初始化代码
-
-直接复制即可
 
 ## 视图层
 

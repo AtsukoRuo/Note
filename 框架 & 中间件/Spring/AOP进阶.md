@@ -70,13 +70,7 @@ public void afterThrowingPrint(Exception e) {
 
 
 
-
-
 默认的切面类执行顺序，是按照字母表的顺序来的。可以通过实现`Ordered`接口，或者标注`@Order`来显式指定执行顺序：而切面类中的通知方法，也是默认按照字母表的顺序来的，**不可以**通过`@Order`来显式指定执行顺序。
-
-
-
-
 
 我们看看如何在原始对象中调用代理对象中的方法：
 
@@ -150,17 +144,11 @@ public void update(String id, String name) {
 
 
 
-
-
 `<context:load-time-weaver/>`标签可以设置AOP增强的时机，与之相匹配的注解是 `@EnableLoadTimeWeaving` 。
 
 1. **字节码编译织入**：在 javac 的动作中，使用特殊的编译器，将通知直接织入到 Java 类的字节码文件中
 2. **类加载时期织入**：在类加载时期，使用特殊的类加载器，在目标类的字节码加载到 JVM 的时机中，将通知织入进去；`AspectJ`的`LoadTimeWeaving`实现了类加载时期的织入
 3. **运行时创建对象织入**：在目标对象的创建时机，使用动态代理技术将通知织入到目标对象中，形成代理对象。
-
-
-
-
 
 ## 底层核心后置处理器
 
@@ -318,8 +306,6 @@ protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) 
     return bean;
 }
 ~~~
-
-
 
 ## 收集切面类并封装
 
@@ -527,8 +513,6 @@ protected List<Advisor> findCandidateAdvisors() {
     return advisors;
 }
 ~~~
-
-
 
 
 

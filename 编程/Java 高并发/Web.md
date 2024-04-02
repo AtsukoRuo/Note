@@ -550,11 +550,11 @@ SSL 对 TCP 进行了安全增强，而 TLS 只是 SSL 的升级版。
 
 SSL/TLS协议包括：
 
-- 握手协议（Handshake Protocol）：协商在通信过程中使用的加密套件（加密算法、密钥交换算法和MAC算法等）、身份验证等等
-- 密码变化协议（SSL Change Cipher Spec Protocol）
-- 警告协议（Alert Protocol）
-- 应用数据协议
-- 记录协议（Record Protocol）：主要负责对上层的数据（握手协议、 密码变化协议、警告协议和应用数据协议）进行分块 计算、添加MAC值、加密等处理，并把处理后的记录块传输给对端。
+- **握手协议（Handshake Protocol）**：协商在通信过程中使用的加密套件（加密算法、密钥交换算法和MAC算法等）、身份验证等等
+- **密码变化协议（SSL Change Cipher Spec Protocol）**
+- **警告协议（Alert Protocol）**
+- **应用数据协议**
+- **记录协议（Record Protocol）**：主要负责对上层的数据（握手协议、 密码变化协议、警告协议和应用数据协议）进行分块 计算、添加MAC值、加密等处理，并把处理后的记录块传输给对端。
 
 
 
@@ -573,17 +573,19 @@ SSL/TLS协议包括：
 - A将数据和数字签名一起发送给B，再利用B的公玥加密
 - B利用B的私玥解密，再利用A的公玥解密数字签名
 
+信息摘要可以避免信息被篡改。
+
 ### SSL/TLS握手
 
-1. 客户端发一个Client Hello报文给服务端，报文主要字段有：
+1. 客户端发一个 Client Hello 报文给服务端，报文主要字段有：
 
    - Handshake Type
 
    - Version
 
-   - Random，由客户端生成的随机数Random_C
+   - Random，由客户端生成的随机数 Random_C
 
-   - Session ID：在第一次连接时，Session ID字段是空的，表示客户端并不希望恢复某个已存在的会话，而是重新开始一个会话。
+   - Session ID：在第一次连接时，Session ID 字段是空的，表示客户端并不希望恢复某个已存在的会话，而是重新开始一个会话。
 
    - Cipher Suite：此字段用于发送客户端支持的密钥套件（Cipher Suite）列表，
 
@@ -591,42 +593,42 @@ SSL/TLS协议包括：
 
    - Extensions
 
-2. 服务端对客户端的Client Hello请求进行响应，一般包含4个回复帧
+2. 服务端对客户端的 Client Hello 请求进行响应，一般包含4个回复帧
 
-   - Server Hello帧
+   - Server Hello 帧
      - Handshake Type
      - Version
-     - Random，由服务器生成的随机数Random_S
+     - Random，由服务器生成的随机数 Random_S
      - Session ID
      - Cipher Suite
-   - Certificate帧，用于返回服务端的证书，一般包含服务端的公钥。大部分场景中服务端不需要验证客户端的身份，如果有需求，服务端就会发一个Certificate Request帧给客户端，要求客户端提供身份证书。
-   - Server Key Exchange帧，携带额外数据
+   - Certificate 帧，用于返回服务端的证书，一般包含服务端的公钥。大部分场景中服务端不需要验证客户端的身份，如果有需求，服务端就会发一个 Certificate Request 帧给客户端，要求客户端提供身份证书。
+   - Server Key Exchange 帧，携带额外数据
      - Handshake Type
-     - EC Diffie-Hellman Server Params：表明服务端是通过Diffie-Hellman算法来生成最终密钥的
+     - EC Diffie-Hellman Server Params：表明服务端是通过 Diffie-Hellman 算法来生成最终密钥的
        - Pubkey，它是Diffie-Hellman算法中的一个参数
        - Signature
    - Server Hello Done帧
 
    客户端收到服务端证书后，进行验证，如果证书不是可信机构颁发的，或者域名不一致，或者证书已经过期，那么客户端会进行警告
 
-3. 客户端会发送Client Key Exchange、Change Cipher Spec、Encrypted Handshake三个数据帧。
+3. 客户端会发送Client Key Exchange、Change Cipher Spec、Encrypted Handshake 三个数据帧。
 
    - Client Key Exchange帧
 
      - Handshake Type
-     - Pubkey：客户端会生成第三个随机数，并且从证书中取出公钥，利用公钥以及双方实现商定的加密算法进行加密，生成Pre-master key。这里Pubkey就是Pre-master key
+     - Pubkey：客户端会生成第三个随机数，并且从证书中取出公钥，利用公钥以及双方实现商定的加密算法进行加密，生成 Pre-master key。这里Pubkey 就是 Pre-master key
 
    - Change Cipher Spec帧
 
    - Encrypted Handshake Message帧
 
-4. 在收到客户端的第三个随机数Pre-master key之后，服务端生成本次会话所用的密钥，然后向客户端最后发送下面的数据帧：
+4. 在收到客户端的第三个随机数 Pre-master key 之后，服务端生成本次会话所用的密钥，然后向客户端最后发送下面的数据帧：
 
-   1. Change Cipher Spec帧：此帧为服务端的编码改变通知报文。
-   2. Encrypted Handshake Message帧：此帧为服务端的握手结束通知报文。
+   1. Change Cipher Spec 帧：此帧为服务端的编码改变通知报文。
+   2. Encrypted Handshake Message 帧：此帧为服务端的握手结束通知报文。
 
 
-注意，客户端和服务器均使用 client random，server random 和 premaster secret，并通过协商过的算法生成相同的密钥 **KEY**。
+
 
 TLS1.2需要2RTT，而TLS1.3仅需1RTT
 
@@ -638,13 +640,15 @@ SSL/TSL握手阶段可能被劫持（伪造内容）。
 
 ![image-20240227105756475](assets/image-20240227105756475.png)
 
+
+
 数字证书可以解决劫持问题，它的颁发过程如下：
 
 1. 用户首先产生自己的密钥对，并将公钥及身份信息提供给CA机构（认证中心）
 2. CA在核实用户信息后，将发给用户一个数字证书，它包括三个部分：
    1. 证书内容，包括公钥及身份信息
    2. 哈希算法
-   3. 加密密文，CA机构通过哈希算法对证书内容生成内容摘要后，然后使用CA自己的密钥对该摘要进行加密，这相当于生成数字签名。
+   3. 加密密文，CA机构通过哈希算法对证书内容生成内容摘要后，然后使用CA自己的密钥对该摘要进行加密，这相当于生成数字签名。客户通过在操作系统中内置的公玥来解密证书内容。
 
 
 
@@ -655,8 +659,5 @@ SSL/TSL握手阶段可能被劫持（伪造内容）。
 
 在校验证书时，浏览器会用到CA机构的公钥。实际上，浏览器和操作系统都会维护一个权威、可行的第三方CA机构列表（包括它们的公钥）。客户端接收到的证书中也会写有颁发机构，客户端根据这个颁发机构找到其公钥，然后完成证书的校验。
 
-
-
-~~~java
-~~~
+可见，CA的密钥和公玥都不在网络上传输，避免了被盗用的可能性。
 

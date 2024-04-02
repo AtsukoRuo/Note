@@ -14,7 +14,7 @@ https://juejin.cn/post/7054743801520193543#heading-14
 
 将 `Flutter` 模块作为子项目添加到宿主应用的 `settings.gradle` 中：
 
-```
+```dart
 // Include the host app project.
 include ':app'                                    // assumed existing content
 setBinding(new Binding([gradle: this]))                                // new
@@ -29,7 +29,7 @@ evaluate(new File(                                                     // new
 
 在你的应用中引入对 Flutter 模块的依赖：
 
-```
+```dart
 dependencies {
   implementation project(':flutter')
 }
@@ -39,7 +39,7 @@ dependencies {
 
 1. `settings.gradle`同级目录下，在创建`flutter_settings.gradle`文件
 
-   ~~~
+   ~~~dart
    setBinding(new Binding([gradle: this]))
    evaluate(new File(settingsDir.parentFile, 'flutter_module/.android/include_flutter.groovy'))
    ~~~

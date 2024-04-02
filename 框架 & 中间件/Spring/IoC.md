@@ -408,7 +408,7 @@ public @interface Controller { ... }
 public class Person { }
 ~~~
 
-如果不指定 Bean 的名称，那么默认名称是 首字母小写的类名（例如 `DepartmentServiceImpl` 的默认名称是 `departmentServiceImpl` ）。
+如果不指定 Bean 的名称，那么默认名称是首字母小写的类名（例如 `DepartmentServiceImpl` 的默认名称是 `departmentServiceImpl` ）。
 
 
 
@@ -463,7 +463,7 @@ public class ConstructorServiceImpl implements ConstructorService {
 }
 ~~~
 
-@Autowired的注入逻辑如下：
+@Autowired 的注入逻辑如下：
 
 1. 按照类型，来匹配 Bean 类型与之相同的Bean对象（考虑向上兼容）
 2. 如果有多个匹配的Bean，
@@ -613,6 +613,17 @@ Spring Framework 针对 `@Configuration` 类中带有 `@Bean` 注解的方法通
 
 
 ### Bean的获取
+
+**优先通过 `ObjectProvider` 获取 Bean**。当容器中没有Bean，或者有多个未决候选者Bean时，那么就在编译时抛出异常。而通过ObjectProvider类型，可以将这些问题放在运行时来处理，例如：
+
+~~~java
+public IndexService(ObjectProvider<B> b) {
+    // 在没有发现B类型的Bean对象时，返回`null`，而不是抛出异常。
+	this.b = b.getIfAvailable();
+}
+~~~
+
+
 
 getBean()再按类型查询时，要求只有一个符合类型的Bean对象，否则抛出`NoUniqueBeanDefinitionException`异常
 
@@ -1269,18 +1280,7 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
 
 ## 模块装配
 
-定义EnableXXXX注解
-
-~~~java
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface EnableTavern {
-
-}
-~~~
-
-在EnableXXXX注解上，添加`@Import`注解：
+定义 EnableXXXX 注解，并添加`@Import`注解：
 
 ~~~java
 @Documented
@@ -1302,11 +1302,9 @@ public class TavernConfiguration {
 }
 ~~~
 
-这样，通过`@import`注册的类，可以添加到该配置类上
+这样，通过`@Import`注册的类，可以添加到该配置类上
 
-
-
-`@Import`源码：
+`@Import`的定义：
 
 ~~~java
 @Documented
@@ -1319,9 +1317,11 @@ public @interface Import {
 }
 ~~~
 
-注册的四种方式：
 
-- 在@Import接口中，直接导入类，或者配置类
+
+向 @Import 注册的三种方式：
+
+- 在@Import接口中，直接导入「类」，或者「配置类」
 
   ~~~java
   @Import({Boss.class, BartenderConfiguration.class})
