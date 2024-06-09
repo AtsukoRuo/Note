@@ -508,6 +508,49 @@ public interface TransactionAttribute extends TransactionDefinition {
 
 这里的`rollbackOn` 方法，正是`@Transactional` 注解中 `rollbackFor` 属性的底层支撑
 
+#### 指定事务管理器
+
+~~~java
+@Configuration
+@EnableTransactionManagement
+public class Profiledemo implements TransactionManagementConfigurer {
+
+	//注入事务管理器2
+    @Resource(name="txManager2")
+    private PlatformTransactionManager txManager2;
+
+    //创建事务管理器2
+    @Bean(name = "txManager2")
+    public PlatformTransactionManager txManager2(EntityManagerFactory factory) {
+        return new JpaTransactionManager(factory);
+    }
+
+    //创建事务管理器1
+    @Bean(name = "txManager1")
+    public PlatformTransactionManager txManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+    //实现接口TransactionManagementConfigurer方法，其返回值代表在拥有多个事务管理器的情况下默认使用的事务管理器
+    @Override
+    public PlatformTransactionManager annotationDrivenTransactionManager() {
+        return txManager2;
+    }
+}
+
+public class Service{
+	//使用 value 具体指定使用哪个事务管理器
+	@Transactional(value="txManager1")
+	@Override
+	public void xxx() {
+	    
+	}
+	//默认使用上面 annotationDrivenTransactionManager() 方法返回的事务管理器
+	@Transactional
+	public void xxx() {}
+}
+~~~
+
 
 
 #### TransactionStatus
@@ -521,6 +564,16 @@ public interface TransactionStatus{
     void setRollbackOnly();  	// 设置为只回滚
     boolean isRollbackOnly(); 	// 是否为只回滚
     boolean isCompleted; 		// 是否已完成
+}
+~~~
+
+使用 TransactionStatus
+
+~~~java
+// 默认是RuntimeException就回滚，传播机制为请求事务，REQUIRED
+@Transactional(rollbackFor = RollBackException.class,propagation = Propagation.REQUIRED)
+public Boolean execute(){
+    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 }
 ~~~
 
@@ -731,7 +784,7 @@ public void saveAndQuery() {
 
 
 
-当一个方法被标记了`@Transactional` 注解的时候，Spring 事务管理器只会在被其他类方法调用的时候生效，而不会在一个类中方法调用生效。这是因为 Spring AOP 工作原理决定的。我们代理对象就无法拦截到这个内部调用，因此事务也就失效了。
+当一个方法被标记了`@Transactional` 注解的时候，Spring 事务管理器只会在被其他类方法调用的时候生效，而不会在一个类中方法调用生效。这是因为 Spring AOP 工作原理决定的。我们代理对象就无法拦截到这个内部调用，因此事务也就失效了。解决方法：
 
 ~~~java
 @Service
@@ -751,34 +804,24 @@ public class MyService {
 
 ### 事务传播
 
-
+注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常
 
 示例代码：
 
 ~~~java
-//将传入参数a存入ATable
+//将传入参数 a 存入ATable
 pubilc void A(a){
     insertIntoATable(a);    
 }
-//将传入参数b存入BTable
+
+//将传入参数 b 存入BTable
 public void B(b){
     insertIntoBTable(b);
-}
-
-public void testMain(){
-    A(a1);  //调用A入参a1
-    testB();    //调用testB
-}
-
-public void testB(){
-    B(b1);  //调用B入参b1
-    throw Exception;     //发生异常抛出
-    B(b2);  //调用B入参b2
 }
 // 注：事务由于通过AOP实现的，这种直接调用是起不到事务的作用。这里为了演示，在写法上做了妥协
 ~~~
 
-- **REQUIRED：必需的【默认值】**
+- **REQUIRED【默认值】**
 
   - ❌：新建一个事务
 
@@ -816,14 +859,31 @@ public void testB(){
     }
     ```
 
-    在执行testB方法时就加入了testMain的事务，在执行testB方法抛出异常后，事务会发生回滚。又testMain和testB使用的同一个事务，所以事务回滚后testMain和testB中的操作都会回滚，也就使得数据库仍然保持初始状态。
+    在执行 testB 方法时就加入了 testMain 的事务，在执行 testB 方法抛出异常后，事务会发生回滚。又testMain 和 testB 使用的同一个事务，所以不管 testMain 是否捕获异常，testMain 和 testB 中的操作都会回滚，也就使得数据库仍然保持初始状态。
 
-    注意这里，当`testB()`中抛出异常的时候，`testMain()`方法的事务也会因此被标记为回滚。Spring 会捕捉到这个异常，然后决定回滚当前的事务，并且终止后续的操作。
+    当`testB()`中抛出异常的时候，`testMain()`方法的事务也会因此被标记为回滚。
 
 - **REQUIRES_NEW ：新事务**
 
   - ❌：新建一个事务
-  - ✔️：新建一个事务，但会挂起当前事务
+
+  - ✔️：新建一个事务
+
+    ~~~java
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void testMain(){
+        A(a1);  			// 调用 A 入参 a1
+        testB();    		// 调用 testB
+        throw Exception;     // 发生异常抛出
+    }
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void testB(){
+        B(b1);  //调用B入参b1
+        B(b2);  //调用B入参b2
+    }
+    ~~~
+
+    这种情形的执行结果就是a1没有存储，而b1和b2存储成功，因为testB的事务传播设置为REQUIRES_NEW,所以在执行testB时会开启一个新的事务，testMain中发生的异常时在testMain所开启的事务中，所以这个异常不会影响testB的事务提交
 
 - **NESTED ：嵌套**
 
@@ -831,23 +891,39 @@ public void testB(){
 
   - ✔️：在嵌套事务中执行
 
-    - 在REQUIRES_NEW情况下，原有事务回滚，不会影响新开启的事务。
-    - 在NESTED情况下父事务回滚时，子事务也会回滚
+    - 在 REQUIRES_NEW 情况下，原有事务回滚，不会影响新开启的事务。
+    - 在 NESTED 情况下父事务回滚时，子事务也会回滚
 
     
 
-    - REQUIRED情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否catch其异常，事务都会回滚
-    - 在NESTED情况下，被调用方发生异常时，调用方可以catch其异常，这样只有子事务回滚，父事务不受影响
+    - REQUIRED 情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否 catch 其异常，事务都会回滚
+    - 在NESTED情况下，被调用方发生异常时，调用方可以 catch 其异常，这样只有子事务回滚，父事务不受影响
 
 - **SUPPORTS ：支持**
 
   - ❌：以非事务方法执行
+
+    ~~~java
+    public void testMain(){
+        A(a1);  //调用A入参a1
+        testB();    //调用testB
+    }
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void testB(){
+        B(b1);  //调用B入参b1
+        throw Exception;     //发生异常抛出
+        B(b2);  //调用B入参b2
+    }
+    ~~~
+
+    这种情况下，执行testMain的最终结果就是，a1，b1存入数据库，b2没有存入数据库。由于testMain没有声明事务，且testB的事务传播行为是SUPPORTS，所以执行testB时就是没有事务的（**如果当前没有事务，就以非事务方法执行**），则在testB抛出异常时也不会发生回滚，所以最终结果就是a1和b1存储成功，b2没有存储。
+
   - ✔️：加入当前事务
 
 - **NOT_SUPPORTED ：不支持**
 
   - ❌：以非事务方式执行
-  - ✔️：以非事务方式执行，但会挂起当前事务。
+  - ✔️：以非事务方式执行
 
 - **MANDATORY ：强制**
 

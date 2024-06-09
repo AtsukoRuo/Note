@@ -2,7 +2,7 @@
 
 [TOC]
 
-在关系数据库中，数据类型是Table，这与面向对象编程语言中的类类型存在天然结构上的差异。因此我们必须在它们两种类型之间做转换，好在**对象关系映射（Object-Relational Mapping，ORM）**框架能够自动帮我们完成这项转换工作。
+在关系数据库中，数据类型是 Table，这与面向对象编程语言中的类类型存在天然结构上的差异。因此我们必须在它们两种类型之间做转换，好在**对象关系映射（Object-Relational Mapping，ORM）**框架能够自动帮我们完成这项转换工作。
 
 
 
@@ -28,6 +28,17 @@ Maven依赖：
     <version>5.1.47</version>
 </dependency>
 ~~~
+
+数据源的配置：
+
+~~~yaml
+# 数据源 Datasource 配置
+spring.datasource.url=jdbc:mysql://115.47.149.48:3306/zhuoli_test?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&allowMultiQueries=true&useSSL=false
+spring.datasource.password=zhuoli
+spring.datasource.username=zhuoli
+~~~
+
+
 
 编写 MyBatis 的全局配置文件
 
@@ -87,7 +98,7 @@ public class Department {
 
 Mapper的使用
 
-- 基于SqlSession
+- 基于 `SqlSession`
 
   ~~~java
   InputStream xml = Resources.getResourceAsStream("mybatis-config.xml");
@@ -96,7 +107,9 @@ Mapper的使用
   List<Department> departmentList = sqlSession.selectList("departmentMapper.findAll");
   ~~~
 
-- 基于Dao
+- 基于 Dao
+
+  首先对 SqlSession 进行封装
 
   ~~~java
   public interface DepartmentDao {
@@ -132,7 +145,7 @@ Mapper的使用
   组装：
 
   ~~~java
-   InputStream xml = Resources.getResourceAsStream("mybatis-config.xml");
+  InputStream xml = Resources.getResourceAsStream("mybatis-config.xml");
   SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(xml);
   
   DepartmentDao departmentDao = new DepartmentDaoImpl(sqlSessionFactory);
@@ -143,8 +156,8 @@ Mapper的使用
 
   使用基于 Mapper 动态代理的方式开发，需要满足以下几个规范：
 
-  1. mapper的 namespace属性 与 Mapper 接口的全限定名完全相同
-  2. mapper 中定义的 statement 的 id属性 与 Mapper 接口的方法名一致
+  1. mapper 的 namespace属性 与 Mapper 接口的全限定名完全相同
+  2. mapper 中定义的 statement 的 id 属性 与 Mapper 接口的方法名一致
   3. Mapper 接口方法的方法参数类型，与 mapper 中定义的 statement 的 parameterType 类型一致
   4. Mapper 接口方法的返回值类型，与 mapper 中定义的 statement 的 resultType 类型相同
 
@@ -200,7 +213,7 @@ Mapper的使用
 
 
 
-注意，Mybatis按默认规则来处理好Table数据到对象的映射
+注意，`Mybatis` 按默认规则来处理好 `Table` 数据到对象的映射。
 
 ~~~xml
 <select id="findAll" resultType="com.linkedbear.mybatis.entity.Department">
@@ -208,9 +221,9 @@ Mapper的使用
 </select>
 ~~~
 
-此时，字段名按照驼峰规则自动匹配对象中对应的属性名，然后填入。对于多余的字段名，Mybatis会忽略掉，对于多余的属性，Mybatis会填入默认值。如果想要设置复杂的映射规则，推荐使用`<resultMap>`标签，不过它一般用于处理对象属性的填入。
+此时，字段名按照驼峰规则自动匹配对象中对应的属性名，然后填入。对于多余的字段名，Mybatis会忽略掉，对于多余的属性，Mybatis会填入默认值。如果想要设置复杂的映射规则，推荐使用`<resultMap>`标签，不过它一般用于手动处理对象属性的填入。
 
-此外，Mybatis还支持向SQL传入参数：
+此外，Mybatis 还支持向SQL传入参数：
 
 - 如果参数只有一个对象，可以直接通过属性名来访问对象的属性。
 - 如果参数有两个对象，那么必须先指定对象名，然后再指定属性名来访对象的属性。
@@ -218,9 +231,11 @@ Mapper的使用
 
 
 
+**在Mybatis框架中，如果 mapper 对象的 sql 语句执行失败，那么会抛出一个RuntimeException 类型的异常。**
+
 ### resultMap
 
-`resultMap`标签一般用于关联表的查询。
+`resultMap`标签一般用于手动处理对象属性的填入，此外它还可以用于 Map 对象的填入。
 
 ~~~xml
 <resultMap id="唯一标识" type="entity对象的全限定名">
@@ -245,14 +260,15 @@ Mapper的使用
 <select id="" resultType="resultMap的ID">
 ~~~
 
-`<association>`进一步将查询出来的字段映射到对象属性的属性上。
+- `association`：这个元素主要用来处理一对一的关系。
+- `collection`：这个元素主要处理一对多的关系。
 
 
 
 Mybatis支持嵌套查询（select）。需要注意
 
 - 在执行时，会发送多条SQL语句
-- 支持懒加载
+- 支持懒加载，在真正使用该对象时，才会发送 SQL 语句
 - select 属性只能调用无参或者只有一个参数的方法
 
 ~~~xml
@@ -261,7 +277,7 @@ Mybatis支持嵌套查询（select）。需要注意
 
 
 
-支持引用其他resultMap
+支持引用其他 resultMap
 
 ~~~xml
 <resultMap id="userWithPrefix" type="com.linkedbear.mybatis.entity.User">
@@ -323,7 +339,7 @@ public class Department implements Serializable {
 </resultMap>
 ~~~
 
-`<constructor>`标签有name属性，要配合`@Param`一起使用。
+`<constructor>`标签有 name 属性，要配合`@Param`一起使用。
 
 ~~~java
 public Department(@Param("idd") String id) {
@@ -435,26 +451,11 @@ int TYPE_SCROLL_SENSITIVE = 1005;
 
 使用示例：
 
-~~~java
+~~~xml
 <insert id="save" useGeneratedKeys="true" keyProperty="id">
     insert into tbl_dept2 (name, tel) VALUES (#{name}, #{tel})
 </insert>
 ~~~
-
-
-
-修改自增初始值与自增量的命令（仅对下一个自增列有效）：
-
-~~~sql
-SET @@AUTO_INCREMENT_INCREMENT=新初始值;
-SET @@AUTO_INCREMENT_OFFSET=新步长;
-~~~
-
-如果为自增列设置了一个值，那么会出现这样三种情况：
-
-- 情况一，插入的值与已有的编号重复，则会出现报错
-- 情况二，插入的值大于列的自增值，成功插入这条记录，并且会更新自增值为新值
-- 情况三，插入的值小于列的自增值且与已有的编号不重复，则成功插入这条记录，但自增值不会更新
 
 
 
@@ -677,9 +678,7 @@ public interface PostMapper {
 }
 ~~~
 
-当你调用`selectById(id)`方法的时候，MyBatis会加载Post的基本属性（id和title），但不会立即加载它的关联属性comments。只有在你真正访问post.getComments()时，MyBatis才会执行关联查询去加载这个评论列表
-
-
+当你调用`selectById(id)`方法的时候，MyBatis会加载Post的基本属性（id 和 title），但不会立即加载它的关联属性 comments。只有在你真正访问 post.getComments() 时，MyBatis才会执行关联查询去加载这个评论列表
 
 ## 配置
 
@@ -1109,7 +1108,7 @@ List<Department> departmentList = departmentMapper.findAll();
 
 
 
-`@Results`
+`@Results` 和 ResultMap 类似，用于手动指定字段的填入。它的 one 以及 many 属性，可以设置嵌套查询
 
 ~~~java
 @Select("select * from tbl_department")
@@ -1123,9 +1122,7 @@ List<Department> findAllByResults();
 
 
 
-`@Results`处理一对多关系的示例（这种一对多关系的处理方式本质上是嵌套查询）
-
-首先，我们定义两个类 Post 和 Comment：
+使用示例：
 
 ~~~java
 public class Post {
@@ -1169,15 +1166,11 @@ public interface CommentMapper {
 }
 ~~~
 
-`@ResultsMap`可以其他`@Results`：
-
-~~~java
-
-~~~
 
 
 
-`@ResultMap`可以引用在XML文件中定义的结果映射，或者`@Results`。在 MyBatis 中，无法直接在一个 `@Results` 中引用另外一个 `@Results` 的 ID，无法像`<resultMap>` 那样，可以引用另一个 `<resultMap>` 。但是`@ResultMap`可以缓解这种问题：
+
+在 MyBatis 中，无法直接在一个 `@Results` 中引用另外一个 `@Results` 的 ID。 `@ResultMap`可以缓解这种问题，`@ResultMap`可以引用在 XML 文件中定义的结果映射，或者`@Results`
 
 ~~~java
 public interface PostMapper {
@@ -1195,8 +1188,6 @@ public interface PostMapper {
         resultMap="com.example.mapper.CommentMapper.commentMap" />
 </resultMap>
 ~~~
-
-
 
 ~~~java
 @Select("select * from tbl_department")
@@ -1221,10 +1212,12 @@ List<Department> findAll();
 `@Insert`的使用
 
 ~~~java
-    @Insert("insert into tbl_dept2 (name, tel) values (#{name}, #{tel})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
-    int saveUseGeneratedKeys(Department department);
+@Insert("insert into tbl_dept2 (name, tel) values (#{name}, #{tel})")
+@Options(useGeneratedKeys = true, keyProperty = "id")
+int saveUseGeneratedKeys(Department department);
 ~~~
+
+Mapper的 insert 方法返回类型是一个整数，这个整数代表受影响的记录行数。返回类型也可以是 void。
 
 `@Options` 注解的定义如下：
 
@@ -1241,6 +1234,8 @@ String keyColumn() default "";
 String resultSets() default "";
 String databaseId() default "";
 ~~~
+
+useGeneratedKeys 参数设置为 true。参数对象的自增字段会自动被 Mybatis 框架设置。
 
 
 
@@ -1363,49 +1358,21 @@ public String deleteById(String id) {
 
 ## 事务
 
-事务就是一组逻辑操作的组合。**事务往往会被赋予ACID属性**
-
-- **原子性**：一个事务就是一个不可再分解的单位，事务中的操作要么全部做，要么全部不做。原子性强调的是事务的**整体**
-- **一致性**：事务执行后，所有的数据都应该保持一致状态。一致性强调的是数据的**完整**
-- **隔离性**：多个数据库操作并发执行时，一个请求的事务操作不能被其它操作干扰，多个并发事务执行之间要相互隔离。隔离性强调的是**并发**的隔离
-- **持久性**：事务执行完成后，它对数据的影响是永久性的。持久性强调的是操作的**结果**
-
-**A、I、D 是手段，C 是目的**。
-
-事务并发操作中会出现三种问题：
-
-- **脏读**
-- **不可重复读**
-- **幻读**
-
-针对上述三个问题，由此引出了事务的隔离级别：
-
-- **read uncommitted** 读未提交 —— 不解决任何问题
-- **read committed** 读已提交 —— 解决脏读
-- **repeatable read** 可重复读 —— 解决脏读、不可重复读
-- **serializable** 可串行化 —— 解决脏读、不可重复读、幻读
-
-MySQL 中默认的事务隔离级别是 **repeatable read** 
-
-对于 jdbc 的事务操作而言，无非就是**开启事务、提交事务、回滚事务**三个操作
+MySQL 中默认的事务隔离级别是 **repeatable read** 。对于 jdbc 的事务操作而言，无非就是**开启事务、提交事务、回滚事务**三个操作
 
 在 MyBatis 中有两种事务管理器：
 
 - **JDBC** – 直接使用了 JDBC 的提交和回滚方法
 - **MANAGED** – 使用外置的事务管理器
 
-
-
 ~~~java
 SqlSession sqlSession = sqlSessionFactory.openSession();
 SqlSession sqlSessionAutoCommit = sqlSessionFactory.openSession(true);
 ~~~
 
-在MyBatis中，当我们创建了一个新的SqlSession后，默认情况下它是不会自动提交的，即开启事务。也就是说在执行过数据库操作后，必须明确地调用SqlSession的commit()方法来提交事务。
+在MyBatis中，当我们创建了一个新的 SqlSession 后，默认情况下它是不会自动提交的，即开启 Spring 事务。也就是说在执行过数据库操作后，必须明确地调用 SqlSession 的 commit() 方法来提交事务。
 
-如果你调用SqlSessionFactory的openSession(true)方法，得到的SqlSession会在每次调用执行增删改（insert/update/delete）操作后，自动提交事务，即关闭事务特性。也就是说，你不再需要在每次做完修改后还要额外调用commit()方法。
-
-
+如果你调用 SqlSessionFactory 的 openSession(true) 方法，得到的 SqlSession 会在每次调用执行增删改（insert/update/delete）操作后，自动提交事务，即忽略 Spring 的事务特性。也就是说，你不再需要在每次做完修改后还要额外调用 commit() 方法。
 
 ## 扩展特性
 
@@ -1444,7 +1411,7 @@ public class CustomInterceptor implements Interceptor {
 
 
 
-拦截query方法：
+拦截 query 方法：
 
 ~~~java
 @Intercepts(@Signature(type = Executor.class, method = "query",

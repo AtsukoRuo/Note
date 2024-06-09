@@ -419,17 +419,17 @@ WebSocket是一种全双工通信的应用层协议，其通信在TCP连接上�
 
 
 
+
+
 ![image-20240226203420539](assets/image-20240226203420539.png)
 
 
 
-WebSocket协议中大致包含了5种类型的数据帧
+WebSocket 协议中大致包含了 5 种类型的数据帧
 
 ![image-20240226203746606](assets/image-20240226203746606.png)
 
-
-
-创建WebSocket连接的握手请求是HTTP1.1（或者更高）的GET请求，并且包含以下请求头：
+创建 WebSocket 连接的握手请求是 HTTP1.1（或者更高）的 GET 请求，并且包含以下请求头：
 
 - Sec-WebSocket-Key：客户端随机生成的值，由Base64编码。服务端会对此进行加密，并返回给客户端。
 - Upgrade
@@ -437,7 +437,7 @@ WebSocket协议中大致包含了5种类型的数据帧
 - Sec-WebSocket-Version
 - Sec-WebSocket-Protocol：子协议名称，由用户自定义
 
-如果响应报文的状态码为101，表示服务端同意客户端协议升级请求，比较重要的响应头有：
+如果响应报文的状态码为 101，表示服务端同意客户端协议升级请求，比较重要的响应头有：
 
 - Upgrade
 - Sec-WebSocket-Accept

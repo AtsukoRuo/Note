@@ -82,6 +82,25 @@ Bike() // 创建一个 Bike 对象
 
 
 
+record 类型
+
+~~~dart
+(int, int) swap((int, int) record) {
+  var (a, b) = record;
+  return (b, a);
+}
+~~~
+
+~~~dart
+(num, Object) pair = (42, 'a');
+
+var first = pair.$1; // Static type `num`, runtime type `int`.
+
+var second = pair.$2; // Static type `Object`, runtime type `String`.
+~~~
+
+
+
 ## 控制流
 
 ~~~dart
@@ -149,8 +168,6 @@ try {
   ~~~
 
 
-
-Positional arguments can be made optional by wrapping them with square brackets (`[]`):
 
 ```dart
 void add(a, [b])
@@ -228,7 +245,43 @@ Future<void> printWithDelay(String message) {
 }
 ~~~
 
-如果直接 `printWithDelay("Hello")`，那么它提交到微任务队列中，不会立即执行该函数，并直接返回一个 Future 对象。如果是`await printWithDelay("Hello")`，那么当前代码等待函数执行完成，而且 `await` 表达式将自动从 `Future` 对象提取出对应的结果。注意，当前代码会打包成微任务，然后提交到队列中
+当执行 async 异步函数时，如果在 await 表达式中的 future 对象尚未计算完成，那么该 async 异步函数放弃执行，把控制权让给其他代码块。
+
+
+
+创建完成`Future`对象后，可以通过`then`方法接收`Future`的结果。
+
+```dart
+Future<R> then<R>(FutureOr<R> onValue(T value), {Function onError});
+```
+
+`then`方法接收两个回调函数参数，`onValue`接收成功回调，可选的`onError`接收失败回调。
+
+
+
+当`Future`没有正确的获取到结果发生异常时，除了在`then`方法中注册`onError`回调外，还可通过`catchError`方法监听异常。
+
+~~~dart
+Future<T> catchError(Function onError, {bool test(Object error)});
+~~~
+
+`catchError`方法还有一个可以选的`test`函数参数。当发生异常时，会首先调用`test`函数，如果该函数返回false，异常将不会被`catchError`函数处理，而是会继续传递下去；如果`test`函数返回 ture,`catchError`函数会处理该异常。如果未提供`test`函数，默认处理为true。
+
+
+
+Future对象还有一个`whenComplete`方法，当该`Future`处于完成状态时，通过该方法注册的回调会被调用，无论结果是成功还是失败，相当与`finally`代码块。
+
+在`whenComplete`函数后，可以再调用`then`、`catchError`等方法，但是后面注册回调函数并不能获取到`whenComplete`中返回的值，而是`whenComplete`前的值。
+
+
+
+`timeout`方法创建一个新的Future对象，接收一个`Duration`类型的`timeLimit`参数来设置超时时间。如果原`Future`在超时之前完成，最终的结果就是该原`Future`的值；如果达到超时时间后还未完成，就会产生`TimeoutException`异常。 该方法有一个`onTimeout`可选参数，如果设置了该参数，当发生超时时会调用该函数，该函数的返回值为Future的新的值，而不会产生`TimeoutException`。
+
+
+
+
+
+
 
 ## 类
 

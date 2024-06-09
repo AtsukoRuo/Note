@@ -4,13 +4,19 @@
 
 ## 概述
 
-**Redis**（REmote Dictionary Server）是一种基于**键值对（key-value）**的NoSQL数据库（将key理解为变量即可）。它具有以下特性：
+**Redis**（REmote Dictionary Server）是一种基于**键值对（key-value）**的NoSQL数据库
 
-1. Redis在内存中存储数据，访问速度快
+它具有以下特性：
 
-   ![image-20240107164737184](C:\Users\AtsukoRuo\AppData\Roaming\Typora\typora-user-images\image-20240107164737184.png)
+1. 访问速度快，这得益于：
 
-2. 它在key-value基础上，提供了以下数据结构：字符串、哈希、列表、集合、有序集合、位图（Bitmaps）、HyperLogLog，GEO（地理信息定位）等等
+   1. 基于 RAM 访问
+   2. IO 多路复用
+   3. 高效数据结构
+
+   ![why-redis-so-fast](./assets/why-redis-so-fast-TbWX24ja.png)
+
+2. 它在 key-value 基础上，提供了以下数据结构：字符串、哈希、列表、集合、有序集合、位图（Bitmaps）、HyperLogLog，GEO（地理信息定位）等等
 
 3. 提供了许多额外的功能
 
@@ -19,48 +25,33 @@
    3. 提供了简单的事务功能，能在一定程度上保证事务特性。
    4. 提供了流水线（Pipeline）功能，这样客户端能将一批命令一次性传到 Redis，减少了网络的开销。
 
-4. 简单稳定，Redis的简单主要表现在三个方面：
+4. 简单稳定，Redis 的简单主要表现在三个方面：
 
-   1. Redis的源码行数在4万行左右
+   1. Redis 的源码行数在 4 万行左右
    2. 使用单线程模型
-   3. 不依赖于操作系统中的类库
+   3. 只依赖 C 语言提供的标准库
 
-5. Redis提供了两种持久化方式：RDB和 AOF
+5. 提供了两种持久化方式：RDB 和 AOF
 
-6. Redis提供了主从复制功能
+6. 主从复制
 
-7. Redis Sentine能够保证故障发现和故障自动转移
+7. Redis Sentine 能够保证「故障发现」和「故障自动转移」
 
-8. Redis Cluster是Redis分布式实现
+8. Redis Cluster 是 Redis 分布式实现
 
 
 
 **由于内存的特性，Redis适用于小规模、热点数据集。**
 
-在Redis中，Key的类型都是String，而value可以是二进制数据，也可以是字符串
+在 Redis 中，Key 的类型都是 String，而 value 可以是二进制数据，也可以是字符串，甚至是 Map 等等。
 
-图2-10是比较典型的缓存使用场景，其中Redis作为缓存层，MySQL作为存储层，Redis缓存起到加速读写和降低后端压力的作用。
+Redis 作为缓存层，MySQL 作为存储层，Redis 缓存起到「加速读写」和「降低后端压力」的作用。最根本的作用是「降低 IO 开销」。
 
 ![image-20240108111221967](assets/image-20240108111221967.png)
 
-~~~java
-UserInfo getUserInfo(long id){
-    userRedisKey = "user:info:" + id
-    value = redis.get(userRedisKey);
-    UserInfo userInfo;
-    if (value != null) {
-    	userInfo = deserialize(value);
-    } else {
-        // 如果不在Redis中，那么从MySQL中读取，并且在Redis中设置
-        userInfo = mysql.get(id);
-        if (userInfo != null)
-        redis.setex(userRedisKey, 3600, serialize(userInfo));
-    }
-    return userInfo;
-}
-~~~
 
-作为缓存层时，推荐将Key命名为`业务名:对象名:id:[属性]`。例如MySQL的数据库名为 vs，用户表名为user，那么对应的键可以用`vs:ser:1`或者`vs:user:1:name`来表示。
+
+作为缓存层时，推荐将 Key 命名为`业务名:对象名:id:[属性]`。例如 MySQL 的数据库名为 vs，用户表名为 user，那么对应的键可以用`vs:ser:1`或者`vs:user:1:name`来表示。
 
 ## 安装
 
@@ -71,19 +62,19 @@ $ ln -s redis-3.0.7 redis
 $ cd redis
 $ make
 
-# 是将Redis的相关运行文件放到/usr/local/bin/下，这样就可以在任意目录下执行Redis的命令
+# 是将Redis的相关运行文件放到 /usr/local/bin/ 下，这样就可以在任意目录下执行Redis的命令
 $ make install
 ~~~
 
-**真正的Redis数据库操作发生在RedisServer中，而RedisClient仅仅负责与RedisServer进行通信而已。**
+**真正的 Redis 数据库操作发生在 RedisServer 中，而 RedisClient 仅仅负责与 RedisServer 进行通信，发送命令而已。**
 
-通过redis-server命令来启动Redis服务端。
+通过 redis-server 命令来启动 Redis 服务端。
 
 ~~~shell
 $ redis-server
 ~~~
 
-Redis的默认端口是6379。如果要用6380作为端口启动Redis，那么可以执行：
+Redis 的默认端口是 6379。通过 `--port` 来指定端口
 
 ~~~shell
 $ redis-server --port 6380
@@ -95,26 +86,26 @@ $ redis-server --port 6380
 $ redis-server /opt/redis/redis.conf
 ~~~
 
-注意，redis-server会忽略掉SIGHUP信号，也就是说即使退出终端，Redis也会在后台运行。
+注意，redis-server 会忽略掉 SIGHUP 信号，也就是说即使退出终端，Redis 也会在后台运行。
 
 
 
-通过`redis-cli`命令来启动Redis客户端：
+通过`redis-cli`命令来启动 Redis 客户端：
 
-- 交互式方式。通过`redis-cli-h{host}-p{port}`的方式连接到Redis 服务，之后所有的操作都是通过交互的方式实现，不需要每次都输入redis-cli
-- 命令方式用`redis-cli-h ip{host}-p{port}{command}`就可以直 接得到命令的返回结果
+- 交互式方式。通过`redis-cli -h {host}-p{port}`的方式连接到Redis 服务，之后所有的操作都是通过交互的方式实现，不需要每次都输入redis-cli
+- 命令方式用`redis-cli  ip -h {host} -p{port} {command}`就可以直接得到命令的返回结果
 
-注意，如果没有-h参数，那么默认连接127.0.0.1；如 果没有-p，那么默认6379端口。
+注意，如果没有 `-h` 参数，那么默认连接 127.0.0.1；如果没有 -p ，那么默认 6379 端口。 `-a` 指定密码
 
 
 
-客户端通过shutdown命令来结束Redis服务端：
+客户端通过 shutdown 命令来断开与 Redis 服务端的连接：
 
 ~~~shell
 $ redis-cli shutdown
 ~~~
 
-不建议使用用`kill-9`强制结束Redis服务端。因为这种方式不仅不会做持久化操作，还会造成缓冲区等资源不能被优雅关闭，极端情况下会造成AOF和复制丢失数据的情况。
+不建议使用用`kill-9`强制结束 Redis 服务端。因为这种方式不仅不会做持久化操作，还会造成缓冲区等资源不能被优雅关闭，极端情况下会造成 AOF 和复制丢失数据的情况。
 
 
 
@@ -128,7 +119,7 @@ $ redis-cli shutdown
   $ keys *
   ~~~
 
-- **获取键总数**，dbsize命令会返回当前数据库中键的总数，时间复杂度为`O(1)`，而keys命令会遍历所有键，所以它的时间复杂度是O（n）
+- **获取键总数**，dbsize 命令会返回当前数据库中键的总数，时间复杂度为`O(1)`。而 keys 命令会遍历所有键，所以它的时间复杂度是 `O(n)`
 
   ~~~shell
   $ dbsize
@@ -140,7 +131,7 @@ $ redis-cli shutdown
   exists key
   ~~~
 
-  如果键存在则返回1，不存在则返回0
+  如果键存在则返回 1，否则返回 0
 
 - **删除键**
 
@@ -150,7 +141,7 @@ $ redis-cli shutdown
 
   返回结果为成功删除键的个数
 
-- **键过期**，Redis支持对键添加过期时间，当超过过期时间后，会自动删除键。
+- **键过期**，Redis 支持对键添加过期时间，当超过过期时间后，会自动删除键。
 
   ~~~shell
   $ expire key seconds
@@ -162,9 +153,9 @@ $ redis-cli shutdown
   $ ttl hello
   ~~~
 
-  ttl命令会返回键的剩余过期时间，它有3种返回值： 
+  ttl 命令会返回键的剩余过期时间，它有 3 种返回值： 
 
-  - 大于或等于0的整数：键剩余的过期时间。 
+  - 大于或等于 0 的整数：键剩余的过期时间。 
 
   - -1：键没设置过期时间。 
 
@@ -176,7 +167,7 @@ $ redis-cli shutdown
   $ type key
   ~~~
 
-  如果键不存在，则返回none
+  如果键不存在，则返回 none
 
 - **查看键的内部编码**：
 
@@ -191,16 +182,16 @@ $ redis-cli shutdown
 
 ## 原理初步
 
-Redis使用了「**单线程架构**」和「**I/O多路复用模型**」来实现高性能的内存数据库服务。
-
-需要强调的是，Redis只有CPU计算部分是单线程模型，而对磁盘、网络的访问是多线程模型。
+Redis使用了「**单线程架构**」和「**I/O多路复用模型**」来实现高性能的内存数据库服务。需要强调的是，Redis 只有CPU 计算部分是单线程模型，而对磁盘、网络的访问是多线程模型。
 
 Redis为什么采用单线程模型：
 
-- Redis性能瓶颈在IO上，而不是在CPU上。而且服务器的体系架构一般是多核共享一块内存（MCU）。此时多线程技术并不能提高CPU访问内存的效率。如果是多个MCU架构的处理器，那么Redis在CPU利用率上有很大的提升空间。
+- Redis性能瓶颈在 IO 上，而不是在 CPU 上。而且服务器的体系架构一般是多核共享一块内存（MCU）。此时多线程技术并不能提高 CPU 访问内存的效率。如果是多个 MCU 架构的处理器，那么 Redis 在 CPU 利用率上有很大的提升空间。
 - 单线程避免了线程切换和竞争条件所产生的消耗。
 
 但是单线程对响应时间来说，是不友好的。例如一条命令的执行时间过长，那么就会阻塞其他命令的执行。
+
+![文件事件处理器（file event handler）](./assets/redis-event-handler.png)
 
 ## 字符串
 
@@ -210,23 +201,23 @@ Redis为什么采用单线程模型：
 $ set key value [ex seconds] [px milliseconds] [nx|xx]
 ~~~
 
-set命令有几个选项：
+set  命令有几个选项：
 
-- ex seconds：为键设置秒级过期时间。
-- px milliseconds：为键设置毫秒级过期时间。
-- nx：键必须不存在，才可以设置成功
-- xx：与nx相反，键必须存在，才可以设置成功，用于更新。
+- `ex seconds`：为键设置秒级过期时间。
+- `px milliseconds`：为键设置毫秒级过期时间。
+- `nx`：键必须不存在，才可以设置成功
+- `xx`：与nx相反，键必须存在，才可以设置成功，用于更新。
 
-除了set选项，Redis还提供了setex和setnx两个命令：
+除了 set 命令，Redis 还提供了 setex 和 setnx 两个命令，它们的作用和 ex 和 nx 选项是一样的。
 
 ~~~shell
 $ setex key seconds value
 $ setnx key value
 ~~~
 
-它们的作用和ex和nx选项是一样的。
 
-由于Redis的单线程命令处理机制，如果有多个客户端同时执行setnx key value， 根据setnx的特性只有一个客户端能设置成功，setnx可以作为分布式锁的一种实现方案，Redis官方给出了使用setnx实现分布式锁的方 法：http://redis.io/topics/distlock。
+
+由于Redis的单线程命令处理机制，如果有多个客户端同时执行 setnx key value， 根据 setnx 的特性只有一个客户端能设置成功，setnx可以作为分布式锁的一种实现方案，Redis官方给出了使用setnx实现分布式锁的方法：http://redis.io/topics/distlock。
 
 
 
@@ -256,19 +247,17 @@ $ mget key [key ...]
 $ incr key
 ~~~
 
-incr命令用于对值做自增操作，返回结果分为三种情况：
+incr 命令用于对值做自增操作，返回结果分为三种情况：
 
 - 值不是整数，返回错误。(error) ERR value is not an integer or out of range
 
 - 值是整数，返回自增后的结果。
 
-- 键不存在，按照值为0开始自增。下面的qwe键是不存在的
+- 键不存在，按照值从 0 开始自增。下面的 qwe 键是不存在的
 
   ![image-20240108110421457](assets/image-20240108110421457.png)
 
-除了incr命令，Redis提供了decr（自减）、incrby（自增指定数字）、 decrby（自减指定数字）、incrbyfloat（自增浮点数）
-
-
+除了 incr 命令，Redis提供了decr（自减）、incrby（自增指定数字）、 decrby（自减指定数字）、incrbyfloat（自增浮点数）
 
 **向字符串尾部追加值**
 
@@ -294,11 +283,9 @@ $ getset key value
 $ setrange key offeset value
 ~~~
 
-偏移量从0开始计算
+偏移量从 0 开始计算
 
 ![image-20240108110704825](assets/image-20240108110704825.png)
-
-
 
 **获取子串**
 
@@ -306,7 +293,7 @@ $ setrange key offeset value
 $ getrange key start end
 ~~~
 
-start和end分别是开始和结束的偏移量，偏移量从0开始计算
+start 和 end 分别是开始和结束的偏移量，偏移量从 0 开始计算
 
 
 
@@ -314,9 +301,9 @@ start和end分别是开始和结束的偏移量，偏移量从0开始计算
 
 字符串类型的内部编码有3种： 
 
-- int：8个字节的长整型。 
-- embstr：小于等于39个字节的字符串。 ·
-- raw：大于39个字节的字符串。可以存储二进制串
+- int：8 个字节的长整型。 
+- embstr：小于等于 39 个字节的字符串。 ·
+- raw：大于 39 个字节的字符串。可以存储二进制串
 
 
 
@@ -346,7 +333,7 @@ $ hget key field
 
 
 
-**删除field**
+**删除 field**
 
 ~~~shell
 hdel key field [field...]
@@ -356,7 +343,7 @@ hdel key field [field...]
 
 
 
-**计算field个数**
+**计算 field 个数**
 
 ~~~shell
 $ hlen key
@@ -364,7 +351,7 @@ $ hlen key
 
 
 
-**批量设置或获取field-value**
+**批量设置或获取 field-value**
 
 ~~~shell
 $ hmget key field [field ...]
@@ -373,7 +360,7 @@ $ hmset key field value [field value ...]
 
 
 
-**判断field/key是否存在**
+**判断 field/key 是否存在**
 
 ~~~shell
 $ hexists key field
@@ -381,7 +368,7 @@ $ hexists key field
 
 
 
-**获取所有field**
+**获取所有 field**
 
 ~~~shell
 $ hkeys key
@@ -389,7 +376,7 @@ $ hkeys key
 
 
 
-**获取所有value**
+**获取所有 value**
 
 ~~~shell
 $ hvals key
@@ -397,7 +384,7 @@ $ hvals key
 
 ![image-20240108112539874](assets/image-20240108112539874.png)
 
-**获取所有的field-value**
+**获取所有的 field-value**
 
 ~~~shell
 $ hgetall key
@@ -418,7 +405,7 @@ $ hincrbyfloat key field increnment_value
 
 
 
-**计算value的字符串长度**（需要Redis3.2以上）
+**计算 value 的字符串长度**
 
 ~~~shell
 $ hstrlen key field
@@ -430,7 +417,7 @@ $ hstrlen key field
 
 哈希类型的内部编码有两种： 
 
-- **ziplist（压缩列表）**：当哈希类型元素个数小于`hash-max-ziplist-entries` 配置（默认512个）、同时所有值都小于`hash-max-ziplist-value`配置（默认64 字节）时，`Redis`会使用`ziplist`作为哈希的内部实现，ziplist使用更加紧凑的 结构实现多个元素的连续存储，所以在节省内存方面比`hashtable`更加优秀。 
+- **ziplist（压缩列表）**：当哈希类型元素个数小于`hash-max-ziplist-entries` 配置（默认512个）、同时所有值都小于`hash-max-ziplist-value`配置（默认64 字节）时，`Redis`会使用`ziplist`作为哈希的内部实现，ziplist使用更加紧凑的结构实现多个元素的连续存储，所以在节省内存方面比`hashtable`更加优秀。 
 - **hashtable（哈希表）**：当哈希类型无法满足`ziplist`的条件时，`Redis`会使 用`hashtable`作为哈希的内部实现
 
 
@@ -439,7 +426,7 @@ $ hstrlen key field
 
 ![image-20240108140022276](assets/image-20240108140022276.png)
 
-注意，Redis中的哈希可以不存储表中值为NULL的属性，这种特性称为**稀疏性**。
+注意，Redis中的哈希可以不存储表中值为 NULL 的属性，这种特性称为**稀疏性**。
 
 
 
@@ -489,11 +476,11 @@ $ lrange key start end
 
 ![image-20240108143431871](assets/image-20240108143431871.png)
 
-索引下标从左到右分别是0到N-1，但是从右到左分别是-1到-N。而且查询区间是左闭右闭的，这和大部分编程语言左闭右开的约定不同。
+索引下标从左到右分别是 0 到 N-1，但是从右到左分别是 -1 到 -N。而且查询区间是**「左闭右闭」**的，这和大部分编程语言左闭右开的约定不同。
 
 
 
-lrange命令在列表两端性能较好，但是如果列表较大，获取列表中间范围的元素性能会变差。此时可以使用Redis3.2的quicklist内部编码实现， 它结合ziplist和linkedlist的特点，可以高效完成获取「列表中间范围元素」的操作。
+lrange 命令在列表两端性能较好，但是如果列表较大，获取列表中间范围的元素性能会变差。此时可以使用 Redis3.2的 quicklist 内部编码实现， 它结合 ziplist 和 linkedlist 的特点，可以高效完成获取「列表中间范围元素」的操作。
 
 
 
@@ -505,7 +492,7 @@ lrange命令在列表两端性能较好，但是如果列表较大，获取列�
 $ linsert key before|after pivot value
 ~~~
 
-这里的`privot`就是元素值，而value是新插入的元素值
+这里的`privot`就是元素值，而 value 是新插入的元素值。如果在同一个列表中有多个相同的元素，`LINSERT`指令只会在找到的第一个匹配的元素`pivot`的前面或后面进行插入。
 
  
 
@@ -539,7 +526,7 @@ $ lpop key
 $ lrem key count value
 ~~~
 
-lrem命令会从列表中找到等于value的元素进行删除，根据count的不同 分为三种情况： 
+lrem 命令会从列表中找到等于 value 的元素进行删除，根据 count 的不同分为三种情况： 
 
 - `count>0`，从左到右，删除最多`count`个元素。 
 - `count<0`，从右到左，删除最多`count`绝对值个元素。 
@@ -572,30 +559,41 @@ $ blpop key [key ...] timeout
 $ brpop key [key ...] timeout
 ~~~
 
-- 如果是多个键，那么brpop会从左至右遍历键，一旦有一个键能弹出元素，客户端立即返回。这包括brpop被阻塞的情况
-- 如果多个客户端对同一个键执行brpop，那么最先执行brpop命 令的客户端可以获取到弹出的值。
+- 如果是多个键，那么 brpop 会从左至右遍历键，一旦有一个键能弹出元素，客户端立即返回。这包括 brpop 被阻塞的情况
+- 如果多个客户端对同一个键执行 brpop，那么最先执行 brpop 命令的客户端可以获取到弹出的值。
+- `timeout`：这是阻塞时间的上限
 
 注意，这里的阻塞是指网络上的阻塞，而不是单线程中计算部分的阻塞
 
-如果`timeout`为0，那么在弹出失败后则无限期等待。
+如果`timeout`为 0，那么在弹出失败后则无限期等待。
 
 
 
 ![image-20240108154531589](assets/image-20240108154531589.png)
 
-- **ziplist（压缩列表）**：当列表的元素个数小于list-max-ziplist-entries配置 （默认512个），同时列表中每个元素的值都小于list-max-ziplist-value配置时 （默认64字节），Redis会选用ziplist来作为列表的内部实现来减少内存的使用。
-- **linkedlist（链表）**：当列表类型无法满足ziplist的条件时，Redis会使用 linkedlist作为列表的内部实现。
+- **ziplist（压缩列表）**：当列表的元素个数小于 list-max-ziplist-entries 配置 （默认512个），同时列表中每个元素的值都小于 list-max-ziplist-value 配置时 （默认64字节），Redis 会选用 ziplist 来作为列表的内部实现来减少内存的使用。
+- **linkedlist（链表）**：当列表类型无法满足 ziplist 的条件时，Redis会使用 linkedlist 作为列表的内部实现。
 
 
 
 
 
-- lpush+lpop=Stack（栈） 
-- lpush+rpop=Queue（队列） 
-- lpsh+ltrim=Capped Collection（有限集合） 
-- lpush+brpop=Message Queue（消息队列）
+- lpush + lpop = Stack（栈） 
 
-Redis的`lpush+brpop`命令组合即可实现阻塞队列，生产 者客户端使用`lrpush`从列表左侧插入元素，多个消费者客户端使用`brpop`命令 阻塞式的“抢”列表尾部的元素，
+- lpush + rpop = Queue（队列） 
+
+- lpush + ltrim = Capped Collection（有限队列） 
+
+  ~~~redis
+  PUSH mylist "newValue"
+  LTRIM mylist 0 99
+  ~~~
+
+  在这个例子中，`mylist`的长度被保持在100个元素。当添加新元素时，最旧的元素（在列表的右端）会被自动删除。
+
+- lpush + brpop = Message Queue（消息队列）
+
+Redis的 `lpush+brpop `命令组合即可实现阻塞队列，生产者客户端使用`lrpush`从列表左侧插入元素，多个消费者客户端使用`brpop`命令阻塞式地「抢」列表尾部的元素，
 
 ![image-20240108161201212](assets/image-20240108161201212.png)
 
@@ -635,7 +633,7 @@ $ srem key element [element ...]
 $ scard key
 ~~~
 
-scard的时间复杂度为$\Omicron(1)$，它不会遍历集合所有元素，而是直接用 Redis内部的变量
+scard 的时间复杂度为$\Omicron(1)$，它不会遍历集合所有元素，而是直接用 Redis内部的变量
 
 
 
@@ -645,7 +643,7 @@ scard的时间复杂度为$\Omicron(1)$，它不会遍历集合所有元素，�
 $ sismember key element
 ~~~
 
-如果给定元素element在集合内返回1，反之返回0
+如果给定元素 element 在集合内返回 1，反之返回 0
 
 
 
@@ -655,7 +653,7 @@ $ sismember key element
 $ srandmember key [count]
 ~~~
 
-[count]是可选参数，如果不写默认为1，
+[count] 是可选参数，如果不写默认为 1，
 
 
 
@@ -665,7 +663,7 @@ $ srandmember key [count]
 $ spop key
 ~~~
 
-spop操作可以从集合中随机弹出一个元素
+spop 操作可以从集合中随机弹出一个元素
 
 
 
@@ -709,8 +707,8 @@ $ sdiffstore destination key [key ...]
 
 集合类型的内部编码有两种：
 
-- **intset（整数集合）**：当集合中的元素都是整数且元素个数小于set-maxintset-entries配置（默认512个）时，Redis会选用intset来作为集合的内部实 现，从而减少内存的使用。
-- **hashtable（哈希表）**：当集合类型无法满足intset的条件时，Redis会使 用hashtable作为集合的内部实现。
+- **intset（整数集合）**：当集合中的元素都是整数且元素个数小于 set-maxintset-entries 配置（默认512个）时，Redis 会选用 intset 来作为集合的内部实现，从而减少内存的使用。
+- **hashtable（哈希表）**：当集合类型无法满足 intset 的条件时，Redis会使用 hashtable 作为集合的内部实现。
 
 
 
@@ -730,12 +728,12 @@ zadd key score member [score member ...]
 
 返回结果代表成功添加成员的个数。
 
-Redis3.2为zadd命令添加了nx、xx、ch、incr四个选项： 
+Redis3.2为 zadd 命令添加了 nx、xx、ch、incr 四个选项： 
 
-- nx：member必须不存在，才可以设置成功，用于添加。 
-- xx：member必须存在，才可以设置成功，用于更新。 
+- nx：member 必须不存在，才可以设置成功，用于添加。 
+- xx：member 必须存在，才可以设置成功，用于更新。 
 - ch：返回此次操作后，有序集合元素和分数发生变化的个数 
-- incr：对score做增加，相当于后面介绍的zincrby。
+- incr：对 score 做增加，相当于后面介绍的 zincrby。
 
 
 
@@ -760,7 +758,7 @@ $ zrank key member
 $ zrevrank key member
 ~~~
 
-zrank是从分数从低到高返回排名，zrevrank反之。排名从0开始计算
+zrank 是从分数从低到高返回排名，zrevrank 反之。排名从 0 开始计算
 
 **删除成员**
 
@@ -776,7 +774,7 @@ $ zrem key member [member ...]
 $ zincrby key increment member
 ~~~
 
-increment是一个整数值
+increment 是一个整数值
 
 
 
@@ -802,10 +800,10 @@ $ zrevrangebyscore key max min [withscores] [limit offset count]
 
 `[limit offset count]`选项可以限制输出的起始位置和个数：
 
-同时，min和max还支持
+同时，min 和 max 还支持
 
 - 开区间（小括号）和闭区间（中括号）
-- -inf和 +inf分别代表无限小和无限大：
+- -inf 和 +inf 分别代表无限小和无限大：
 
 ![image-20240108185153499](assets/image-20240108185153499.png)
 
@@ -879,7 +877,7 @@ $ rename key newkey
 
 ![image-20240108205434458](assets/image-20240108205434458.png)
 
-为了防止被强行rename，Redis提供了`renamenx`命令，确保只有newKey 不存在时候才被覆盖
+为了防止被强行 rename，Redis提供了`renamenx`命令，确保只有 newKey 不存在时候才被覆盖
 
 
 
@@ -893,9 +891,9 @@ $ randomkey
 
 ### 过期时间
 
-除了expire、ttl命令以外，Redis还提供了 expireat、pexpire、pexpireat、pttl、persist等一系列命令来处理键值对的过期时间。
+除了 expire、ttl 命令以外，Redis 还提供了 expireat、pexpire、pexpireat、pttl、persist等一系列命令来处理键值对的过期时间。
 
-ttl命令和pttl都可以查询键的剩余过期时间，但是pttl精度更高可以达到 毫秒级别，有3种返回值： 
+ttl 命令和 pttl 都可以查询键的剩余过期时间，但是pttl精度更高可以达到毫秒级别，有3种返回值： 
 
 - 大于等于0的整数：键剩余的过期时间（ttl是秒，pttl是毫秒）。 
 - -1：键没有设置过期时间。 
@@ -903,28 +901,24 @@ ttl命令和pttl都可以查询键的剩余过期时间，但是pttl精度更高
 
 
 
-expireat命令可以设置键的秒级过期时间戳，例如如果需要将键hello在 2016-08-0100：00：00（秒级时间戳为1469980800）过期，可以执行如下操作：
+expireat 命令可以设置键的**秒级过期时间戳**，例如如果需要将键 hello 在 2016-08-0100：00：00（秒级时间戳为1469980800）过期，可以执行如下操作：
 
 ~~~shell
 $ expireat hello 1469980800
 ~~~
 
-如果过期时间为负值，键会立即被删除，犹如使用del命令一样：
+如果过期时间为负值，键会立即被删除，犹如使用 del 命令一样：除此之外，Redis2.6版本后提供了毫秒级的过期方案： 
 
-除此之外，Redis2.6版本后提供了毫秒级的过期方案： 
+- `pexpire key milliseconds`：键在 milliseconds 毫秒后过期。 
+- `pexpireat key milliseconds-timestamp`：键在毫秒级时间戳 timestamp 后过期。
 
-- pexpire key milliseconds：键在milliseconds毫秒后过期。 
-- pexpireat key milliseconds-timestamp键在毫秒级时间戳timestamp后过 期。
-
-但无论是使用过期时间还是时间戳，秒级还是毫秒级，在Redis内部最 终使用的都是pexpireat。
-
-`PERSIST`：此命令用来移除给定 key 的过期时间，使得 key 永不过期。
+但无论是使用过期时间还是时间戳，秒级还是毫秒级，在 Redis 内部最终使用的都是 `pexpireat`。`PERSIST`命令用来移除给定 key 的过期时间，使得 key 永不过期。
 
 
 
-对于字符串类型键，执行set命令会移除过期时间。但是对于`LPUSH` (List)、 `SADD` (Set)、 `ZADD` (Sorted Set) 或者 `HSET` (Hash) ，这些操作不会影响键的过期时间。
+对于字符串类型键，执行 set 命令会移除过期时间。但是对于`LPUSH` (List)、 `SADD` (Set)、 `ZADD` (Sorted Set) 或者 `HSET` (Hash) ，这些操作不会影响键的过期时间。
 
-如下是Redis源码中，set命令的函数setKey，可以看到最后执行了 removeExpire（db，key）函数去掉了过期时间：
+如下是 Redis 源码中，set 命令的函数 setKey，可以看到最后执行了 removeExpire（db，key）函数去掉了过期时间：
 
 ~~~c
 void setKey(redisDb *db, robj *key, robj *val) {
@@ -944,7 +938,7 @@ void setKey(redisDb *db, robj *key, robj *val) {
 
 ### 迁移
 
-有时候我们只想把部分数据由一个Redis迁 移到另一个Redis（例如从生产环境迁移到测试环境）。Redis提供了move、dump+restore、migrate三组迁移键的方法：
+有时候我们只想把部分数据由一个 Redis 迁移到另一个 Redis（例如从生产环境迁移到测试环境）。Redis提供了move、dump+restore、migrate三组迁移键的方法：
 
 - **move**
 
@@ -952,13 +946,13 @@ void setKey(redisDb *db, robj *key, robj *val) {
   $ move key db
   ~~~
 
-  Redis内部可以有多个数据库，该命令正是在这些数据库中进行迁移。move key db就是把指定的键从源数据库移动到目标数据库中。
+  Redis 内部可以有多个数据库，该命令正是在这些数据库中进行迁移。move key db 就是把指定的键从源数据库移动到目标数据库中。
 
 - **dump + restore**
 
-  dump+restore可以实现在不同的Redis实例之间进行数据迁移的功能，整 个迁移的过程分为两步：
+  dump + restore可以实现在不同的 Redis 服务器实例之间，进行数据迁移的功能，整 个迁移的过程分为两步：
   
-  1. 在源Redis上，dump命令会将键值序列化，格式采用的是RDB格式。
+  1. 在源 Redis 上，dump 命令会将键值序列化，格式采用的是 RDB 格式。
   
      ~~~shell
      $ set hello world
@@ -967,9 +961,7 @@ void setKey(redisDb *db, robj *key, robj *val) {
      # "\x00\x05world\x06\x00\x8f<T\x04%\xfcNQ"
      ~~~
   
-     
-  
-  2. 在目标Redis上，`restore key ttl value`命令将上面序列化的值进行复原，其中ttl参数代表过期时间，如果ttl=0代表没有过期时间。
+  2. 在目标Redis上，`restore key ttl value` 命令将上面序列化的值进行复原，其中 ttl 参数代表过期时间，如果 ttl=0 代表没有过期时间。value 就是 RDB 结果
   
      ~~~shell
      $ get hello
@@ -980,22 +972,22 @@ void setKey(redisDb *db, robj *key, robj *val) {
      # "world"
      ~~~
   
-  整个迁移过程并非原子性 的，而是通过客户端分步完成的。
+  整个迁移过程并非原子性的，而是通过客户端分步完成的。
   
-- **migrate**：实现过程和dump+restore基本类似，但整个过程是原子执行的
+- **migrate**：实现过程和 dump + restore 基本类似，但整个过程是原子执行的
   
   ~~~shell
   $ migrate host port key|"" destination-db timeout [copy] [replace] [keys key [key
   ~~~
   
-  - `host`：目标Redis的IP地址
-  - `port`：目标Redis的端口
-  - `key|""`：在Redis3.0.6版本之前，migrate只支持迁移一个键，所以此处是 要迁移的键，但Redis3.0.6版本之后支持迁移多个键，如果当前需要迁移多 个键，此处为空字符串""
-  - `destination-db`：目标Redis的数据库索引，例如要迁移到0号数据库，这里就写0
+  - `host`：目标 Redis 的 IP 地址
+  - `port`：目标 Redis 的端口
+  - `key|""`：在 Redis3.0.6 版本之前，migrate 只支持迁移一个键，所以此处是要迁移的键，但 Redis3.0.6版本之后支持迁移多个键，如果当前需要迁移多个键，此处为空字符串""
+  - `destination-db`：目标 Redis 的数据库索引，例如要迁移到 0 号数据库，这里就写 0
   - `timeout`：迁移的超时时间
   - `[copy]`：如果添加此选项，迁移后并不删除源键
-  - `[replace]`：如果添加此选项，migrate不管目标Redis是否存在该键都会 正常迁移进行数据覆盖。如果没有添加该选项，而且目标Redis有该键，那么就会返回错误提示
-  - `[keys key[key...]]`：迁移多个键，例如要迁移key1、key2、key3，此处填 写“keys key1 key2 key3”
+  - `[replace]`：如果添加此选项，migrate 不管目标 Redis 是否存在该键，都会正常迁移进行数据覆盖。如果没有添加该选项，而且目标 Redis 有该键，那么就会返回错误提示。
+  - `[keys key[key...]]`：迁移多个键，例如要迁移 key1、key2、key3，此处填 写“keys key1 key2 key3”
 
 
 
@@ -1014,20 +1006,20 @@ $ keys pattern
 - `[]` 代表匹配部分字符
 - \x用来做转义，例如要匹配星号、问号需要进行转义
 
-想删除所有以video字符串开头的键，可以 执行如下操作：
+想删除所有以 video 字符串开头的键，可以 执行如下操作：
 
 ~~~shell
 $ redis-cli keys video* | xargs redis-cli del
 ~~~
 
-如果Redis包含了 大量的键，执行keys命令很可能会造成Redis阻塞，所以一般建议不要在生产环境下使用keys命令。如果确实又该需求该怎么办？
+如果Redis包含了大量的键，执行 keys 命令很可能会造成Redis阻塞，所以一般建议不要在生产环境下使用 keys 命令。如果确实又该需求该怎么办？
 
-- 使用scan命令，渐进式遍历所有键
-- 在一个不对外提供服务的Redis从节点上执行，这样不会阻塞到客户端 的请求，但是会影响到主从复制
+- 使用 scan 命令，渐进式遍历所有键
+- 在一个不对外提供服务的 Redis 从节点上执行，这样不会阻塞到客户端的请求，但是会影响到主从复制。
 
 
 
-scan采用渐进式遍历 的方式来解决keys命令可能带来的阻塞问题，每次scan命令的时间复杂度是$\Omicron(1)$。但是要真正实现keys的功能，需要执行多次scan。Redis存储键值对 实际使用的是hashtable的数据结构，其简化模型如图2-29所示。
+scan 采用渐进式遍历的方式来解决keys命令可能带来的阻塞问题，每次 scan 命令的时间复杂度是$\Omicron(1)$。但是要真正实现 keys 的功能，需要执行多次scan。Redis 实际使用的是 hashtable 的数据结构来存储键值对，其简化模型如图2-29所示。
 
 ![image-20240112100251025](assets/image-20240112100251025.png)
 
@@ -1035,7 +1027,7 @@ scan采用渐进式遍历 的方式来解决keys命令可能带来的阻塞问�
 $ scan cursor [match pattern] [count number]
 ~~~
 
-- cursor是必需参数，实际上cursor是一个游标。第一次遍历从0开始，每次scan遍历完都会返回当前游标的值，直到游标值为0，表示遍历结束。游标值并不与key的个数对应。
+- cursor 是必需参数，实际上 cursor 是一个游标。第一次遍历从 0 开始，每次 scan 遍历完都会返回当前游标的值，直到游标值为 0，表示遍历结束。游标值并不与 key 的个数对应。
 
   ![image-20240112102206941](assets/image-20240112102206941.png)
 
@@ -1043,15 +1035,15 @@ $ scan cursor [match pattern] [count number]
 
   ![image-20240112102226488](assets/image-20240112102226488.png)
 
-- match pattern类似keys命令的pattern
+- match pattern 类似 keys 命令的 pattern
 
-- count number是可选参数，它的作用是表明每次要遍历的键个数，默认值是10
+- count number 是可选参数，它的作用是表明每次要遍历的键个数，默认值是 10
 
 
 
-除了scan以外，Redis提供了面向哈希类型、集合类型、有序集合的扫描遍历命令，解决诸如`hgetall`、`smembers`、`zrange`可能产生的阻塞问题，对应的命令分别是`hscan`、`sscan`、`zscan`
+除了 scan 以外，Redis提供了面向哈希类型、集合类型、有序集合的扫描遍历命令，解决诸如`hgetall`、`smembers`、`zrange`可能产生的阻塞问题，对应的命令分别是`hscan`、`sscan`、`zscan`
 
-如果在多次scan的过程中如果有键的变化（增加、删除、修改），那么这些变化可能被scan忽略掉。也就是说scan并不能保证完整的遍历出来所有的键，这些是 我们在开发时需要考虑的。
+如果在多次 scan 的过程中如果有键的变化（增加、删除、修改），那么这些变化可能被 scan 忽略掉。也就是说scan 并不能保证完整的遍历出来所有的键，这些是我们在开发时需要考虑的。
 
 
 
@@ -1063,11 +1055,9 @@ $ scan cursor [match pattern] [count number]
 $ select dbIndex
 ~~~
 
+Redis 默认配置中是有 16 个数据库，客户端默认使用 0 号数据库。我们很自然地想将生产环境中的数据放在 0 号数据库，测试环境中的数据放在 1 号数据库？但是这样做真的欠妥吗？
 
-
-Redis默认配置中是有16个数据库，客户端默认使用0号数据库。我们很自然地想将生产环境中的数据放在0号数据库，测试环境中的数据放在1号数据库？但是这样做真的欠妥吗？
-
-Redis3.0中已经逐渐弱化这个功能，例如Redis的分布式实现Redis Cluster只允许使用0号数据库，只不过为了向下兼容老版本的数据库功能， 该功能没有完全废弃掉。
+Redis3.0中已经逐渐弱化这个功能，例如 Redis 的分布式实现 Redis Cluste r只允许使用 0 号数据库，只不过为了向下兼容老版本的数据库功能， 该功能没有完全废弃掉。
 
 - Redis是单线程的。如果使用多个数据库，那么这些数据库仍然是使用一个CPU，彼此之间还是会受到影响的。
 -  假如有一个慢查询存在，依然会影响其他数据库，这样会使得别的业务方定位问题非常的困难。
@@ -1076,22 +1066,22 @@ Redis3.0中已经逐渐弱化这个功能，例如Redis的分布式实现Redis C
 
 
 
-flushdb/flushall命令用于清除数据库，两者的区别的是flushdb只清除当 前数据库，flushall会清除所有数据库。
+flushdb/flushall 命令用于清除数据库，两者的区别的是 flushdb 只清除当前数据库，flushall会清除所有数据库。
 
 
 
 ## 慢查询分析
 
-Redis提供了慢查询分析功能，所谓慢查询日志就是系统在命令执行前后计算每条命令的执行时间，当超过预设阀值，就将这条命令的相关信息记录下来。
+Redis 提供了慢查询分析功能，所谓慢查询日志就是系统在命令执行前后计算每条命令的执行时间，当超过预设阀值，就将这条命令的相关信息记录下来。
 
 在Redis中，慢查询记录有4个属性组成，分别是
 
-- 慢查询日志的标识id
+- 慢查询日志的标识 id
 - 发生时间戳
 - 命令耗时
 - 所执行的命令。
 
-Redis客户端执行一条命令分为如下4个部分：发送命令、排队、执行命令、返回结果
+Redis 客户端执行一条命令分为如下 4 个部分：发送命令、排队、执行命令、返回结果
 
  ![image-20240112103801369](assets/image-20240112103801369.png)
 
@@ -1101,13 +1091,11 @@ Redis客户端执行一条命令分为如下4个部分：发送命令、排队�
 
 `slowlog-log-slower-than`预设阀值，单位为微秒，默认值是10000（10ms）。`slowlog-log-slower-than=0`会记录所有的命令，`slowlog-log-slowerthan<0`对于任何命令都不会进行记录。
 
-
-
 `slowlog-max-len`说明了慢查询日志最多存储多少条。
 
 
 
-在Redis中有两种修改配置的方法
+在 Redis 中有两种修改配置的方法
 
 - 修改配置文件
 
@@ -1131,15 +1119,11 @@ $ slowlog get [n]
 
 可选参数`n`可以指定条数
 
-
-
 **获取慢查询日志列表当前的长度**
 
 ~~~shell
 $ slowlog len
 ~~~
-
-
 
 **慢查询日志重置**
 
@@ -1147,11 +1131,9 @@ $ slowlog len
 $ slowlog reset
 ~~~
 
-
+慢查询日志并不会永久保存，当 Redis 服务器重启时，慢查询日志会被清空。
 
 ## Redis Shell
-
-
 
 ### 客户端
 
@@ -1239,7 +1221,7 @@ $ redis-server --test-memory 1024
 
 ### 性能测试
 
-`redis-benchmark`可以为Redis做基准性能测试
+`redis-benchmark`可以为 Redis 做基准性能测试
 
 - `-c`（clients）选项代表客户端的并发数量（默认是50）
 
@@ -1249,7 +1231,7 @@ $ redis-server --test-memory 1024
 
   ![image-20240112192940024](assets/image-20240112192940024.png)
 
-- `-q`选项表示仅显示redis-benchmark的requests per second信息
+- `-q`选项表示仅显示 redis-benchmark 的 requests per second 信息
 
   ![image-20240112193046727](assets/image-20240112193046727.png)
 
@@ -1257,47 +1239,45 @@ $ redis-server --test-memory 1024
 
 ## Pipeline
 
-Redis提供了几条批量操作命令（例如mget、mset等），但是大部分命令是不支持批量操作的。好在我们可以通过 `redis-cli --pipe`来解决这个问题
-
-
+Redis提供了几条批量操作命令（例如mget、mset等），但是大部分命令是不支持批量操作的。好在我们可以通过 `redis-cli --pipe` 来解决这个问题
 
 ~~~shell
-# 这里的格式为RESP
+# 这里的格式为 RESP
 $ echo -en '*3\r\n$3\r\nSET\r\n$5\r\nhello\r\n$5\r\nworld\r\n*2\r\n$4\r\nincr\r\
 n$7\r\ncounter\r\n' | redis-cli --pipe
 ~~~
 
-我们之后介绍如何通过Java的Redis客户端Jedis来使用Pipeline功能。
+我们之后介绍如何通过 Java 的 Redis 客户端 Jedis 来使用 Pipeline 功能。
 
 ![image-20240112193832036](assets/image-20240112193832036.png)
 
 ![image-20240112193812203](assets/image-20240112193812203.png)
 
-Pipeline和原生批量命令（mset）还是有所区别的，即原生批量命令是原子的，Pipeline是非原子的。
+Pipeline 和原生批量命令（mset）还是有所区别的，即原生批量命令是原子的，Pipeline是非原子的。
 
 ## 事务与Lua
 
-为了保证多条命令组合的原子性，Redis提供了简单的事务功能以及集成Lua脚本来解决这个问题。
+为了保证多条命令组合的原子性，Redis 提供了简单的事务功能以及集成 Lua 脚本来解决这个问题。
 
-Redis提供了简单的事务功能，将一组需要一起执行的命令放到`multi`和`exec`两个命令之间。`multi`命令代表事务开始，`exec`命令代表事务提交，它们之间的命令是原子顺序执行的。
+Redis提供了简单的事务功能，将一组需要一起执行的命令放到`multi`和`exec`两个命令之间。`multi`命令代表事务开始，`exec`命令代表事务提交，它们之间的命令是原子顺序执行的，也就是说，在执行事务的过程中（exec 提交事务后），不会被其他客户端的命令打断。
 
 ![image-20240112194524854](assets/image-20240112194524854.png)
 
-可以看到`sadd`命令此时的返回结果是`QUEUED`，代表命令并没有真正执行，而是暂时保存在Redis中，直到指定`exec`命令。
+可以看到`sadd`命令此时的返回结果是`QUEUED`，代表命令并没有真正执行，而是暂时保存在 Redis 中，直到指定`exec`命令。
 
 如果要主动回滚事务，可以使用`discard`命令
 
 以下几种情况会回滚事务
 
-- **命令错误**（语法错误），例如将`set`写成了`sett`，此时会回滚事务
+- **命令错误**（语法错误），例如将`set`写成了`sett`，此时会回滚整个事务（不会执行到 exec 命令的）。
 
-- **运行时错误**，例如对集合使用`zadd`命令，此时整个事务都会被提交执行。此时并不能进行回滚了
+- **运行时错误**，例如对集合使用`zadd`命令，此时由于事务都被提交执行了（已经执行了 exec 命令），因此已经执行过的命令并不能进行回滚了
 
   ![image-20240112201132500](assets/image-20240112201132500.png)
 
 
 
-有些应用场景需要在提交事务之前，确保事务中的key没有被其他客户端修改过，才执行事务，否则不执行（类似乐观锁）。Redis提供了`watch`命令来解决这类问题。
+有些应用场景需要在提交事务之前，确保事务中的 key 没有被其他客户端修改过，才执行事务，否则不执行（类似乐观锁）。Redis提供了`watch`命令来解决这类问题。当你使用`WATCH`命令监视一个或多个 key 后，如果在执行事务之前，被监视的 key 被其他命令改动，那么事务将被打断，`EXEC`命令会返回`nil`，意味着事务执行失败。
 
 一个简单的例子
 
@@ -1305,10 +1285,10 @@ Redis提供了简单的事务功能，将一组需要一起执行的命令放到
 
 
 
-Lua语言是在1993年由巴西一个大学研究小组发明，其设计目标是作为 嵌入式程序移植到其他应用程序，它是由C语言实现的。它的应用场景如下：
+Lua 语言是在 1993 年由巴西一个大学研究小组发明，其设计目标是作为嵌入式程序移植到其他应用程序，它是由 C语言实现的。它的应用场景如下：
 
-- 暴雪公司将Lua语言引入到“魔兽世界”这款游戏中
-- Web服务器Nginx 将Lua语言作为扩展
+- 暴雪公司将 Lua 语言引入到「魔兽世界」这款游戏中
+- Web 服务器 Nginx 将Lua语言作为扩展
 
 
 
@@ -1334,7 +1314,7 @@ print("user_1 age is " .. user_1["age"])
 
 
 
-在Lua语言中，for语句有两种形式：数值for循环和范围for循环。
+在Lua语言中，for语句有两种形式：数值 for 循环和范围 for 循环。
 
 - **范围for循环**
 
@@ -1462,17 +1442,17 @@ redis.call("get", "hello")
 
 
 
-Redis提供了4个命令实现对Lua脚本的管理
+Redis提供了4个命令实现对 Lua 脚本的管理
 
-- **script load**：将Lua脚本加载到Redis内存中
+- **script load**：将 Lua 脚本加载到 Redis 内存中
 
-- **script exists**：用于判断sha1是否已经加载到Redis内存中
+- **script exists**：用于判断 sha1 是否已经加载到 Redis 内存中
 
   ~~~shell
   script exists a5260dd66ce02462c5b5231c727b3f7772c0bcc5
   ~~~
 
-- **script flush**：用于清除所有在Redis内存中加载的Lua脚本
+- **script flush**：用于清除所有在 Redis 内存中加载的 Lua 脚本
 
   ~~~shell
   script flush
@@ -1480,11 +1460,11 @@ Redis提供了4个命令实现对Lua脚本的管理
 
 - **script kill**：杀掉正在执行的Lua脚本
 
-  Redis提供了一个lua-time-limit参数，默认是5s。当脚本运行时间超过参数预设的值后，Server会向所有客户端发送BUSY信号，但是并不会终止脚本的执行。
+  Redis提供了一个 lua-time-limit 参数，默认是 5s 。当脚本运行时间超过参数预设的值后，Server 会向所有客户端发送 BUSY 信号，但是并不会终止脚本的执行。
 
   ![image-20240112212529496](assets/image-20240112212529496.png)
 
-  此时使用`script kill`命令即可。如果当前Lua脚本正在执行写操作（调用Redis函数），那么script kill将不会生效。
+  此时在客户端使用`script kill`命令即可。如果当前 Lua 脚本正在执行写操作（调用Redis函数），那么 script kill 将不会生效。
 
 
 
@@ -1513,7 +1493,7 @@ $ gitbit key offset
 
 
 
-**获取Bitmaps指定范围值为1的个数**
+**获取Bitmaps指定范围值为 1 的个数**
 
 ~~~shell
 bitcount [start][end]
@@ -1546,8 +1526,6 @@ $ bitpos key targetBit [start] [end]
 
 HyperLogLog是一种用于高性能基数统计的算法。在 Redis 里面，每个 HyperLogLog 键最多需要花费 12 KB 内存。基数估计的结果是一个带有 **0.81% 标准错误**（standard error）的近似值。
 
-
-
 `pfadd`用于向HyperLogLog添加元素，如果添加成功返回1：
 
 ~~~shell
@@ -1572,7 +1550,7 @@ $ PFCOUNT key1 key2
 
 **合并**
 
-pfmerge可以求出多个HyperLogLog的并集并赋值给destkey
+pfmerge 可以求出多个 HyperLogLog 的并集并赋值给 destkey
 
 ~~~shell
 $ pfmerge destkey sourcekey [sourcekey ...]
@@ -1612,7 +1590,7 @@ $ subscribe channel:sports
 
 客户端在执行订阅命令之后进入了订阅状态，只能使用`subscribe`、 `psubscribe`、`unsubscribe`、`punsubscribe`的四个命令。
 
-UNSUBSCRIBE命令的行为和SUBSCRIBE命令的行为正好相反，当一个客户端退订某个或某些频道的时候，服务器将从pubsub_channels中解除客户端与被退订频道之间的关联：
+UNSUBSCRIBE 命令的行为和 SUBSCRIBE 命令的行为正好相反，当一个客户端退订某个或某些频道的时候，服务器将从 pubsub_channels 中解除客户端与被退订频道之间的关联：
 
 
 
@@ -1623,9 +1601,9 @@ $ psubscribe pattern [pattern...]
 $ punsubscribe [pattern [pattern ...]]
 ~~~
 
-- 使用punsubscribe只能退订通过psubscribe命令订阅的规则，不会影响直接通过subscribe命令订阅的频道；同样unsubscribe命令也不会影响通过psubscribe命令订阅的规则。另外需要注意punsubscribe命令退订某个规则时不会将其中的通配符展开，而是进行严格的字符串匹配，所以`punsubscribe *` 无法退订`c*`规则，而是必须使用`punsubscribe c*`才可以退订。
-- 如果punsubscribe命令没有参数，则会退订所有规则。
-- 使用psubscribe命令可以重复订阅同一个频道，如客户端执行了`psubscribe c? c?*`。这时向c1发布消息客户端会接受到两条消息，而同时publish命令的返回值是2而不是1。
+- 使用 punsubscribe 只能退订通过 psubscribe 命令订阅的规则，不会影响直接通过 subscribe 命令订阅的频道；同样 unsubscribe 命令也不会影响通过 psubscribe 命令订阅的规则。另外需要注意 punsubscribe 命令退订规则时，不会将其中的通配符展开，而是进行严格的字符串匹配，匹配的对象是 psubscribe 订阅的 pattern，不是的具体的 channel 名。所以`punsubscribe *` 无法退订通过 psubscribe 订阅的`c*`规则，而是必须使用`punsubscribe c*`才可以退订。
+- 如果 punsubscribe 命令没有参数，则会退订所有规则。
+- 使用 psubscribe 命令可以重复订阅同一个频道，如客户端执行了`psubscribe c? c?*`。这时向 c1 发布消息客户端会接受到两条消息，而同时publish命令的返回值是 2 而不是 1 。
 
 
 
@@ -1642,8 +1620,7 @@ $ pubsub channels [pattern]
 **查看频道订阅数**
 
 ~~~shell
-pubsub numsub [channel ...]
-
+$ pubsub numsub [channel ...]
 ~~~
 
 ## GEO
@@ -1700,11 +1677,11 @@ $ georadiusbymember key member radiusm|km|ft|mi [withcoord] [withdist]
 [withhash] [COUNT count] [asc|desc] [store key] [storedist key]
 ~~~
 
-`georadius`和`georadiusbymember`两个命令的作用是一样的，都是以一个地理位置为中心算出指定半径内的其他地理信息位置，不同的是`georadius`命令的通过具体的经纬度来给出中心，`georadiusbymember`只需给出成员即可。
+`georadius`和`georadiusbymember`两个命令的作用是一样的，都是以一个地理位置为中心算出指定半径内的其他地理信息位置，不同的是`georadius`命令的通过具体的经纬度来给出中心，`georadiusbymember` 只需给出成员即可。
 
 - withcoord：返回结果中包含经纬度。
 - withdist：返回结果中包含离中心节点位置的距离。
-- withhash：返回结果中包含geohash。
+- withhash：返回结果中包含 geohash。
 - COUNT count：指定返回结果的数量。
 - asc|desc：返回结果按照离中心节点的距离做升序或者降序。
 - store key：将返回结果的地理位置信息保存到指定键。
@@ -1714,13 +1691,13 @@ store key以及storedist key所对应的键类型是有序集合（zset）
 
 
 
-Redis使用geohash [3]将二维经纬度转换为一维字符串
+Redis 使用 geohash [3] 将二维经纬度转换为一维字符串
 
 ~~~shell
 $ geohash key member [member ...]
 ~~~
 
-GEO的数据类型为zset，Redis将所有地理位置信息的geohash存放在zset中
+GEO 的数据类型为 zset，Redis 将所有地理位置信息的 geohash 存放在 zset 中
 
 
 

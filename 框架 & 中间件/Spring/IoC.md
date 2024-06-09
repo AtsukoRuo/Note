@@ -7,28 +7,20 @@
 Spring 家族中的主要成员：
 
 - **Spring Framework**：提供了依赖注入、AOP、容器、资源管理等特性。
-- **Spring Boot**：包含了健康检查、监控、度量指标、外化配置等生产所需的功能，降低了开发生产级 Spring 应用的门槛。此外，它还提供了**起步依赖**（starter dependency）很好地解决了 Spring 应用的依赖管理困境。而且提供了**自动配置**来减少了 Spring 应用的配置量
+- **Spring Boot**：包含了健康检查、监控、度量指标、外化配置等生产所需的功能，降低了开发生产级 Spring 应用的门槛。此外，它还提供了**起步依赖**（starter dependency）很好地解决了 Spring 应用的依赖管理困境。而且提供了**自动配置**来减少了 Spring 应用的配置
 - **Spring Cloud**，它是一系列模块的集合，这些模块分别实现了服务发现、配置管理、服务路由、服务熔断、链路追踪等功能
 - **Spring Data**，Spring Framework 为传统的关系型数据库操作提供了统一的抽象。
-
-
 
 > SSH 的三个字母分别指代 Spring Framework、Struts 和 Hibernate。现在 Spring MVC 替代了 Struts
 
 
 
-通过 Spring Initializr（[https://start.spring.io](https://start.spring.io/)）工具来创建工程。
-
-
-
-一个标准的Maven工程结构包含
+一个标准的 Maven 工程结构包含
 
 -  pom.xml：包含工程元数据、依赖和插件配置
 -  application.properties：工程的配置文件
 - ApplicationTests：测试类
 - Application：入口程序
-
-![image-20231129141532489](C:\Users\AtsukoRuo\AppData\Roaming\Typora\typora-user-images\image-20231129141532489.png)
 
 
 
@@ -36,15 +28,13 @@ Spring 家族中的主要成员：
 
 **控制反转（Inversion of Control，IoC）**、**依赖注入（Dependency Injection）**与**面向切面编程（Aspect Oriented Programming，AOP）**是 Spring Framework 中最重要的概念。
 
-首先我们来介绍下**「控制反转」（Inversion Of Control）**。这里的“控制”指的是对程序执行流程的控制，而“反转”指的是调用者与被调用者之间的控制权转移。例如，在没有使用框架之前，程序员自己控制整个程序的执行。在使用框架之后，整个程序的执行流程可以通过框架来控制（模板方法）。流程的控制权从程序员“反转”到了框架。
+首先我们来介绍下**「控制反转」（Inversion Of Control）**。这里的「控制」指的是对程序执行流程的控制，而「反转」指的是调用者与被调用者之间的控制权转移。例如，在没有使用框架之前，程序员自己控制整个程序的执行。在使用框架之后，整个程序的执行流程可以通过框架来控制（模板方法）。流程的控制权从程序员「反转」到了框架。
 
-**依赖注入（Dependency Injection）**：不通过new()的方式在类内部创建依赖类对象，而是将依赖的类对象在外部创建好之后，通过构造函数、函数参数等方式传递（注入）给类使用。也就是说，将对象的创建**控制反转**给上层来处理。
+**依赖注入（Dependency Injection）**：不通过 new() 的方式在类内部创建依赖类对象，而是将依赖的类对象在外部创建好之后，通过构造函数、setter 函数等方式传递（注入）给类使用。也就是说，将对象的创建**控制反转**给上层来处理。
 
 在实际的软件开发中，一些项目可能会涉及几十、上百、甚至几百个类，类对象的创建、依赖注入、组件之间依赖关系的处理会变得非常复杂。而这些工作跟具体的业务逻辑是无关的，此时我们完全可以抽象成框架来自动完成，从而减少手动装配出错的可能性。Spring Framework 的 IoC 容器正是基于依赖注入的思想，将组件内部的依赖管理、生命周期管理的逻辑抽离出来，从而让开发人员专注于业务逻辑的实现。
 
 <img src="https://www.ituring.com.cn/figures/2023/LearnSpring/009.jpg" alt="{%}" style="zoom:10%;" />
-
-
 
 为了使用 Spring 的容器，需要在 pom.xml 文件中引入 `org.springframework:spring-beans` 依赖：
 
@@ -64,7 +54,6 @@ Spring 家族中的主要成员：
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.springframework.org/schema/beans
         https://www.springframework.org/schema/beans/spring-beans.xsd">
-
 </beans>
 ~~~
 
@@ -86,16 +75,16 @@ public class Person { }
 public static void main(String[] args) throws Exception {
     // 加载配置
     BeanFactory factory = new ClassPathXmlApplicationContext("basic_dl/quickstart-byname.xml");
-    // 获取Bean对象，按ID获取
+    
+    // 获取 Bean 对象，按ID获取
     Person person = (Person) factory.getBean("person");
-    // 获取Bean对象，按类名获取
+    
+    // 获取 Bean 对象，按类名获取
     Person person = factory.getBean(Person.class);
 }
 ~~~
 
-
-
-`BeanFactory` 是容器的基础接口。`ApplicationContext` 接口继承了 `BeanFactory`，在它的基础上增加了更多企业级应用所需要的特性（国际化、事件发布、生命周期管理等等）。常见的 `ApplicationContext` 实现如下：
+`BeanFactory` 是容器的基础接口。`ApplicationContext` 接口继承了 `BeanFactory`，在它的基础上增加了更多企业级应用所需要的特性（国际化、事件发布、生命周期管理等等）。常见的 `ApplicationContext` 实现类如下：
 
 | 类名                                 | 说明                                                    |
 | ------------------------------------ | ------------------------------------------------------- |
@@ -113,7 +102,7 @@ public static void main(String[] args) throws Exception {
 </dependency>
 ~~~
 
-然后在代码中使用ApplicationContext对象
+然后在代码中使用 `ApplicationContext` 对象
 
 ~~~java
 public class Application {
@@ -128,7 +117,7 @@ public class Application {
 
 
 
-`Spring`容器之间存在着继承关系——子容器可以继承父容器中配置的组件。假设现在有两个xml文件`child-beans.xml`与`parent-beans.xml`。如果我们要指定`parent-beans`为`child-beans`的父配置，那么需要在代码中：
+`Spring`容器之间存在着继承关系——子容器可以继承父容器中配置的组件。假设现在有两个 xml 文件`child-beans.xml`与`parent-beans.xml`。如果我们要指定`parent-beans`为`child-beans`的父配置，那么需要在代码中：
 
 ~~~java
 public class Application {
@@ -155,47 +144,45 @@ public class Application {
 - 子容器可以看到父容器中定义的 `Bean`，反之则不行
 - 子容器中可以定义与父容器同 ID 的 `Bean`，它们各自都能获取自己定义的 Bean（覆写）。
 
-通过容器的 `setAllowBeanDefinitionOverriding()` 方法可以设置覆盖同ID Bean的特性。如果参数设为false，那么在Spring配置信息解析过程中，一旦遇到新的同名Bean定义，框架就会抛出异常。记得要刷新容器
-
-
+通过容器的 `setAllowBeanDefinitionOverriding()` 方法可以设置覆盖同 ID Bean 的特性。如果参数设为 false，那么在 Spring 配置信息解析过程中，一旦遇到新的同名 Bean 定义，框架就会抛出异常。记得在调用后，要刷新容器。
 
 ## Beans
 
 JavaBeans 是 Java 中一种特殊的类，它满足：
 
 - 可序列化
-- 提供public无参构造器
-- 属性都是私有的，并且为每一个属性提供getter、setter方法
+- 提供 public 无参构造器
+- 属性都是私有的，并且为每一个属性提供 getter、setter 方法
 
 
 
-其中，名称中的Bean是指**可复用软件组件**。Spring 容器也遵循这一惯例，因此将容器中管理的可复用组件称为 **Spring Bean**（以下简称**Bean**）。在一个 Bean 的定义中，会包含如下部分：
+其中，Bean 是指**可复用软件组件**。Spring 容器也遵循这一惯例，因此将容器中管理的可复用组件称为 **Spring Bean**（以下简称 **Bean**）。在一个 Bean 的定义中，会包含如下部分：
 
 - Bean 的名称，一般是 Bean 的 `id`，也可以为 Bean 指定别名（alias）；
 - Bean 的具体类信息，这是一个全限定类名；（BO、VO、POJO等）
-- Bean 的作用域，是单例（singleton）还是原型（prototype）；前者每次获取返回的是同一个 Bean，而后者每次获取返回的是一个新的对象。**通常来说Prototype对应有状态（Stateful）的Bean对象，而Singleton对象无状态（Stateless）的Bean对象**
+- Bean 的作用域，是单例（singleton）还是原型（prototype）；前者每次获取返回的是同一个 Bean，而后者每次获取返回的是一个新的对象。**通常来说 Prototype 对应有状态（Stateful）的 Bean 对象，而 Singleton 对象无状态（Stateless）的 Bean 对象**
 - 依赖注入相关信息，构造方法参数、属性以及自动织入（autowire）方式；
 - 创建销毁相关信息，懒加载模式、初始化回调方法与销毁回调方法。
 
-### Bean的id、name属性
+### Bean 的 id、name 属性
 
 `id`属性唯一地标识某个Bean对象
 
-`name`属性用于定义Bean实例的别名(aliases)，一个Bean实例可以有多个别名，在name属性中用`,`或`;`分隔各个别名即可：
+`name`属性用于定义Bean实例的别名（aliases），一个 Bean 实例可以有多个别名，在 name 属性中用`,`或`;`分隔各个别名即可：
 
 ~~~xml
 <bean name="map,java_map;jdk_map" class="java.util.HashMap" />
 ~~~
 
-如果一个bean标签未指定id属性，那么将class属性中的全限定类名作为bean的默认id。如果有多个bean未指定id，而且class属性值相同，那么会按照其出现的次序，分别给其的id设置为 「全限定类名#1」, 「全限定类名#2」
+如果一个 bean 标签未指定 id 属性，那么将 class 属性中的全限定类名作为 bean 的默认 id。如果有多个 bean 未指定 id，而且 class 属性值相同，那么会按照其出现的次序，分别给其的 id 设置为 「全限定类名#1」, 「全限定类名#2」
 
-在同一个配置文件中，任意Bean对象之间的id、name属性值是禁止重复的
+在同一个配置文件中，任意 Bean 对象之间的 id、name 属性值是禁止重复的
 
-|                           非法配置                           |                   含义                   |
-| :----------------------------------------------------------: | :--------------------------------------: |
-| `<bean id="map" class="java.util.HashMap" />`<br>`<bean id="map" class="java.util.HashMap" />` |            两个bean的id值重复            |
-| `<bean name="map" class="java.util.HashMap" />` <br>`<bean name="map" class="java.util.HashMap" />` |           两个bean的name值重复           |
-| `<bean id="map" class="java.util.HashMap" />`<br/>`<bean name="map" class="java.util.HashMap" />` | 第一个bean的id值与第二个bean的name值重复 |
+|                           非法配置                           |                       含义                       |
+| :----------------------------------------------------------: | :----------------------------------------------: |
+| `<bean id="map" class="java.util.HashMap" />`<br>`<bean id="map" class="java.util.HashMap" />` |              两个 bean 的 id 值重复              |
+| `<bean name="map" class="java.util.HashMap" />` <br>`<bean name="map" class="java.util.HashMap" />` |             两个 bean 的 name 值重复             |
+| `<bean id="map" class="java.util.HashMap" />`<br/>`<bean name="map" class="java.util.HashMap" />` | 第一个 bean 的 id 值与第二个 bean 的 name 值重复 |
 
 ### Bean的作用域
 
@@ -208,29 +195,28 @@ JavaBeans 是 Java 中一种特殊的类，它满足：
 | application | 一个 Web 应用创建一个（仅Web应用可用）       |
 | websocket   | 一个 WebSocket 会话创建一个（仅Web应用可用） |
 
-bean的创建时机：
+bean 的创建时机：
 
-- 对于`Singleton` Bean以及`FactoryBean` 本身，都是伴随容器初始化而创建
-- 而FactoryBean创建的Bean以及 Prototype Bean，都是延迟创建的（按需创建），<del>而且不会触发后置处理器的`postProcessBeforeInitialization()`方法。</del>
+- 对于 Singleton Bean 以及 FactoryBean 本身，都是伴随容器初始化而创建
+- 而 FactoryBean 创建的 Bean 以及 Prototype Bean，都是在使用时延迟创建的（按需创建）
 
 ### Bean 的三种配置方式
 
 Spring Framework 提供了多种不同风格的配置方式：
 
-- 基于XML文件的配置
+- 基于 XML  文件的配置
 
-  - 在XML中编写Bean标签
+  - 在 XML 中编写 Bean 标签
   
-- 基于注解的配置，是配合Bean XML或者Java配置类来一起使用的
+- 基于注解的配置，是配合 Bean XML 或者 Java 配置类来一起使用的
 
   - Bean XML：`<context:component-scan base-package="learning.spring"/>`
   - Java配置类：`@ComposeScan`
 
-- Java配置类一般和SpringBoot配合使用，兼容XML以及注解
-
+- Java配置类一般和 SpringBoot 配合使用，兼容 XML 以及注解
   - `@Bean`
   - `@ComposeScan`，兼容注解
-  - `@ImportResource`，兼容XML
+  - `@ImportResource`，兼容 XML
 
 
 #### 基于 XML 文件的配置
@@ -238,7 +224,7 @@ Spring Framework 提供了多种不同风格的配置方式：
 有两种基本的注入方式：
 
 - 基于构造方法的注入
-- 基于Setter方法的注入
+- 基于 Setter 方法的注入
 
 ~~~java
 public class Hello {
@@ -262,12 +248,12 @@ public class Hello {
 |  属性   |                    作用                     |
 | :-----: | :-----------------------------------------: |
 | `value` |                所要注入的值                 |
-|  `ref`  |      所要注入的Bean对象，其值为Bean ID      |
+|  `ref`  |    所要注入的 Bean 对象，其值为 Bean ID     |
 | `type`  |        通过类型来指定所要传入的参数         |
 | `index` | 通过位置来指定所要传入的参数，从 0 开始计算 |
 | `name`  |        通过命名来指定所要传入的参数         |
 
-每一个`constructor-arg`标签都对应构造函数中的一个参数。所以有N个`constructor-arg`标签就对应具有N个参数的构造函数。
+每一个`constructor-arg`标签都对应构造函数中的一个参数。所以有 N 个`constructor-arg`标签就对应具有 N 个参数的构造函数。
 
 
 
@@ -307,15 +293,15 @@ public class Hello {
 </bean>
 ~~~
 
-如果Map的key/value的类型为基本类型或者String，那么可以直接通过key/value属性来设置。如果是其他类类型，那么就需要通过key-ref/value-ref来设置
+如果 Map 的 key/value 的类型为基本类型或者 String，那么可以直接通过 key/value 属性来设置。如果是其他类类型，那么就需要通过 key-ref/value-ref 来设置。
 
 
 
-通过`<property/>`标签，我们可以基于Setter方法来依赖注入。注意，Setter只接受一个参数
+通过`<property/>`标签，我们可以基于 Setter 方法来依赖注入。注意，Setter 只接受一个参数
 
 ~~~xml
 <bean id="..." class="...">
-    <!--name为要注入的方法的名字-->
+    <!--name 为要注入的方法的名字-->
     <property name="xxx">
         <!-- 直接定义一个内部的Bean -->
         <bean class="..."/>
@@ -378,10 +364,9 @@ public class Hello {
 
 #### 基于注解的配置
 
-我们需要在xml文件中写入以下配置，来启用基于注解的配置：
+我们需要在 xml 文件中写入以下配置，来启用基于注解的配置：
 
 ~~~xml
-
 <context:component-scan base-package="learning.spring"/>
 ~~~
 
@@ -412,11 +397,11 @@ public class Person { }
 
 
 
-在Spring Boot中，如果一个@Component类有多个构造器，Spring会尝试选择一个最合适的构造器来实例化该类：
+在Spring Boot中，如果一个 @Component 类有多个构造器，Spring 会尝试选择一个最合适的构造器来实例化该类：
 
-- 如果该类中只有一个构造器，Spring会使用该构造器来实例化该类。
-- 如果该类中有多个构造器，Spring会首先尝试使用默认构造器（即无参构造器）来实例化该类。如果没有默认构造器，Spring会优先选择带有@Autowired注解的构造器（如果有的话），并将其用于实例化该类。
-- 如果有多个构造器都带有@Autowired注解，Spring会选择参数数量最多的构造器来实例化该类
+- 如果该类中只有一个构造器，Spring 会使用该构造器来实例化该类。
+- 如果该类中有多个构造器，Spring 会首先尝试使用默认构造器（即无参构造器）来实例化该类。如果没有默认构造器，Spring会优先选择带有 @Autowired 注解的构造器（如果有的话），并将其用于实例化该类。
+- 如果有多个构造器都带有 @Autowired 注解，Spring 会选择参数数量最多的构造器来实例化该类
 - 如果有多个构造器的参数数量相同，则Spring会引发异常，因为无法确定应该使用哪个构造器。
 
 
@@ -433,7 +418,7 @@ public class Person { }
 
 
 
-@Autowired可以作用在构造函数、属性、setter上：
+@Autowired 可以作用在构造函数、属性、setter上：
 
 ~~~java
 @Service
@@ -465,17 +450,17 @@ public class ConstructorServiceImpl implements ConstructorService {
 
 @Autowired 的注入逻辑如下：
 
-1. 按照类型，来匹配 Bean 类型与之相同的Bean对象（考虑向上兼容）
+1. 按照类型，来匹配类型与之相同的 Bean 对象（考虑向上兼容）
 2. 如果有多个匹配的Bean，
-   - 按被注入对象的属性名来继续匹配Bean ID。
+   - 按被注入对象的属性名来继续匹配 Bean ID。
 3. 否则默认抛出异常，如果设置了`@Autowired(required = false)`，那么返回`null`
 
 @Autowired的细节
 
-- 只有使用构造函数注入才能注入final字段
-- 执行顺序：构造函数注入/构造函数 -> 字段注入/setter注入
+- 只有使用构造函数注入才能注入 final 字段
+- 执行顺序：构造函数注入/构造函数 -> 字段注入/setter注入。这个执行顺序会有一些微妙的问题。
 
-ObjectProvider可以和@Autowired搭配使用
+ObjectProvider 可以和 @Autowired 搭配使用
 
 ~~~java
 @Autowired
@@ -489,9 +474,9 @@ public Dog(ObjectProvider<Person> person) {
 
 
 
-Spring可能会匹配到多个Bean，此时这些Bean统称为**候选者（candidates）。**可以使用`@Primary`注解或者`@Qualifier` 注释来决定在冲突时使用哪一个Bean。优先级@Qualifier > @Primary 。**一般来说通过Primary来指定默认行为，而通过@Qualifier来指定特定行为。**
+Spring可能会匹配到多个 Bean，此时这些 Bean 统称为**候选者（candidates）。**可以使用`@Primary`注解或者`@Qualifier` 注释来决定在冲突时使用哪一个Bean。优先级@Qualifier > @Primary 。**一般来说通过Primary来指定默认行为，而通过@Qualifier来指定特定行为。**
 
-@Primary添加在候选者上，而@Qualifier添加在被注入的对象上（通常和@Autowired一起）。@Qualifier("foo")，将匹配Bean的ID为foo的Bean。
+@Primary添加在候选者上，而@Qualifier添加在被注入的对象上（通常和@Autowired一起）。@Qualifier("foo")，将匹配 Bean 的 ID 为 foo 的 Bean。
 
 此外，集合类型可以把所有指定类型的 Bean 都注入。可以避免上述冲突问题
 
@@ -504,10 +489,10 @@ private List<Person> persons;
 
 `@Resource`的注入逻辑
 
-- 如果同时指定了name和type，则注入同时匹配name和type的Bean
+- 如果同时指定了 name 和 type，则注入同时匹配 name 和 type 的Bean
 - 如果指定了name，则注入匹配ID的Bean
 - 如果指定了type，则注入匹配类型的Bean
-- 如果既没有指定name，又没有指定type，则首先按照byName方式进行装配；如果没有匹配，则按照byType方式进行装配
+- 如果既没有指定name，又没有指定type，则首先按照 byName 方式进行装配；如果没有匹配，则按照 byType 方式进行装配
 
 
 
@@ -515,7 +500,7 @@ private List<Person> persons;
 
 #### 基于 Java 类的配置
 
-要使用基于Java类的配置，就要与Spring Boot 一起使用。`Spring`配置类的定义例子：
+`Spring`配置类的定义例子：
 
 ```java
 @Configuration
@@ -540,7 +525,7 @@ public class Config {
   public @interface Configuration { ... }
   ~~~
 
-  向BeanFacory注册配置类：
+  向 BeanFactory 注册配置类：
 
   ~~~java
   AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(Config.class);
@@ -556,7 +541,7 @@ public class Config {
 
 - `@Import`导入其他配置类
 
-- `@Bean` 注解表示该方法的返回对象会被当做容器中的一个 Bean，
+- `@Bean` 注解表示该方法的返回对象会被当做容器中的一个 Bean
 
 - `@Lazy` 注解说明这个 Bean 是延时加载的，
 
@@ -568,14 +553,14 @@ public class Config {
 
 `@Bean` 注解的属性如下：
 
-| 属性                | 默认值                                | 说明                                             |
-| :------------------ | :------------------------------------ | :----------------------------------------------- |
-| `name`              | `{}`                                  | Bean 的名称（相当于xml中的id属性），默认同方法名 |
-| `value`             | `{}`                                  | 同 `name`                                        |
-| `autowire`          | `Autowire.NO`                         | 自动织入方式                                     |
-| `autowireCandidate` | `true`                                | 是否自动装配到其他 Bean 中                       |
-| `initMethod`        | `""`                                  | 初始化方法名                                     |
-| `destroyMethod`     | `AbstractBeanDefinition.INFER_METHOD` | 销毁方法名                                       |
+| 属性                | 默认值                                | 说明                                                 |
+| :------------------ | :------------------------------------ | :--------------------------------------------------- |
+| `name`              | `{}`                                  | Bean 的名称（相当于 xml 中的 id 属性），默认同方法名 |
+| `value`             | `{}`                                  | 同 `name`                                            |
+| `autowire`          | `Autowire.NO`                         | 自动织入方式                                         |
+| `autowireCandidate` | `true`                                | 是否自动装配到其他 Bean 中                           |
+| `initMethod`        | `""`                                  | 初始化方法名                                         |
+| `destroyMethod`     | `AbstractBeanDefinition.INFER_METHOD` | 销毁方法名                                           |
 
 AbstractBeanDefinition.INFER_METHOD表示在Bean销毁时，自动调用修饰符为 `public`、没有参数且方法名是 `close` 或 `shutdown` 的方法（`close`优于`shutdown`）。
 
@@ -607,10 +592,6 @@ public class Config {
 ~~~
 
 Spring Framework 针对 `@Configuration` 类中带有 `@Bean` 注解的方法通过 CGLIB（Code Generation Library）做了特殊处理。对于返回单例Bean的方法，只会执行一次，之后的多次调用都直接返回相同的Bean对象，并不会执行该方法。
-
-
-
-
 
 ### Bean的获取
 
@@ -706,7 +687,7 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 
 <img src="assets/010.jpg" alt="{%}" style="zoom: 25%;" />
 
-可以通过以下三种方式来注册创建或销毁Bean时的回调：
+可以通过以下三种方式来注册创建或销毁 Bean 时的回调：
 
 - 实现 `InitializingBean` 和 `DisposableBean` 接口；
 
@@ -743,14 +724,12 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 
 
 
-对于原型Bean来说，并不会像单例Bean那样，在容器初始化时必定执行回调，而是在延迟创建（按需创建）时，执行初始化回调。并且在销毁时，不会执行`destroy-method` 标注的方法。
+对于原型Bean来说，并不会像单例 Bean 那样在容器初始化时执行回调，而是在延迟创建（按需创建）时，执行初始化回调。并且在销毁时，不会执行`destroy-method` 标注的方法。
 
 何时执行销毁回调
 
-~~~java
-ctx.getBeanFactroy().destroyBean(pen);		// 从容器中删除Bean时
-ctx.close();							 // 容器关闭时
-~~~
+- 从容器中删除Bean时：`ctx.getBeanFactroy().destroyBean(pen);`
+- 容器关闭时：`ctx.close();`	
 
 
 
@@ -759,17 +738,17 @@ ctx.close();							 // 容器关闭时
 1. 方法无参数
 2. 方法无返回值
 
-### Aware接口
+### Aware 接口
 
-| 接口名                         | 用途                                 |
-| ------------------------------ | ------------------------------------ |
-| BeanFactoryAware               | 回调注入 BeanFactory                 |
-| ApplicationContextAware        | 回调注入 ApplicationContext          |
-| EnvironmentAware               | 回调注入 Environment                 |
-| ApplicationEventPublisherAware | 回调注入事件发布器                   |
-| ResourceLoaderAware            | 回调注入资源加载器                   |
-| BeanClassLoaderAware           | 回调注入加载当前 Bean 的 ClassLoader |
-| BeanNameAware                  | 回调注入当前 Bean 的名称             |
+| 接口名                         | 用途                             |
+| ------------------------------ | -------------------------------- |
+| BeanFactoryAware               | 注入 BeanFactory                 |
+| ApplicationContextAware        | 注入 ApplicationContext          |
+| EnvironmentAware               | 注入 Environment                 |
+| ApplicationEventPublisherAware | 注入事件发布器                   |
+| ResourceLoaderAware            | 注入资源加载器                   |
+| BeanClassLoaderAware           | 注入加载当前 Bean 的 ClassLoader |
+| BeanNameAware                  | 注入当前 Bean 的名称             |
 
 
 
@@ -1156,7 +1135,7 @@ public class DataSourceConfiguration {
 
 - `spring.profiles.active` 属性指定要激活的 `Profile`
 
-- 启动程序时，在命令行中增加 `spring.profiles.active`：
+- 启动程序时，在命令行中增加 `spring.profiles.active` 参数：
 
   ~~~shell
   java -Dspring.profiles.active="dev" -jar xxx.jar
@@ -1182,9 +1161,10 @@ public class DataSourceConfiguration {
   }
   ~~~
 
--  `@Value` 注解
+-  `@Value` 注解，不支持注入到静态字段中。
 
   ~~~java
+  //`${}` 引用配置文件中的变量
   @Value("${red.name}")
   private String name;
   
@@ -1196,9 +1176,7 @@ public class DataSourceConfiguration {
   private Integer age;
   ~~~
   
-  这里的@Value中用到了 SpEL 表达式。
-  
-  SpEL 的语法统一用 **`#{}`** 表示
+  @Value 还支持 SpEL 表达式。SpEL 的语法统一用 **`#{}`** 表示
   
   - 算术运算符：加（+）、减（-）、乘（*）、除（/）、求余 （%）、幂（^）、求余（MOD）和除（DIV）等算术运算符
   - 关系运算符：等于（==）、不等于（!=）、大于（>）、大 于等于（>=）、小于（<）、小于等于（<=）、区间（between）运算 等。例如：#{2>3}的值为false。
@@ -1207,13 +1185,13 @@ public class DataSourceConfiguration {
   - 三目运算符
   - 正则表达式匹配符： matches。例如：#{'123' matches '\\d{3}' }返回true
   - 类型访问运算符： T(Type)。其中，“Type”表示某个Java类型，实际上对应于Java类的 java.lang.Class实例。Type必须是类的全限定名（包括包名），但是 核心包“java.lang”中的类除外。例如：T(String)表示访问的是 java.lang.String类，#{T(String).valueOf(1)}表示将整数1转换成字符串。
-  - 变量引用符：SpEL提供了一个上下文变量的引用符“#”
+  - 变量引用符：SpEL 提供了一个上下文变量的引用符“#”
   
   
   
   
   
-  我们可以在配置类上添加`@PropertySource("classpath:basic_di/value/red.properties")`，其中注解值为属性文件的路径。那么@Value可以从属性文件中获取属性值。
+  我们可以在配置类上添加`@PropertySource("classpath:basic_di/value/red.properties")`，其中注解值为属性文件的路径。那么 @Value 可以从属性文件中获取属性值。
 
 #### 任务抽象
 
@@ -1392,7 +1370,7 @@ public interface Condition {
 
 
 
-@Conditional注解可以派生出来。扫描注解A时，A的派生注解也会被扫描进来。
+@Conditional注解可以派生出来。扫描注解 A 时，A 的派生注解也会被扫描进来。
 
 ~~~java
 @Documented

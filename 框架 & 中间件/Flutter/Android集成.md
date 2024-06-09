@@ -177,15 +177,8 @@ class MusicMethodChannel(messenger: BinaryMessenger): MethodChannel.MethodCallHa
                 // 逻辑处理
                 result.success(musicBinder?.isPlaying());
             }
-
         }
-
     }
 }
 
 ~~~
-
-
-
-
-

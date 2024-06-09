@@ -68,10 +68,9 @@
 
 ## 适配暗黑模式
 
-首先，组件的颜色都是通过
+组件的颜色**都是通过**`MaterialApp`中的`colorScheme`对象来获取，即`Theme.of(context).colorScheme.inversePrimary;` 
 
-- `MaterialApp`中的`colorScheme`对象来获取（十分推荐），例如`Theme.of(context).colorScheme.inversePrimary;`
-- 自定义的颜色配置类来获取（不推荐，维护成本极高）
+如果不是通过 Theme 来获取，那么就会应用 Scafflod 提供的样式，或者 Flutter 自带的默认样式。 
 
 
 
@@ -107,7 +106,7 @@ class RootWidget extends StatelessWidget {
 }
 ~~~
 
-其中，ThemeMode是一个枚举类型，取值如下：
+其中，ThemeMode 是一个枚举类型，取值如下：
 
 ~~~dart
 enum ThemeMode {
@@ -119,6 +118,19 @@ enum ThemeMode {
   /// Always use the dark mode (if available) regardless of system preference.
   dark,
 }
+~~~
+
+
+
+或者很简单地跟随系统主题
+
+~~~dart
+return MaterialApp(
+  theme: ThemeData.light(), // 提供亮色主题
+  darkTheme: ThemeData.dark(), // 提供暗色主题
+  themeMode: ThemeMode.system, // 根据系统设置选择主题
+  home: MyAppHome(),
+);
 ~~~
 
 
@@ -230,11 +242,11 @@ BlocProvider(
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | ![image.png](assets/9bcede6aa8164952a8c46b7ab26186batplv-k3u1fbpfcp-jj-mark1890000q75.webp) | ![image.png](assets/891f4319420b44f28495f83250e16e8dtplv-k3u1fbpfcp-jj-mark1890000q75.webp) | ![image.png](assets/dad5762399944a6280a85bb3d13c8e2ftplv-k3u1fbpfcp-jj-mark1890000q75.webp) | ![image.png](assets/aaa8e153730b478ab7709dbe9529c035tplv-k3u1fbpfcp-jj-mark1890000q75.webp) |
 
-这些不同场景中的数据，彼此之间孤立，但又同属于一个UI组件。将各种场景下的界面所依赖的数据，分别进行封装。
+这些不同场景中的数据，彼此之间孤立，但又同属于一个UI组件。
+
+将各种场景下的界面所依赖的数据，分别进行封装。
 
 <img src="assets/21d7d3c2d8864af8a45be17265f96d62tplv-k3u1fbpfcp-jj-mark1890000q75.webp" alt="image.png" style="zoom:50%;" />
-
-
 
 对于视图层来说，就是常规的处理方案：BlocBuilder + buildWidgetByState
 
@@ -261,12 +273,14 @@ class _RecordPanelState extends State<RecordPanel> with AutomaticKeepAliveClient
     if (state is LoadingRecordState) {
       return const LoadingPanel();
     }
+      
     if (state is EmptyRecordState) {
       return const EmptyPanel(
         data: "记录数据为空",
         icon: TolyIcon.icon_empty_panel,
       );
     }
+      
     if (state is ErrorRecordState) {
       return ErrorPanel(
         data: "数据查询异常",
@@ -275,18 +289,20 @@ class _RecordPanelState extends State<RecordPanel> with AutomaticKeepAliveClient
         onRefresh: bloc.loadRecord,
       );
     }
+      
     if (state is LoadedRecordState) {
       return LoadedPanel(
         state: state,
         onSelectRecord: _selectRecord,
       );
     }
+      
     return const SizedBox();
   }
 }
 ~~~
 
-在ViewModel层，就是利用emit机制来更新页面
+在 ViewModel 层，就是利用 emit 机制来更新页面
 
 ~~~dart
 class RecordBloc extends Cubit<RecordState> {
@@ -336,7 +352,7 @@ class RecordBloc extends Cubit<RecordState> {
 
 ## 异步加载页面（2）
 
-在Flutter中如何优化异步耗时任务执行期间的界面？在相应UI控件中，维护一个状态，用于指示是否在异步执行任务。并根据这个状态构建相应的UI
+在 Flutter 中如何优化异步耗时任务执行期间的界面？在相应UI控件中，维护一个状态，用于指示是否在异步执行任务。并根据这个状态构建相应的UI
 
 ~~~dart
 class _AsyncButtonState extends State<AsyncButton> {
@@ -344,8 +360,8 @@ class _AsyncButtonState extends State<AsyncButton> {
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
-        onPressed: _loading ? null : _doTask,	//加载时，禁用该按钮
-        child: _loading							//根据loading，动态切换UI控件
+        onPressed: _loading ? null : _doTask,		// 加载时，禁用该按钮
+        child: _loading							// 根据loading，动态切换UI控件
             ? const CupertinoActivityIndicator(radius: 8)
             : Text(
                 widget.conformText,
@@ -359,7 +375,7 @@ class _AsyncButtonState extends State<AsyncButton> {
       _loading = true;
     });
     await asyncTask(context);		// 执行一个异步任务
-    setState(() {					// 这里有个问题，就是在执行异步任务期间，如果Widget被销毁了，那么异步任务执行完成后，执行该setState函数就会触发异常
+    setState(() {					// 这里有个问题，就是在执行异步任务期间，如果 Widget 被销毁了，那么异步任务执行完成后，执行该 setState 函数就会触发异常
       _loading = false;
     });
   } 

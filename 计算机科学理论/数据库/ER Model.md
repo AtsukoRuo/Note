@@ -6,6 +6,10 @@
 
 ![image-20240222103841934](assets/image-20240222103841934.png)
 
+![img](./assets/1JN1XCFTNEP0N%7BN8$P%5B4%5BZR.jpg)
+
+![QQ图片20240404161838](./assets/QQ%E5%9B%BE%E7%89%8720240404161838.jpg)
+
 
 
 The participation of an entity set *E* in a relationship set *R* is said to be **total** if every entity in *E* must participate in at least one relationship in *R*. We indicate total participation of an entity in a relationship set using double lines.
@@ -99,6 +103,3 @@ Consider a many-to-one relationship set AB from entity set A to entity set B. Su
 We can combine schemas even if the participation is partial by using null values.
 
 In the case of one-to-one relationships, the relation schema for the relationship set can be combined with the schemas for either of the entity sets.
-
-
-

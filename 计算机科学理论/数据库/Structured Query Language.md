@@ -21,13 +21,31 @@ SQL, originally called Sequel,  has several parts:
 
 The SQL standard supports a variety of built-in types, including:
 
-- **char**(*n*): A fixed-length character string with user-specified length *n*
+- **char**(*n*): A fixed-length character string with user-specified length *n*。注意，这里的 n 是字节数，不是字符的个数
 - **varchar**(*n*): A variable-length character string with user-specified maximum length *n*
 - **int**: An integer (a finite subset of the integers that is machine dependent)
-- **smallint**: A small integer (a machine-dependent subset of the integer type).
+
+  - **smallint**: short
+  - **bitint**：long
+  - **tinyint**：byte
+
 - **numeric**(*p*, *d*): A fixed-point number with user-specified precision. The number consists of *p* digits (plus a sign), and *d* of the *p* digits are to the right of the decimal point. Thus, **numeric**(3,1) allows 44.5
 - **real, double precision**: Floating-point and double-precision floating-point numbers with machine-dependent precision.
 - **float**(*n*): A floating-point number with precision of at least *n* digits.
+- `TEXT`可用于存储可以从`1`字节到`4GB`长度的文本字符串
+
+  - TINYTEXT – 255个字节（255个字符）
+  - TEXT – 64KB（65,535个字符）
+  - MEDIUMTEXT – 16MB（16,777,215个字符）
+  - LONGTEXT – 4GB（4,294,967,295个字符）
+
+  如果 TEXT 字段太大，对内存有压力，那么可以使用 SUBSTRING 来分段获取 TEXT
+
+  ~~~sql
+  SELECT SUBSTRING(字段名, 开始位置, 截取长度) FROM 表名;
+  ~~~
+
+  
 
 Each type may include a special value called the **null** value. 
 
@@ -36,6 +54,132 @@ The **char** data type stores fixed-length strings. 如果所要存储的数据�
 When comparing two values of type **char**, if they are of different lengths, extra spaces are automatically attached to the shorter one to make them the same size before comparison.
 
 When comparing a **char** type with a **varchar** type, one may expect extra spaces to be added to make the lengths equal, before comparison; however, this may or may not be done, depending on the database system. As a result, even if the same value “Avi” is stored in the attributes *A* and *B* above, a comparison *A*=*B* may return false. We recommend you always use the **varchar** type instead of the **char** type to avoid these problems.
+
+### SQL Type
+
+#### date
+
+- **DateTime 类型是没有时区信息的（时区无关）** ，DateTime 类型保存的时间都是当前会话所设置的时区对应的时间。
+- **Timestamp 和时区有关**。Timestamp 类型字段的值会随着服务器时区的变化而变化，自动换算成相应的时间
+
+datetime 与 timestamp 之间的区别:
+
+- 支持范围
+
+  - DateTime：1000-01-01 00:00:00.000000 ~ 9999-12-31 23:59:59.499999
+
+    Timestamp：1970-01-01 00:00:01.000000 ~ 2038-01-19 03:14:07.499999
+
+- 存储空间：
+
+  - DATETIME存储8个字节，实际格式，与时区无关
+  - TIMESTAMP存储4个字节，UTC格式，时区转化
+
+- 存储方式 ，
+
+  - 对于TIMESTAMP，它把客户端插入的时间从当前时区转化为UTC（世界标准时间）进行存储。查询时，将其又转化为客户端当前时区进行返回。
+  - 对于DATETIME，不做任何改变，基本上是原样输入和输出。
+
+很多时候，我们也会使用 int 或者 bigint 类型的数值也就是数值时间戳来表示时间。但它不方便处理时间格式
+
+
+
+
+
+SQL defines several functions to get the current date and time.
+
+`CURRENT_TIMESTAMP()`are synonyms for `NOW()`. `NOW()`（`current_timestamp()`）函数获得的是语句开始执行时的时间，而`sysdate()`函数是这个函数执行时候的时间。
+
+
+
+#### Default
+
+SQL allows a default value to be specified
+
+~~~sql
+create table student(
+	tot_cred numeric (3,0) default 0,
+);
+~~~
+
+#### Blob
+
+SQL provides large-object data types for character data (clob) and binary data (blob)
+
+~~~sql
+book_review clob(10KB)
+image blob(10MB)
+movie blob(2GB)
+~~~
+
+For result tuples containing large objects it is inefficient or impractical to retrieve an entire large object into memory. Instead, an application would usually use an SQL query to retrieve a “locator” for a large object
+
+### 自增主键
+
+1. MyISAM 引擎的自增值保存在数据文件中
+2. InnoDB 引擎的自增值，其实是保存在了内存里，并没有持久化。第一次打开表的时候，都会去找自增值的最大值 `max(id)`，然后将 `max(id)+1` 作为这个表当前的自增值。
+
+MySQL 8.0 版本后，自增值的变更记录被放在了 redo log 中，提供了自增值持久化的能力。
+
+
+
+在 MySQL 里面，如果字段 id 被定义为 AUTO_INCREMENT，在插入一行数据的时候，自增值的行为如下：
+
+- 如果插入数据时 id 字段指定为 0、null 或未指定值，那么就把这个表当前的 AUTO_INCREMENT 值填到自增字段；
+- 如果插入数据时 id 字段指定了具体的值，就直接使用语句里指定的值。
+
+根据要插入的值和当前自增值的大小关系，自增值的变更结果也会有所不同。假设某次要插入的值是 `insert_num`，当前的自增值是 `autoIncrement_num`：
+
+- 如果 `insert_num < autoIncrement_num`，那么这个表的自增值不变
+- 如果 `insert_num >= autoIncrement_num`，就需要把当前自增值修改为 `insert_num + 1`。此时还要考虑`auto_increment_offset` 和 `auto_increment_increment` 这两个参数。上面例子中生成新的自增值的步骤实际是这样的：从 `auto_increment_offset`（自增初始值） 开始，以 `auto_increment_increment` 为步长，持续叠加，直到找到第一个大于 100 的值，作为新的自增值
+
+自增值修改的这个操作，是在真正执行插入数据的操作之前。
+
+下面用一个例子来说明，连续往表里插入两条 (null,1,1) 的记录：
+
+| 第一次                                                       | 第二次                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| ![img](./assets/c22c4f2cea234c7ea496025eb826c3bctplv-k3u1fbpfcp-zoom-1.png) | ![img](./assets/c0325e31398d4fa6bb1cbe08ef797b7ftplv-k3u1fbpfcp-zoom-1.png) |
+
+虽然第二次插入失败了，但自增值仍然从 2 增加到了 3。
+
+除此之外，事务回滚也会导致这种情况。出于性能考虑，InnoDB 采用了这个设计。
+
+
+
+对于批量插入数据的语句，MySQL 有一个批量申请自增 id 的策略：
+
+1. 语句执行过程中，第一次申请自增 id，会分配 1 个；
+2. 1 个用完以后，这个语句第二次申请自增 id，会分配 2 个；
+3. 2 个用完以后，还是这个语句，第三次申请自增 id，会分配 4 个；
+4. 依此类推，同一个语句去申请自增 id，每次申请到的自增 id 个数都是上一次的两倍
+
+而对于 `insert … select`、replace …… select 和 load data 这种类型的语句来说，MySQL 并不知道到底需要申请多少 id，所以就采用了这种批量申请的策略
+
+如果申请到的 id 并没有使用，那么就浪费掉了。
+
+
+
+总结下自增值不连续的 4 个场景：
+
+1. 自增步长设置不为 1
+2. 唯一键冲突
+3. 事务回滚
+4. 批量插入（如 `insert...select` 语句）
+
+
+
+https://www.cnblogs.com/skying555/p/8647617.html。
+
+使用自增 ID 还是 UUID？在性能上，自增 ID 要明显优于 UUID。
+
+- 自增ID主键+步长，适合中等规模的分布式场景
+- UUID，适合小规模的分布式环境
+- 雪花算法自造全局自增ID，适合大数据环境的分布式场景
+
+
+
+
 
 ### Table
 
@@ -59,7 +203,33 @@ where *r* is the name of the relation,  each $A_i$ is the name of an attribute ,
 SQL supports a number of different integrity constraints：
 
 - **primary key**$(A_{j_1}, ... ,A_{j_n})$. The primary-key attributes are required to be *nonnull* and *unique*
+
+  ~~~sql
+  CREATE TABLE table_name (
+      column1 datatype PRIMARY KEY,
+      ...
+  );
+  
+  ALTER TABLE table_name
+  ADD PRIMARY KEY (column1);
+  
+  CREATE TABLE table_name (
+      column1 datatype,
+      column2 datatype,
+      ...,
+      PRIMARY KEY (column1, column2)
+  );
+  ~~~
+
 - **foreign key** $(A_{k_1}, ... ,A_{k_n})$ references *s*.
+
+  ~~~sql
+  CREATE TABLE Orders (
+      CustomerID int,
+      FOREIGN KEY (course_id) REFERENCES course(course_id)
+  );
+  ~~~
+
 - **not null**: The **not null** constraint on an attribute specifies that the null value is not allowed for that attribute
 
 SQL prevents any update to the database that violates an integrity constraint.
@@ -78,7 +248,7 @@ We use the **alter table** command `alter table r add A D;` to add attributes to
 
 ~~~sql
 ALTER TABLE Customers
-ADD Email varchar(255);
+ADD COLUMN Email varchar(255);
 
 ALTER TABLE table_name
 DROP COLUMN column_name;
@@ -95,8 +265,6 @@ select A1, A2, ..., An
 from r1, r2, ..., rm
 where P;
 ~~~
-
-
 
 The **from** clause by itself defines a Cartesian product of the relations listed in the clause
 
@@ -123,6 +291,13 @@ from instructor;
 ~~~
 
  SQL allows us to use the keyword **all** to specify **explicitly** that duplicates are not removed
+
+~~~sql
+select  DISTINCT dept_name,  ID, name
+select dept_name, DISTINCT ID		# 错误
+~~~
+
+这里的 DISTINCT 会作用在 dept_name, ID, name上，也就是说，仅当 `dept_name`、`ID` 和 `name` 这三列所有字段完全相同的行才会被视为重复行，并只保留其中一行。
 
 
 
@@ -209,7 +384,7 @@ SQL permits us to use the notation $(v_1, v_2, ..., v_n)$ to denote a tuple of a
 ~~~mysql
 select name, course id
 from instructor, teaches
-where instructor.ID= teaches.ID and dept name = 'Biology';
+where instructor.ID = teaches.ID and dept_name = 'Biology';
 
 select name, course id
 from instructor, teaches
@@ -237,7 +412,7 @@ from department
 where building like '%Watson%';
 ~~~
 
-` ___ `matches any string of exactly three characters. `___%` matches any string of at least three characters
+` ___ `matches any string of exactly three characters. `_ _ _%` matches any string of at least three characters
 
 SQL allows the specification of an escape character.
 
@@ -255,11 +430,11 @@ The SQL operations **union**, **intersect**, and **except** operate on relations
 The **union** operation automatically eliminates duplicates
 
 ~~~mysql
-(select course id
+(select course_id
 from section
 where semester = 'Fall' and year= 2017)
 union
-(select course id
+(select course_id
 from section
 where semester = 'Spring' and year= 2018);
 ~~~
@@ -315,7 +490,7 @@ SQL allows us to test whether the result of a comparison is unknown, rather than
 ~~~mysql
 select name
 from instructor
-where salary > 10000 is unknown;
+where ((salary > 10000) is unknown);
 ~~~
 
 
@@ -346,13 +521,14 @@ from teaches
 where semester = 'Spring' and year = 2018;
 ~~~
 
-COUNT有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略null的行。`COUNT(*)`、`COUNT(1)`会统计为null的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是SQL92中的标准语法
+COUNT有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略 null 的行。`COUNT(*)`、`COUNT(1)`会统计为null的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是SQL92中的标准语法
 
 SQL does not allow the use of **distinct** with **count** (*)
 
 ~~~mysql
 select count (*)
 from course;
+where 
 ~~~
 
 if there are no matching rows
@@ -393,7 +569,7 @@ At times, it is useful to state a condition that applies to groups rather than t
 select dept_name, avg (salary) as avg_salary
 from instructor
 group by dept_name
-having avg (salary) > 42000;
+having avg(salary) > 42000;
 ~~~
 
 As was the case for the **select** clause, any attribute that is present in the **having** clause without being aggregated must appear in the **group by** clause,
@@ -493,7 +669,7 @@ where 1 >= (
 
 
 
-Correlation Name对于性能的影响
+Correlation Name 对于性能的影响
 
 ~~~mysql
 select S.ID, S.name
@@ -598,8 +774,6 @@ where dept_name in (
 
 Performing all the tests before performing any deletion is important. if some tuples are deleted before other tuples have been tested the final result of the **delete** would depend on the order in which the tuples were processed!
 
-
-
 #### insert
 
 To insert data into a relation, we either specify a tuple to be inserted 
@@ -612,7 +786,7 @@ insert into course
 In this example, the values are specified in the order in which the corresponding at tributes are listed in the relation schema. SQL allows the attributes to be specified as part of the **insert** statement. For example
 
 ~~~mysql
-insert into course (title, course_id, credits, dept_name)
+insert into course(title, course_id, credits, dept_name)
 	values ('Database Systems', 'CS-437', 4, 'Comp. Sci.');
 ~~~
 
@@ -630,6 +804,12 @@ insert into instructor
 It is important that the system evaluate the **select** statement fully before it performs any insertions. 
 
 #### update
+
+~~~sql
+UPDATE table_name
+SET column1 = value1, column2 = value2, ...
+WHERE condition;
+~~~
 
 ~~~sql
 update instructor
@@ -691,7 +871,7 @@ select name, course id
 from student natural join takes;
 ~~~
 
-在自然连接中，值为null的元组会被忽略掉
+在自然连接中，值为 null 的元组会被忽略掉。
 
 Notice ：
 
@@ -710,7 +890,7 @@ SQL provides a form of the natural join construct that allows you to specify exa
 
 ~~~sql
 select name, title
-from (student natural join takes) join course using (course id);
+from (student natural join takes) join course using (course_id);
 ~~~
 
 The on condition allows a general predicate over the relations being joined. 
@@ -763,8 +943,6 @@ on and where behave differently for outer join.
 4. where
 
 可见被on过滤掉的元组，会在outer join中添加回来，但是被where过滤掉的，却无能为力了
-
-natural join is equivalent to natural inner join.
 
 ### Views
 
@@ -833,8 +1011,6 @@ insert into runoob_transaction_test value(5);
 Commit;		-- mysql不支持end语句
 ~~~
 
-
-
 Transactions may consist of several steps, and integrity constraints may be violated temporarily after one step, but a later step may remove the violation. To handle such situations, the SQL standard allows a clause `initially deferred` to be added to a constraint specification; the constraint would then be checked at the end of a transaction and not at intermediate steps. **MySQL does not support deferred constraints**
 
 此外，如果在事务中违反了约束，那么整个事务就会进行回滚操作。
@@ -863,6 +1039,8 @@ In general, an integrity constraint can be an arbitrary predicate pertaining to 
 
 
 
+
+
 - In particular, SQL prohibits null values in the primary key of a relation schema. The `not null` constraint prohibits the insertion of a null value for the attribute.
 
 - SQL also supports an integrity constraint: `unique (A1 , A2 , …, Am )` . The unique specification says that attributes A1 , A2 , …, Am form a superkey; However, attributes declared as unique are permitted to be null. Recall that a null value does not equal any other value
@@ -888,77 +1066,22 @@ In general, an integrity constraint can be an arbitrary predicate pertaining to 
   When a referential-integrity constraint is violated, the normal procedure is to reject the action that caused the violation.  但是还有其他策略：
 
   - on delete cascade
-  - on update cascade
   - set default
   - set null
-
-  ~~~sql
+  
+~~~sql
   create table course( 
       …
       foreign key (dept name) references department
       on delete cascade
       on update cascade,
   );
-  ~~~
-
-  If there is a chain of foreign-key dependencies across multiple relations, a deletion or update at one end of the chain can propagate across the entire chain
-
-  If any of the foreign-key columns is null, the tuple is defined automatically to satisfy the constraint. This definition may not always be the right choice, so SQL also provides constructs that allow you to change the behavior with null values
-
-  
-
-### SQL  Types
-
-#### date
-
-SQL standard supports several data types relating to dates and times:
-
-- date: `YYYY-MM-DD`
-- time: The time of day, in hours, minutes, and seconds. A variant, time(p), can be used to specify the number of fractional digits for seconds (the default being 0). 
-- timestamp: A combination of date and time. A variant, timestamp(p), can be used to specify the number of fractional digits for seconds (the default here being 6). 
-- datetime 
-
-datetime与timestamp之间的区别:
-
-- 支持范围
-  - DATETIME支持范围：'1000-01-01 00:00:00'到'9999-12-31 23:59:59'
-  - TIMESTAMP支持范围：格式一样，但不能早于1970或晚于2037
-- 存储空间：
-  - DATETIME存储8个字节，实际格式，与时区无关
-  - TIMESTAMP存储4个字节，UTC格式，时区转化
-- 存储方式 ，
-  - 对于TIMESTAMP，它把客户端插入的时间从当前时区转化为UTC（世界标准时间）进行存储。查询时，将其又转化为客户端当前时区进行返回。
-  - 对于DATETIME，不做任何改变，基本上是原样输入和输出。
-
-
-
-SQL defines several functions to get the current date and time.
-
-`CURRENT_TIMESTAMP()`are synonyms for `NOW()`. `NOW()`（`current_timestamp()`）函数获得的是语句开始执行时的时间，而`sysdate()`函数是这个函数执行时候的时间。
-
-
-
-#### Default
-
-SQL allows a default value to be specified
-
-~~~sql
-create table student(
-	tot_cred numeric (3,0) default 0,
-);
 ~~~
 
-#### Blob
+If there is a chain of foreign-key dependencies across multiple relations, a deletion or update at one end of the chain can propagate across the entire chain
 
-SQL provides large-object data types for character data (clob) and binary data (blob)
+If any of the foreign-key columns is null, the tuple is defined automatically to satisfy the constraint. This definition may not always be the right choice, so SQL also provides constructs that allow you to change the behavior with null values
 
-~~~sql
-book_review clob(10KB)
-image blob(10MB)
-movie blob(2GB)
-~~~
-
-For result tuples containing large objects it is inefficient or impractical to retrieve an entire large object into memory. Instead, an application would usually use an SQL query to retrieve a “locator” for a large object
 
 ### Index
 
@@ -1085,7 +1208,7 @@ endif
 
 ### Triggers
 
-触发器可以实现复杂的CHECK逻辑，以及审计跟踪。一个触发器有三个部分：
+触发器可以实现复杂的 CHECK 逻辑，以及审计跟踪。一个触发器有三个部分：
 
 - 事件
 - 条件
@@ -1100,3 +1223,64 @@ endif
 这里`referencing new row as nrow`，声明了一个过渡变量，用来存储刚刚修改（插入、删除、更新）的值。与之对应的是`referencing old row`
 
 ![image-20240301214855429](assets/image-20240301214855429.png)
+
+## JSON
+
+创建 JSON
+
+~~~sql
+CREATE TABLE muscleape(
+  id       TINYINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  category JSON,
+  tags     JSON,
+  PRIMARY KEY (id)
+);
+~~~
+
+插入 JSON
+
+~~~sql
+-- 直接插入字符串
+INSERT INTO muscleape (category, tags) VALUES ('{"id": 1,"name": "muscleape"}','[1,2,3]');
+
+-- 使用JSON函数
+INSERT INTO muscleape (category, tags) VALUES (JSON_OBJECT("id",2,"name","muscleape_q"),JSON_ARRAY(1,3,5));
+~~~
+
+查询 JSON
+
+~~~sql
+-- $ 表示整个json对象
+SELECT id, category->'$.id', category->'$.name', tags->'$[0]', tags->'$[2]' 
+FROM muscleape;
+~~~
+
+JSON 作为条件搜索：
+
+~~~sql
+-- 查询不到数据
+SELECT * FROM muscleape WHERE category = '{"id": 1,"name": "muscleape"}';
+
+-- OK
+SELECT * FROM muscleape WHERE category = CAST('{"id": 1,"name": "muscleape"}' AS JSON);
+~~~
+
+更新 JSON
+
+~~~sql
+UPDATE muscleape SET tags = '[1, 3, 4]' WHERE id = 1;
+
+UPDATE muscleape SET category = JSON_INSERT(category,'$.name','muscleape_new','$.url','muscleape.com') WHERE id = 1;
+~~~
+
+- `JSON_INSERT()` 添加新值，但不替换现有值。
+- `JSON_SET()` 插入新值，并覆盖已存在的值
+- `JSON_REPLACE()` 只替换现有值
+- `JSON_REMOVE()` 删除某个值
+
+JSON_ARRAY_INSERT()、JSON_ARRAY_APPEND() 向数组中增加元素
+
+~~~sql
+UPDATE muscleape SET tags = JSON_ARRAY_APPEND(tags,'$[0]',4) WHERE id = 1;
+~~~
+

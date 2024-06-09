@@ -4,6 +4,299 @@
 
 
 
+## Https
+
+有两种方式可以获取到SSL证书：
+
+1. 自己通过 keytool 生成
+2. 通过证书授权机构购买
+
+```shell
+keytool -genkey -alias tomcat -dname "CN=Andy,OU=kfit,O=kfit,L=HaiDian,ST=BeiJing,C=CN" -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore keystore.p12 -validity 365
+```
+
+- -genkey ：生成key；
+- -alias ：key的别名；
+- -dname：指定证书拥有者信息
+- -storetype ：密钥库的类型为JCEKS。常用的有JKS(默认),JCEKS(推荐),PKCS12,BKS,UBER。每个密钥库只可以是其中一种类型。
+- -keyalg ：DSA或RSA算法(当使用-genkeypair参数)，DES或DESede或AES算法(当使用-genseckey参数)；
+- -keysize ：密钥的长度为512至1024之间(64的倍数)
+- -keystore ：证书库的名称
+- -validity ： 指定创建的证书有效期多少天
+- dname的值详解：
+  - CN(Common Name名字与姓氏)
+  - OU(Organization Unit组织单位名称)
+  - O(Organization组织名称)
+  - L(Locality城市或区域名称)
+  - ST(State州或省份名称)
+  - C(Country国家名称）
+
+
+
+Spring Boot 配置 SSL 很简单，只需要通过一系列的 `server.ssl.*` 参数即可完成配置
+
+一个 SSL 单向验证的演示：
+
+~~~properties
+server.port=8443
+server.ssl.protocol=TLS
+server.ssl.key-store=classpath:javastack.keystore
+server.ssl.key-store-password=javastack
+server.ssl.key-store-type=JKS
+~~~
+
+
+
+~~~java
+server.ssl.ciphers= # Supported SSL ciphers.
+server.ssl.client-auth= # Whether client authentication is wanted ("want") or needed ("need"). Requires a trust store.
+server.ssl.enabled= # Enable SSL support.
+server.ssl.enabled-protocols= # Enabled SSL protocols.
+server.ssl.key-alias= # Alias that identifies the key in the key store.
+server.ssl.key-password= # Password used to access the key in the key store.
+server.ssl.key-store= # Path to the key store that holds the SSL certificate (typically a jks file).
+server.ssl.key-store-password= # Password used to access the key store.
+server.ssl.key-store-provider= # Provider for the key store.
+server.ssl.key-store-type= # Type of the key store.
+server.ssl.protocol=TLS # SSL protocol to use.
+server.ssl.trust-store= # Trust store that holds SSL certificates.
+server.ssl.trust-store-password= # Password used to access the trust store.
+server.ssl.trust-store-provider= # Provider for the trust store.
+server.ssl.trust-store-type= # Type of the trust store.
+~~~
+
+## log4j2
+
+日志级别优先级从低到高：`ALL、DEBUG、 INFO、 WARN、 ERROR、FATAL、 OFF`
+
+log4j2 的 Maven 依赖。注意在所有包含 `spring-boot-starter-*` 的依赖中排除 `spring-boot-starter-logging`
+
+~~~xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-log4j2</artifactId>
+</dependency>
+~~~
+
+ 引入`log4j2`依赖后，需要在 `application.yaml` 中指定 log4j2 的配置文件路径 ：
+
+~~~yaml
+#日志配置 无特殊需求无需更改
+logging:
+  config:  classpath:log4j2.xml
+  level:
+  	# 当配置为某个等级时，表示这个等级及以上的日志信息都将被记录。
+    root: INFO
+    javax.activation: info
+    org.apache.catalina: INFO
+    org.apache.commons.beanutils.converters: INFO
+    org.apache.coyote.http11.Http11Processor: INFO
+    org.apache.http: INFO
+    org.apache.tomcat: INFO
+    org.springframework: INFO
+    com.chinamobile.cmss.bdpaas.resource.monitor: DEBUG
+~~~
+
+xml 配置模板如下：
+
+~~~xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <!--<Configuration status="WARN" monitorInterval="30"> -->
+    <!--monitorterval：是用于指定log4j自动重新检测读取配置内容的间隔时间-->
+    <properties>
+        <property name="LOG_HOME">./service-logs</property>
+    </properties>
+    <Appenders>
+        
+        <!--*********************控制台日志***********************-->
+        <Console name="consoleAppender" target="SYSTEM_OUT">
+            <!--设置日志格式及颜色-->
+            <PatternLayout
+                    pattern="%style{%d{ISO8601}}{bright,green} %highlight{%-5level} [%style{%t}{bright,blue}] %style{%C{}}{bright,yellow}: %msg%n%style{%throwable}{red}"
+                    disableAnsi="false" noConsoleNoAnsi="false"/>
+        </Console>
+
+        <!--*********************文件日志***********************-->
+        <!-- all级别日志 -->
+        <!--%i 是一个递增的数字-->
+        <RollingFile name="allFileAppender"
+                     fileName="${LOG_HOME}/all.log"
+                    
+                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/all-%d{yyyy-MM-dd}-%i.log">
+            <!-- 设置日志格式 -->
+            <PatternLayout>
+                <pattern>%d %p %C{} [%t] %m%n</pattern>
+            </PatternLayout>
+            
+            <Policies>
+                <!-- 设置日志文件切分参数 -->
+                <!--<OnStartupTriggeringPolicy/>-->
+                
+                <!--设置日志基础文件大小，超过该大小就触发日志文件滚动更新-->
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+                
+                <!--设置日志文件滚动更新的时间，默认情况下，这个策略是根据每天的更替（午夜）来创建新文件。它常常与 PatternLayout 中的 filePattern 选项一同使用-->
+                <!--<TimeBasedTriggeringPolicy/>-->
+            </Policies>
+            <!--设置日志的文件个数上限，不设置默认为7个，超过大小后会被覆盖；依赖于filePattern中的%i-->
+            <DefaultRolloverStrategy max="100"/>
+        </RollingFile>
+
+        <!--debug级别日志-->
+        <RollingFile name="debugFileAppender"
+                     fileName="${LOG_HOME}/debug.log"
+                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/debug-%d{yyyy-MM-dd}-%i.log.gz">
+            <Filters>
+                <!--过滤掉info及更高级别日志-->
+                <ThresholdFilter level="info" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+           
+            <PatternLayout>
+                <pattern>%d %p %C{} [%t] %m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+        </RollingFile>
+
+        <!--info级别日志-->
+        <RollingFile name="infoFileAppender"
+                     fileName="${LOG_HOME}/info.log"
+                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/info-%d{yyyy-MM-dd}-%i.log.gz">
+            <Filters>
+                <!--过滤掉warn及更高级别日志-->
+                <ThresholdFilter level="warn" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+            
+            <PatternLayout>
+                <pattern>%d %p %C{} [%t] %m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true" />
+            </Policies>
+        </RollingFile>
+
+        <!--warn级别日志-->
+        <RollingFile name="warnFileAppender"
+                     fileName="${LOG_HOME}/warn.log"
+                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/warn-%d{yyyy-MM-dd}-%i.log.gz">
+            <Filters>
+                <!--过滤掉error及更高级别日志-->
+                <ThresholdFilter level="error" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+            <!--设置日志格式-->
+            <PatternLayout>
+                <pattern>%d %p %C{} [%t] %m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+                <TimeBasedTriggeringPolicy/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+        </RollingFile>
+
+        <!--error及更高级别日志-->
+        <RollingFile name="errorFileAppender"
+                     fileName="${LOG_HOME}/error.log"
+                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/error-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout>
+                <pattern>%d %p %C{} [%t] %m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+                <TimeBasedTriggeringPolicy/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+        </RollingFile>
+
+        <!--json格式error级别日志-->
+        <RollingFile name="errorJsonAppender"
+                     fileName="${LOG_HOME}/error-json.log"
+                     filePattern="${LOG_HOME}/error-json-%d{yyyy-MM-dd}-%i.log.gz">
+            <JSONLayout compact="true" eventEol="true" locationInfo="true"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- 根日志设置 -->
+        <!--<Root> 元素表示的是根日志器。在Log4j2中，所有的Logger都派生自Root Logger-->
+        <!--这里 level=debug 意味着该应用程序会记录所有debug及以上级别的日志-->
+        <Root level="debug">
+            <AppenderRef ref="allFileAppender" level="all"/>
+            <AppenderRef ref="consoleAppender" level="debug"/>
+            <AppenderRef ref="debugFileAppender" level="debug"/>
+            <AppenderRef ref="infoFileAppender" level="info"/>
+            <AppenderRef ref="warnFileAppender" level="warn"/>
+            <AppenderRef ref="errorFileAppender" level="error"/>
+            <AppenderRef ref="errorJsonAppender" level="error"/>
+        </Root>
+
+        <!--spring日志-->
+        <Logger name="org.springframework" level="debug"/>
+                                                        
+        <!--druid数据源日志-->
+        <Logger name="druid.sql.Statement" level="warn"/>
+                                                       
+        <!-- mybatis日志 -->
+        <Logger name="com.mybatis" level="warn"/>
+        <Logger name="org.hibernate" level="warn"/>
+        <Logger name="com.zaxxer.hikari" level="info"/>
+        <Logger name="org.quartz" level="info"/>
+        <Logger name="com.andya.demo" level="debug"/>
+    </Loggers>
+
+</Configuration>
+~~~
+
+
+
+使用示例：
+
+~~~java
+@Slf4j
+public class Demo {
+    void foo() {
+        log.trace(...);
+        log.debug(...);
+        log.info(...);
+        log.warn(...);
+        log.err(...);
+    }
+}
+~~~
+
+
+
+## 数据源
+
+~~~yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=utf8
+    driverClassName: com.mysql.jdbc.Driver
+    username: root
+    password: 123456
+~~~
+
+
+
 ## JUnit
 
 JUnit 是一个 Java 单元测试框架。JUnit 5 由 3 个模块构成，分别是
@@ -190,21 +483,62 @@ public class TestingAStackDemo {
 <dependency>
     <groupId>mysql</groupId>
     <artifactId>mysql-connector-java</artifactId>
+    <version>8.0.31</version>
 </dependency>
 ~~~
 
+配置文件：
 
-
-为 Mapper 打上注解 @Mapper
-
-~~~java
-@Mapper
-@Repository
-public interface UserMapper {
-    void save(User user);
-    List<User> findAll();
-}
+~~~properties
+# 是否执行MyBatis xml配置文件的状态检查, 只是检查状态,默认false
+mybatis.check-config-location=true
+# mybatis-config.xml文件的位置
+mybatis.config-location=classpath:mybatis/mybatis-config.xml
+# Mapper对应的xml路径
+mybatis.mapper-locations=classpath:mybatis/mapper/*.xml
+# 设置别名的路径,可避免写全限定类名
+mybatis.type-aliases-package=com.manu.mybatisxml.model
 ~~~
+
+
+
+在 Spring Boot中，如何实现一个 Mapper：
+
+- 为 Mapper 打上注解 @Mapper
+
+  ~~~java
+  @Mapper
+  @Repository
+  public interface UserMapper {
+      void save(User user);
+      
+      List<User> findAll();
+  }
+  ~~~
+
+- `mappe.xml` 文件的路径，包括文件名，必须同数据层的接口完全一致
+
+  `mapper.xml` 文件可以和接口放在同一个目录下，也可以放在 `resource/${包名}` 目录下
+  
+- 在启动类上添加 @MapperScan 注解，并指定包路径
+
+  ~~~java
+  @SpringBootApplication
+  @MapperScan("edu.qdu.gpumonitor.Mapper")
+  public class GpuMonitorApplication {
+      public static void main(String[] args) {
+          SpringApplication.run(GpuMonitorApplication.class, args);
+      }
+  }
+  ~~~
+
+  
+
+注意：注解方式与 xml 配置文件可以搭配使用，一起实现一个 Mapper 接口。
+
+
+
+
 
 直接通过依赖注入来获取：
 
@@ -228,14 +562,7 @@ public class UserService {
 
 ## Redis
 
-~~~xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
-~~~
-
-在默认情况下 SpringDataRedis 会实用 Lettuce 作为底层与 Redis 交互的基础 API 实现。可以手动排除 Lettuce 的依赖，并引入 Jedis
+SpringBoot 中默认的客户端是 Lettuce, 所以需要 exclude 掉 lettuce-core 包，并引入 jedis 的包。
 
 ~~~xml
 <dependency>
@@ -243,15 +570,35 @@ public class UserService {
     <artifactId>spring-boot-starter-data-redis</artifactId>
     <exclusions>
         <exclusion>
-            <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
+            <groupId>io.lettuce</groupId>
         </exclusion>
     </exclusions>
 </dependency>
+
 <dependency>
     <groupId>redis.clients</groupId>
     <artifactId>jedis</artifactId>
 </dependency>
+
+<dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
+    <version>2.9.0</version>
+</dependency>
+~~~
+
+配置文件如下：
+
+~~~properties
+spring.data.redis.host = 你的Redis服务器地址
+spring.data.redis.port = 你的Redis服务器端口
+spring.data.redis.password = 你的Redis密码 (如果有的话)
+spring.data.redis.database = 数据库索引 (默认为0)
+spring.data.redis.jedis.pool.max-active = 连接池最大连接数 (使用负值表示没有限制)
+spring.data.redis.jedis.pool.max-idle = 连接池中的最大空闲连接
+spring.data.redis.jedis.pool.min-idle = 连接池中的最小空闲连接
+spring.data.redis.jedis.pool.max-wait = 连接池最大阻塞等待时间（使用负值表示没有限制）
 ~~~
 
 SpringBootTest 提供了针对 SpringDataRedis 的场景测试器，所以可以直接用 `@DataRedisTest` 而不是 `@SpringBootTest`
@@ -260,9 +607,12 @@ SpringBootTest 提供了针对 SpringDataRedis 的场景测试器，所以可以
 @DataRedisTest
 public class RedisTest {
     @Autowired
+    // 这里的反省参数指定redis中key的类型，以及value类型
+    // 如果是Object，那么直接保存 协议序列化的字符串
     private RedisTemplate<Object, Object> redisTemplate;
     
     @Autowired
+    // 相当于RedisTemplate<String, String>
     private StringRedisTemplate stringRedisTemplate;
 }
 ~~~
@@ -301,7 +651,7 @@ redisTemplate.hasKey("qaz")
 
 
 
-List列表的操作
+List 列表的操作
 
 ~~~java
 ListOperations<Object, Object> listOperations = redisTemplate.opsForList();
@@ -332,81 +682,216 @@ listOperations.remove("rightList", 0, 111);
 
 
 
-对于Set的操作、Hash的操作、ZSet等操作，回来自行查阅补充
+对于 Set 的操作、Hash 的操作、ZSet 等操作，回来自行查阅补充
 
-## MongoDB
 
-~~~xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-mongodb</artifactId>
-</dependency>
-~~~
 
-~~~yaml
-spring.data.mongodb.host= 192.168.217.128
-spring.data.mongodb.port= 27017
-spring.data.mongodb.database= spring-data
-spring.data.mogodb.uri= mongodb://180.76.159.126:27017,180.76.159.126:27018,180.76.159.126:27019/articledb connect=replicaSet&slaveOk=true&replicaSet=myrs
-~~~
-
-uri 必须包括副本集中所有的主机，包括主节点、副本节点、仲裁节点。
-
-可以使用 SpringDataMongoDB 来操纵 MongoDB，但这里我们介绍 MongoTemplate。
-
-插入数据
+工具类的封装
 
 ~~~java
-@Autowired
-MongoTemplate mongoTemplate;
+public class RedisUtil {
 
-public void foo() {
-    User user = new User();
-    mongoTemplate.save(user);
-    
-   
-    // 返回一个对象，可以获取自增主键
-    User userWithId = mongoTemplate.insert(User.class).one(user);
-    // 这里 user 与 userWithId 是同一个对象
+    @SuppressWarnings("unchecked")
+    private static RedisTemplate<String, String> redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
+
+    static  public boolean expire(String key, long time) {
+        return redisTemplate.expire(key, time, TimeUnit.SECONDS);
+    }
+
+    static  public long getExpireTime(String key) {
+        return redisTemplate.getExpire(key, TimeUnit.SECONDS);
+    }
+
+    static  public boolean hasKey(String key) {
+        return redisTemplate.hasKey(key);
+    }
+
+    static  public Object get(String key) {
+        return key == null ? null : redisTemplate.opsForValue().get(key);
+    }
+
+    static public void set(String key, String value) {
+        redisTemplate.opsForValue().set(key, value);
+    }
+    static public void delete(String key) {
+        redisTemplate.delete(key);
+    }
+    static public void batchSet(Map<String, String> keyAndValue) {
+        redisTemplate.opsForValue().multiSet(keyAndValue);
+    }
+}
+
+
+/**
+ * spring工具类 方便在非spring管理环境中获取bean
+ *
+ * @author Lion Li
+ */
+@Component
+public final class SpringUtil implements BeanFactoryPostProcessor
+{
+    /** Spring应用上下文环境 */
+    private static ConfigurableListableBeanFactory beanFactory;
+
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException
+    {
+        SpringUtil.beanFactory = beanFactory;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T getBean(String name) throws BeansException
+    {
+        return (T) beanFactory.getBean(name);
+    }
+
+    public static <T> T getBean(Class<T> clz) throws BeansException
+    {
+        T result = (T) beanFactory.getBean(clz);
+        return result;
+    }
 }
 ~~~
 
-更新数据：
 
-~~~java
-User replace = new User();
-    replace.setAge(100);
 
-// 先通过 matching 指定要更新的对象，然后调用 replaceWith() 开始替换
-mongoTemplate.update(User.class).matching(Criteria.where("name").is("mongo"))
-            .replaceWith(replace).as(User.class).findAndReplaceValue();
+## Kafka
+
+Maven 依赖
+
+~~~xml
+<!--Kafka配置-->
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+    <version>3.0.11</version>
+</dependency>
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+    <version>2.0.9</version>
+</dependency>
 ~~~
 
-这种更新是覆盖修改，我们通过以下方式实现局部修改：
+生产消息：
 
 ~~~java
-mongoTemplate.updateFirst(
-    Query.query(Criteria.where("name").is("mongo")), 
-    Update.update("age", 200), 
-    User.class);
+@Configuration
+public class KafkaProducerConfig {
+
+    // 创建 kafka 操作模板对象, 用于简化消息发送操作
+    @Bean
+    public KafkaTemplate<?, ?> kafkaTemplate(ProducerFactory<Object, Object> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    // 创建 kafka 生产者工厂
+    @Bean
+    public ProducerFactory<?, ?> producerFactory() {
+        Map<String, Object> properties = buildProducerProperties();
+        return new DefaultKafkaProducerFactory<>(properties);
+    }
+
+    /**
+     * 构建生产者配置
+     * @return
+     */
+    public static Map<String, Object> buildProducerProperties() {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("bootstrap.servers", "127.0.0.1:9092");
+        properties.put("acks", "all");
+        properties.put("retries", 0);
+        properties.put("batch.size", 16384);
+        properties.put("linger.ms", 1);
+        properties.put("buffer.memory", 33554432);
+        properties.put("key.serializer", StringSerializer.class.getName());
+        properties.put("value.serializer", StringSerializer.class.getName());
+        return properties;
+    }
+}
+
+@Component
+public class KafkaProducerDemo {
+    @Autowired
+    private Consumer<String, Object> consumer;
+    public void send() throws InterruptedException {
+        // 创建 Header
+        Header recordHeader = new RecordHeader("myHeader", "headerValue".getBytes());
+
+        // 创建 Message
+        Message<String> message = MessageBuilder
+            .withPayload(payload)
+            .setHeader(KafkaHeaders.TOPIC, topic)
+            .setHeader(KafkaHeaders.MESSAGE_KEY, "myKey")
+            .setHeader(KafkaHeaders.TIMESTAMP, System.currentTimeMillis())
+            .setHeaders(new RecordHeaders(Arrays.asList(recordHeader)))
+            .build();
+
+        // 发送消息
+        kafkaTemplate.send(message);
+    }
+}
 ~~~
 
 
 
-删除数据：
+消费消息：
 
 ~~~java
-mongoTemplate.remove(Query.query(Criteria.where("age").gt(30)), User.class);
+@Configuration
+public class KafkaConsumerConfig {
+
+    /**
+     * 创建 消费者对象
+     *
+     * @param consumerFactory
+     * @return
+     */
+    @Bean
+    public Consumer<?, ?> consumer(ConsumerFactory<Object, Object> consumerFactory) {
+        return consumerFactory.createConsumer();
+    }
+
+    @Bean
+    public ConsumerFactory<?,?> consumerFactory() {
+        return new DefaultKafkaConsumerFactory<>(buildConsumerProperties());
+    }
+
+    /**
+     * 构建消费者配置
+     *
+     * @return
+     */
+    public static Map<String, Object> buildConsumerProperties() {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "119.45.163.155:9092");
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "gpu_realtime_group");
+        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "60000");
+        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        return properties;
+    }
+}
+
+@Component
+public class KafkaConsumerDemo {
+    @Autowired
+    private Consumer<String, Object> consumer;
+
+
+    @PostConstruct
+    public void consumerTest() {
+        consumer.subscribe(Arrays.asList("test"));
+        ConsumerRecords<String, Object> records = consumer.poll(100);
+        for (ConsumerRecord<String, Object> record : records) {
+            System.out.println("消费消息： " + record.value());
+        }
+    }
+}
 ~~~
 
 
-
-查询数据：
-
-~~~java
-mongoTemplate.find(Query.query(Criteria.where("age").lt(18)), User.class)
-    mongoTemplate.findById("62f0f24e618cfd7eb146b14c", User.class)
-~~~
 
 ## ElasticSearch
 
@@ -823,8 +1308,6 @@ public String removeSchedule(String jobName, String jobGroup, String triggerName
     return "success";
 }
 ~~~
-
-
 
 ## Swagger
 

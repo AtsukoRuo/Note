@@ -6,8 +6,6 @@
 
 `Path`对象代表的是一个文件的或目录的路径。
 
-
-
 构建Path对象
 
 ~~~java
@@ -17,17 +15,11 @@ Path.of("C:", "path", "to");	 //推荐使用，屏蔽各个平台文件分割符
 Path.of(new URI(...));			 //根据URI构建路径
 ~~~
 
-
-
 > 在Windows中，文件分割符为反斜杠`\`，而在Linux中，文件分割符为`/`。
 >
 > Windows文件路径示例`C:\Users\AtsukoRuo\Desktop`。
 >
 > 注意相对路径是相对工程根目录的，而不是代码文件所在的目录
-
-
-
-
 
 一些转换到其他对象的方法：
 
@@ -45,7 +37,7 @@ URI u = p.toUri();						// 转换为URI
 File f = ap.toFile();					// 转换为File类型
 ~~~
 
-注意：toAbsolutePath不会访问文件系统来解析路径，而是仅仅做字符串的转换，下面给出一个例子来说明
+注意：toAbsolutePath 不会访问文件系统来解析路径，而是仅仅做字符串的转换，下面给出一个例子来说明
 
 ~~~java
 Path p = Path.of("src", "..", "doc");
@@ -54,7 +46,7 @@ System.out.println(p.toAbsolutePath().normalize());	//C:\Users\AtsukoRuo\Desktop
 System.out.println(p.toRealPath());		//C:\Users\AtsukoRuo\Desktop\spring-demo\FileDemo\doc
 ~~~
 
-可以使用`normalize`方法来消除冗余路径，例如`..`、`.`，但是这个方法仍然不访问文件系统
+可以使用`normalize`方法来消除冗余路径，例如`..`、`.`，但是这个方法仍然不访问文件系统。
 
 
 
@@ -78,11 +70,7 @@ for(Path pp : p) {
 System.out.println("Starts with " + p.getRoot() + " " + p.startsWith(p.getRoot()));
 ~~~
 
-注意无论是getNameCount循环，还是for-each循环，都不包括根目录！
-
-而且endsWith不能用来判断文件后缀，因为`endsWith()`比较的是整个路径组件，而不是名字中的一个子串。
-
-
+注意无论是 getNameCount 循环，还是for-each循环，都不包括根目录！
 
 `Files`工具类中包含了一整套用于检查`Path`的各种信息的方法：
 
@@ -167,8 +155,6 @@ System.out.println(p3.resolve(p4));			//C:\src\c
 public static void delete(Path path) throws IOException
 ~~~
 
-
-
 创建文件
 
 ~~~java
@@ -176,16 +162,12 @@ public static Path createFile(Path path, FileAttribute<?>... attrs)
         throws IOException
 ~~~
 
-
-
 创建目录
 
 ~~~java
 public static Path createDirectories(Path dir, FileAttribute<?>... attrs)
         throws IOException
 ~~~
-
-
 
 创建临时文件
 
@@ -196,8 +178,6 @@ public static Path createTempFile(Path dir,
                                       FileAttribute<?>... attrs)
         throws IOException
 ~~~
-
-
 
 递归地删除目录
 
@@ -226,9 +206,7 @@ public class RmDir {
 - `visitFileFailed()`：当文件无法访问时调用。
 - `postVisitDirectory()`：先进入当前目录下的文件和目录（包括所有的子目录），最后在当前目录上运行。
 
-
-
-获取Path流
+获取 Path 流
 
 ~~~java
 public static Stream<Path> walk(Path start, FileVisitOption... options) throws IOException			//获得包含整个目录树内容的流
@@ -262,8 +240,6 @@ Files.walk(test)
 生成一个`List<String>`，每个元素代表这文件中的一行。
 
 如果文件是大文件，可以使用`Files.lines()`将一个文件变为一个由行组成的`Stream<String>`。
-
-
 
 ~~~c
 public static Path write(Path path, byte[] bytes, OpenOption... options);
@@ -663,7 +639,18 @@ public class OSExecute {
 
 ## NIO
 
-Java NIO（New IO）是从 Java 1.4 版本开始引入的一个新的 IO API。NIO 系统的核心在于：**通道（Channel）和缓冲区（Buffer）**。其中，通道表示程序与IO设备（例如：文件、套接字）之间的连接。总之**Channel 负责传输，Buffer 负责存储**。
+Java NIO（New IO）是从 Java 1.4 版本开始引入的一个新的 IO API，它是基于 IO 多路复用模型的。NIO 系统的核心在于：
+
+- **通道（Channel）**：表示程序与IO设备（例如：文件、套接字）之间的连接，负责数据的传输
+
+- **缓冲区（Buffer）**。负责数据的存储。
+
+- **Selector（选择器）**：
+
+  1. 向选择器注册一个通道。
+  2. 通过选择器所提供的事件查询（select）方法，来查询这些已注册的通道是否有就绪的IO事件（例如可读、可写、网络连接完成等）
+
+  通常来说，一个线程拥有一个 Selector，而 Selector 可以管理多个Channel
 
 > 实际上，“旧”的I/O包已经用`nio`重新实现过了，以利用其带来的速度优势。只有在遇到性能问题，才使用nio
 
@@ -677,20 +664,26 @@ Java NIO（New IO）是从 Java 1.4 版本开始引入的一个新的 IO API。N
 
 
 
+![img](assets\01.jpg)
+
+注意到：`ByteBuffer`（原生字节的缓冲区）是唯一直接和`FileChannel`打交道的对象。
+
 ### Buffer
+
+Buffer是非线程安全的
 
 缓冲区有两个核心方法：
 
-- `put()`:存入数据到缓冲区中
-- `get()`:获取缓冲区中的数据
+- `put()`:存入数据到缓冲区中。
+- `get()`:获取缓冲区中的数据。如果无数据可以获取，那么就会抛出`BufferUnderflowException`异常
 
-
+这两个方法都会改变`position`
 
 缓冲区中的四个核心属性（索引）：
 
 - `capacity`：缓冲区的最大容量。声明后不能更改。
 - `limit`：缓冲区中可以读写的最大范围。
-- `position`：下一个要读写的位置
+- `position`：下一个要「读写」的位置
 - `mark`：标记一个位置。
 
 $$
@@ -717,15 +710,17 @@ $$
 
 
 
-如何创建Buffer
 
-- 数组的`wrap()`方法
+
+如何创建 Buffer
+
+- `wrap()`方法
 
   ~~~java
   IntBuffer intBuffer = IntBuffer.wrap(new int[]{1, 2});
   ByteBuffer byteBuffer = ByteBuffer.wrap("Some text".getBytes());
 
-- ByteBuffer.allocate()静态方法
+- `ByteBuffer.allocate()` 静态方法
 
   ~~~java
   public static ByteBuffer allocate(int capacity)  
@@ -736,99 +731,37 @@ $$
 
   
 
-  如果你是使用`HeapByteBuffer`与Channel打交道，那么每一次IO调用都会执行下列步骤（以写操作为例）：
+  如果你是使用`HeapByteBuffer`与 Channel 打交道，那么每一次IO调用都会执行下列步骤（以写操作为例）：
 
-  - 创建一个临时的DirectBuffer对象
-  - 将HeapByteBuffer内的内容复制到DirectBuffer中
-  - 用这个临时的DirectBuffer对象作为IO操作的参数
-  - 对这个DirectBuffer对象进行垃圾收集。
+  - 创建一个临时的 DirectBuffer 对象
+  - 将 HeapByteBuffer 复制到 DirectBuffer 中
+  - 将这个临时的 DirectBuffer 对象作为 IO 操作的参数
+  - 对这个 DirectBuffer 对象进行垃圾收集。
 
   由于缓存，这个临时的`DirectBuffer`可以重复使用。此外，还有一些优化策略使得`HeapByteBuffer`性能开销不至于很大。
 
   虽然`DirectByteBuffer`可以优化IO性能，但是它的创建与销毁的性能损耗比`HeapByteBuffer`的多。
 
-  
-
-  至于使用allocate()还是allocateDirect()，我的建议是**first make it work, then make it fast.**
+  至于使用 allocate() 还是 allocateDirect()，我的建议是 **first make it work, then make it fast.**
 
 
 
-
-
-### Channel
-
-`java.nio.channels.Channel` 包下Channel类型：
-
-- `FileChannel`
-- `SocketChannel`
-- `ServerSocketChannel`
-- `DatagramChannel`
-
-
-
-#### 如何获取Channel
-
-- `getChannel()`：像本地IO，`FileInputStream`、`FileOutputStream`、`RandomAccessFile`以及网络IO，`Socket`等，它们都提供了`getChannel() `来方法获取通道。
-
-  ~~~java
-  try(
-      FileChannel fileChannel = new FileOutputStream(name).getChannel();
-      FileChannel fileChannel = new FileInputStream(name).getChannel();
-      FileChannel fileChannel2 = new RandomAccessFile(name , "rw").getChannel();
-  ) {
-      
-  } catch (IOException e) {
-      throw new RuntimeException(e);
-  }
-  ~~~
-
-  
-
-#### transferTo
-
-有时候我们需要将一个Channel作为另一个Channel的输入，那么我们会写出以下代码：
-
-~~~java
-FileChannel in = new FileInputStream("...").getChannel();
-FileChannel out = new FileOutpuStream("..."),getChannel();
-~~~
-
-~~~java
-ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
-while(in.read(buffer) != -1) {
-    buffer.flip(); // 准备写
-    out.write(buffer);
-    buffer.clear();  // 准备读
-}
-~~~
-
-可以用`transferTo`或`transferFrom`来完成这一任务
-
-~~~java
-in.transferTo(0, in.size(), out);
-out.transferFrom(in, 0, in.size());
-~~~
-
-
-
-#### 乱码
-
-此外还有注意ByteBuffer与编码集的问题。下面通过一个例子来说明这个问题：
+此外，还有注意 ByteBuffer 与编码集的问题。下面通过一个例子来说明这个问题：
 
 ~~~java
 public class BufferToText {
     private static final int BSIZE = 1024;
     public static void main(String[] args) {
-        //系统默认的编码	  GBK
-        //文件编码			UTF-8
-        //String类型编码	UTF-16
-        
-        //情况一：直接向Channel写入ByteBuffer
+        // 系统默认的编码	  GBK
+        // 文件编码			UTF-8
+        // String 类型编码	 UTF-16
+   
+        //情况一：直接向 Channel 写入 ByteBuffer
         try(
             FileChannel fc = new FileOutputStream("data2.txt").getChannel()
         ) {
             fc.write(ByteBuffer.wrap("Some text".getBytes()));
-            //getBytes使用UTF-8编码
+            // getBytes 使用 UTF-8 编码
         } catch(IOException e) {
             throw new RuntimeException(e);
         }
@@ -842,7 +775,7 @@ public class BufferToText {
             throw new RuntimeException(e);
         }
         buff.flip();
-        //asCharBuffer使用UTF-16编码，因此会出现乱码
+        // asCharBuffer 使用 UTF-16 来解码，因此会出现乱码
         System.out.println(buff.asCharBuffer());
 
 		
@@ -855,7 +788,7 @@ public class BufferToText {
                 + Charset.forName(encoding).decode(buff));
 
         
-        //情景二：使用UTF-16BE编码
+        //情景二：使用 UTF-16BE 编码
         try(FileChannel fc = new FileOutputStream("data2.txt").getChannel()
         ) {
             fc.write(ByteBuffer.wrap(
@@ -876,9 +809,9 @@ public class BufferToText {
         System.out.println(buff.asCharBuffer());
 
 
-        //情景三：用CharBuffer进行写操作：
+        //情景三：用 CharBuffer 进行写操作：
         buff = ByteBuffer.allocate(24);
-        //这里使用了UTF-16BE编码
+        // 这里 asCharBuffer 使用了 UTF-16BE 编码
         buff.asCharBuffer().put("Some text");
         try(FileChannel fc = new FileOutputStream("data2.txt").getChannel()
         ) {
@@ -907,13 +840,224 @@ Some text
 */
 ~~~
 
-总结：出现乱码的原因是String类型编码为UTF-16，而getBytes()编码为UTF-8。所以才会出现乱码
 
-#### 视图
 
-通过视图缓冲区，可以很方便地写入基本数据类型。事实上，视图缓冲区的底层仍然是ByteBuffer，当通过视图缓冲区读取时，它会按照相应语义来解释二进制数据的，并将相应操作映射成对ByteBuffer中数据的修改。
+### Channel
 
-对于一个二进制数据0x0000000000000061（十进制97），按照不同语义解释如下：
+`java.nio.channels.Channel` 包下Channel类型：
+
+- `FileChannel`：用于读写文件
+- `SocketChannel`：用于读写套接字 TCP 连接
+- `ServerSocketChannel`：用于监听 TCP 连接
+- `DatagramChannel`：用于读写 UDP 连接
+
+从操作系统的角度来说，一个 NIO Channel 表示一个文件描述符。
+
+本地IO，`FileInputStream`、`FileOutputStream`、`RandomAccessFile`以及网络IO，`Socket`等，它们都提供了`getChannel() `来方法获取通道。
+
+~~~java
+try(
+    FileChannel fileChannel = new FileOutputStream(name).getChannel();
+    FileChannel fileChannel2 = new RandomAccessFile(name , "rw").getChannel();
+) {
+    ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
+    fileChannel.read(buffer)
+    fileChannel2.write(buffer)
+    fileChannel2.force(true)		// 强制刷新到磁盘
+    channel.force(true);
+} catch (IOException e) {
+    throw new RuntimeException(e);
+}
+~~~
+
+
+
+有时候我们需要将一个 Channel 作为另一个 Channel 的输入，那么我们会写出以下代码：
+
+~~~java
+FileChannel in = new FileInputStream("...").getChannel();
+FileChannel out = new FileOutpuStream("...").getChannel();
+ByteBuffer buffer = ByteBuffer.allocate(BSIZE);
+while(in.read(buffer) != -1) {
+    buffer.flip(); // 准备写
+    out.write(buffer);
+    buffer.clear();  // 准备读
+}
+~~~
+
+可以用`transferTo`或`transferFrom`来简化这这种操作
+
+~~~java
+in.transferTo(0, in.size(), out);
+out.transferFrom(in, 0, in.size());
+~~~
+
+
+
+
+
+SocketChannel 客户端代码
+
+~~~java
+SocketChannel socketChannel = SocketChannel.open();
+socketChannel.configureBlocking(false);
+socketChannel.connect(new InetSocketAddress("127.0.0.1", 80));
+
+// `SocketChannel`以及`ServerSocketChannel`都支持非阻塞模式：`socketChannel.configureBlocking(false)`
+// 在非阻塞情况下，socketChannel.connect()方法直接返回
+// 因此需要不断地自旋，检查当前是否连接到了主机
+// 一般是在finishConnect后，再调用configureBlocking
+while (!socketChannel.finishConnect()) {
+
+}
+
+ByteBufferbuf buffer = ByteBuffer.allocate(1024);
+socketChannel.write(buffer);
+
+
+// socketChannel.shutdownOutput() 方法来关闭输出流（可选）。这实际上会发送一个 TCP FIN 到对端，告知它不再有更多的数据需要发送。但是仍然可以接收到服务端的消息
+socketChannel.shutdownOutput();
+
+// 关闭套接字连接
+IOUtil.closeQuietly(socketChannel);
+~~~
+
+SocketChannel 服务端代码：
+
+~~~java
+//创建 ServerSocketChannel
+ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+serverSocketChannel.configureBlocking(false);
+
+// 绑定监听端口，例如8080端口
+serverSocketChannel.socket().bind(new InetSocketAddress(8080));
+
+while(true){
+    // 监听新进来的连接
+    SocketChannel socketChannel = serverSocketChannel.accept();
+
+    // 异步模型下，accept 方法会立刻返回，如果还没有新进来的连接，则返回null
+    if(socketChannel != null) {
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        int bytesRead = socketChannel.read(buf);
+        // 处理数据
+        socketChannel.close();   // 一定要记得关闭
+    }
+}
+~~~
+
+
+
+
+
+DatagramChannel 的使用示例：
+
+~~~
+DatagramChannel channel = DatagramChannel.open();
+channel.socket().bind(new InetSocketAddress(18080));
+~~~
+
+从 DatagramChannel 读取数据
+
+~~~java
+ByteBuffer buf = ByteBuffer.allocate(1024);
+SocketAddress clientAddr = datagramChannel.receive(buf);
+~~~
+
+向 DatagramChanne l写入数据
+
+~~~java
+// 由于UDP并不是面向连接的，因此要指定接收方的IP地址
+channel.send(buffer, new InetSocketAddress("127.0.0.1",18899));
+~~~
+
+
+
+### 选择器
+
+选择器的使用：
+
+1. 调用静态工厂方法open()来获取Selector实例 
+
+   ~~~java
+   Selector selector = Selector.open()
+   ~~~
+
+2. 将 Channel 注册到选择器中。一个 Selector 可以监控多个 Channel 。
+
+   通过`SelectionKey Channel#register(Selector sel，int ops)`方法，便可以向`Selector`注册`Channel`，其中`ops`表示IO事件类型，包括：
+
+   1. 可读：`SelectionKey.OP_READ`
+   2. 可写：`SelectionKey.OP_WRITE`
+   3. 连接：`SelectionKey.OP_CONNECT`
+   4. 接收：`SelectionKey.OP_ACCEPT`
+
+   通过`|`运算符，可以监控多个IO事件，例如：
+
+   ~~~java
+   int key = SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+   ~~~
+
+   这里的 **IO事件指的是 Channel 具备执行某个IO操作的条件**，例如：
+
+   - 如果 SocketChannel 完成了三次握手过程，就会发生 OP_CONNECT 事件
+   - 如果 ServerSocketChannel 在监听到一个新连接到来时，就会发生 OP_ACCEPT 事件
+   - 一个 SocketChannel 通道有数据可读，就会发生 OP_READ 事件
+   - 一个 SocketChannel 通道等待数据写入，就会发生 OP_WRITE 事件
+
+   
+
+   只有继承抽象类`SelectableChannel`的 Channel，才可以向Selector注册。而 FileChannel 就不支持 Selector。
+
+   `SelectionKey`可以`SelectableChannel`与`Selector`之间的注册关系，通常用于描述该 Channel 上是否有已经就绪的操作。SelectionKey还有两个重要方法：
+
+   - `void attach(Object o)`：将对象附加到 SelectionKey 上。
+   - `Object attachment()`：从 SelectionKey 中获取附加对象。
+
+3. `SelectionKey#interestOps(int ops)`方法设置 Channel 感兴趣的IO事件
+
+4. 通过 Selector 的 `select()` 方法，获取是否有已就绪的IO事件。然后调用`selectedKeys()`获取就绪 IO 事件所对应的 SelectionKey。
+
+   ~~~java
+   while (selector.select() > 0) {
+   	Set selectedKeys = selector.selectedKeys();
+       Iterator keyIterator = selectedKeys.iterator();
+       while (keyIterator.hasNext()) {
+           SelectionKey key = keyIterator.next();
+           if (key.isAcceptable()) {
+               //IO事件：ServerSocketChannel 服务器监听通道有新连接
+           }
+           
+           if (key.isConnectable()) {
+            	//IO事件：传输通道连接成功
+           } 
+           
+           if (key.isReadable()) {
+            	//IO事件：传输通道可读
+           } 
+           
+           if (key.isWritable()) {
+            	//IO事件：传输通道可写
+           }
+           //处理完成后，移除选择键
+           keyIterator.remove();
+       }
+   }
+   ~~~
+
+   `select()`方法有多个重载
+
+   - select()：阻塞调用直到至少有一个 IO 事件发生。
+   - select(long timeout)
+   - selectNow()
+
+
+
+### 视图
+
+通过视图缓冲区，可以很方便地写入基本数据类型。事实上，视图缓冲区的底层仍然是 ByteBuffer，当通过视图缓冲区读取时，它会按照相应语义来解释二进制数据的，并将相应操作映射成对 ByteBuffer 中数据的修改。
+
+对于一个二进制数据 0x0000000000000061（十进制97），按照不同语义解释如下：
 
 ![图7-1](assets/screenshow.png)
 
@@ -944,13 +1088,11 @@ public class Endians {
 
 
 
-#### 总结
 
 
 
-![img](assets\01.jpg)
 
-注意到：`ByteBuffer`（原生字节的缓冲区）是唯一直接和`FileChannel`打交道的对象。
+
 
 ## 内存映射文件
 

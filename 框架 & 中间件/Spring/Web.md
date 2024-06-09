@@ -14,7 +14,7 @@ Spring MVC 能帮助我们方便地开发符合 MVC 模式的 Web 应用，MVC �
 
 
 
-在前后端分离的设计中，后端负责暴露接口给前端调用。也就是将MVC中的View层分离到前端去，原本的`Model`层细分为`Service`层以及`Repository`层。这种情况下，我们一般就将后端项目分为：
+在前后端分离的设计中，后端负责暴露接口给前端调用。也就是将 MVC 中的 View 层分离到前端去，原本的`Model`层细分为`Service`层以及`Repository`层。这种情况下，我们一般就将后端项目分为：
 
 - `Repository`层：负责数据访问
 
@@ -115,7 +115,7 @@ public class MenuController {
 
 ### @RequestMapping
 
-被@RequestMapping注解的方法称为**「请求处理方法」**
+被 `@RequestMapping` 注解的方法称为**「请求处理方法」**
 
 | 属性       | 类型              | 说明                                                         |
 | :--------- | :---------------- | :----------------------------------------------------------- |
@@ -142,11 +142,11 @@ public class FileHandlerController {
 }
 ~~~
 
-
+在Spring框架中，`@RestController` 和 `@RequestMapping`注解的路由可以以斜杠 "/" 开头，也可以不以斜杠开头。当 Spring 在拼接这些路径时，会自动正确地处理这些斜杠。
 
 ### 参数
 
-这些方法可以携带特定类型的参数，在被调用处理请求时，MVC框架会自动注入这些参数。
+这些请求处理方法可以携带特定类型的参数，在被调用处理请求时，MVC 框架会自动注入这些参数。
 
 | 参数类型                              | 说明                                                         |
 | ------------------------------------- | ------------------------------------------------------------ |
@@ -159,23 +159,23 @@ public class FileHandlerController {
 | `Map`、`Model` 与 `ModelMap`          | 获得用于呈现视图时要使用的模型信息，这三个类型的本质都是 `Map` |
 | `Errors` 与 `BindingResult`           | 获得绑定对象和校验时的错误信息                               |
 | `Principal`                           | 获得当前认证的用户信息                                       |
-| `SessionStatus`                       | 与 `@SessionAttributes` 搭配使用，这是一个加在控制器类上的注解，指定将模型中的哪个属性作为 Session 属性存储起来，`SessionStatus` 的 `setComplete()` 方法用来清除存储的内容 |
+| `SessionStatus`                       | 与 `@SessionAttributes` 搭配使用，这是一个加在控制器类上的注解 |
 
 除了上述类型，还可以在参数上增加一些注解，获取特定的信息，常用的注解如表 9-7 所示。
 
 **表 9-7　Spring MVC 请求处理方法的常用参数注解**
 
-| 注解                | 说明                                                    |
-| ------------------- | ------------------------------------------------------- |
-| `@PathVariable`     | 获得 `@RequestMapping` 的 `path` 里配置的占位符对应的值 |
-| `@RequestParam`     | 获得请求的参数。                                        |
-| `@RequestHeader`    | 获得请求的 HTTP 头                                      |
-| `@RequestBody`      | 获得请求的消息体                                        |
-| `@RequestPart`      | 针对 Multipart 请求，获取其中指定的一段内容             |
-| `@CookieValue`      | 获得 Cookie 内容                                        |
-| `@ModelAttribute`   | 获得模型中的属性，如果不存在则初始化一个。              |
-| `@SessionAttribute` | 获得 Session 中已有的属性                               |
-| `@RequestAttribute` | 获得请求中已有的属性                                    |
+| 注解                | 说明                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| `@PathVariable`     | 获得 `@RequestMapping` 的 `path` 里配置的占位符对应的值      |
+| `@RequestParam`     | 获得请求的参数（查询参数或者`application/x-www-form-urlencoded`的表单数据） |
+| `@RequestHeader`    | 获得请求的 HTTP 头                                           |
+| `@RequestBody`      | 获得请求的消息体                                             |
+| `@RequestPart`      | 针对 Multipart 请求，获取其中指定的一段内容                  |
+| `@CookieValue`      | 获得 Cookie 内容                                             |
+| `@ModelAttribute`   | 获得模型中的属性，如果不存在则初始化一个。                   |
+| `@SessionAttribute` | 获得 Session 中已有的属性                                    |
+| `@RequestAttribute` | 获得请求中已有的属性                                         |
 
 简单的例子：
 
@@ -204,15 +204,9 @@ public class SimpleApplication {
 
 ~~~
 
+在`@RequestMapping`方法中，Spring会将简单类型和某些特殊类型默认标记为`@RequestParam`。然而，对于 POJO 类型，Spring 会尝试将请求参数注入到到这些对象。如果一个请求参数被`@RequestParam`显式指定到其他参数上，那么该参数不会自动注入到 POJO 对象中。
 
 
-
-
-在`@RequestMapping`方法中，Spring会将简单类型和某些特殊类型默认处理为`@RequestParam`。然而，对于POJO类型，Spring会尝试将请求参数注入到到这些对象。如果一个请求参数被`@RequestParam`显式指定了，那么该参数不会自动注入到POJO对象中。
-
-
-
-在`@Requestmapping`方法中，简单类型和某些特殊类型会默认标记为`@RequestParam`，而POJO类型会默认标记为@RequestBody
 
 `@RequestParam`注解：
 
@@ -252,13 +246,16 @@ Content-Type: image/jpeg
 
 ~~~java
 @PostMapping("/fileupload")
-public String handleFileUpload(@RequestPart("file") MultipartFile file) {
+public String handleFormUpload(
+    @RequestPart("username") String username,
+    @RequestPart("email") String email, 
+    @RequestPart("profile_picture") MultipartFile profilePic) {
     // 获取文件名
-    String name = file.getOriginalFilename();
+    String name = profilePic.getOriginalFilename();
 
     // 获取文件内容，注意处理可能抛出的异常
     try {
-        byte[] bytes = file.getBytes();
+        byte[] bytes = profilePic.getBytes();
     }
 }
 ~~~
@@ -285,13 +282,63 @@ public String handleFileUpload(@RequestPart("file") MultipartFile file) {
 
 - 设置了 `ServletResponse` 的 `OutputStream` 参数；
 - 有 `@ResponseStatus` 注解设置了返回的 HTTP 响应码；
-- 做过 HTTP 缓存处理，例如检查过 `E-TAG` 没变化。
 
 如果被`@RequestBody`标注的方法返回类型为`void`，那么消息正文就为空。
 
+
+
+`HttpEntity` 的使用示例：
+
+~~~java
+HttpHeaders headers = new HttpHeaders();//请求头
+headers.setContentType(MediaType.TEXT_PLAIN);//设置body的类型：纯文本形式
+HttpEntity<String> entity = new HttpEntity<>("HelloWorld",headers);
+~~~
+
+
+
+`ResponseEntity` 扩展了 `HttpEntity` 类，新增了 `status` 成员变量，表示状态码：
+
+~~~java
+public class ResponseEntity<T> extends HttpEntity<T> {
+ 
+	private final Object status;
+ 
+	public ResponseEntity(@Nullable T body, @Nullable MultiValueMap<String, String> headers, HttpStatus status) {
+		super(body, headers);
+		Assert.notNull(status, "HttpStatus must not be null");
+		this.status = status;
+	}
+ 
+    // 省略其他代码
+}
+~~~
+
+使用示例：
+
+~~~java
+@RequestMapping("/download")
+public ResponseEntity<byte[]> download(@RequestParam String fileName) throws IOException {
+    byte[] bytes = xxx;
+    return ResponseEntity.ok()
+        .headers(headers)
+        .body(bytes);
+}
+
+@RequestMapping("/download")
+public ResponseEntity<byte[]> download(@RequestParam String fileName) throws IOException {
+    byte[] bytes = xxx;
+    return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+}
+~~~
+
+
+
+
+
 ### 消息转换
 
-`Formatter`作用于路径中的参数转换，而`HttpMessageConverter`作用于HTTP消息正文
+`Formatter`作用于路径中的参数转换，而`HttpMessageConverter`作用于 HTTP 消息正文
 
 #### HttpMessageConverter
 
@@ -311,25 +358,37 @@ public String handleFileUpload(@RequestPart("file") MultipartFile file) {
 
 
 
-我们可以实现 `WebMvcConfigurer` 接口，覆盖 `configureMessageConverters()` 方法来配置自己的 `HttpMessageConverter`。
+~~~java
+public interface HttpMessageConverter<T> {
+    /**
+     * 根据mediaType判断clazz是否可读
+     */
+    boolean canRead(Class<?> clazz, @Nullable MediaType mediaType);
 
-但在 Spring Boot 里还有更简单的方法，`HttpMessageConvertersAutoConfiguration` 自动配置类从上下文里获取 `HttpMessageConverter` Bean对象，并设置到 `HttpMessageConverters` 对象中。大致代码如下：
+    /**
+     * 根据mediaType判断clazz是否可写
+     */
+    boolean canWrite(Class<?> clazz, @Nullable MediaType mediaType);
 
-```java
-@Configuration(proxyBeanMethods = false)
-// ...
-public class HttpMessageConvertersAutoConfiguration {
+    /**
+     * 哪些HTTP格式类型（列表）可以被转换器支持
+     */
+    List<MediaType> getSupportedMediaTypes();
 
-    @Bean
-    @ConditionalOnMissingBean
-    public HttpMessageConverters messageConverters(
-        ObjectProvider<HttpMessageConverter<?>> converters) {
-        return new HttpMessageConverters(
-            converters.orderedStream().collect(Collectors.toList()));
-    }
-    // 省略其他代码
+    /**
+     * 将HttpInputMessage流中的数据绑定到clazz中
+     */
+    T read(Class<? extends T> clazz, HttpInputMessage inputMessage)
+			throws IOException, HttpMessageNotReadableException;
+
+    /**
+     * 将t对象写入到HttpOutputMessage流中
+     */
+    void write(T t, @Nullable MediaType contentType, HttpOutputMessage outputMessage)
+			throws IOException, HttpMessageNotWritableException;
 }
-```
+
+~~~
 
 
 
@@ -368,16 +427,22 @@ Spring Boot  会收集上下文中的 `Converter` 和 `Formatter` Bean，自动�
 
 **表 9-11　Jakarta Bean Validation API 中的一些常用注解**
 
-| 注解                                                         | 说明                                       |
-| :----------------------------------------------------------- | :----------------------------------------- |
-| `@Null`、`@NotNull`、`@NotBlank`、`@NotEmpty`                | 各种 `null`、非 `null`、非空白、非空的判断 |
-| `@Email`                                                     | 是否为电子邮件地址                         |
-| `@Digits`                                                    | 是否是指定范围和类型的数字                 |
-| `@Min`、`@Max`、`@DecimalMin`、`@DecimalMax`                 | 数字是否在给定最大、最小范围内             |
-| `@Negative`、`@NegativeOrZero`、`@Positive`、`@PositiveOrZero` | 数字是负数、正数和零的相关判断             |
-| `@Future`、`@FutureOrPresent`、`@Past`、`@PastOrPresent`     | 时间是过去、现在和将来的判断               |
-| `@Size`                                                      | 集合类型、数组、字符串的长度判断           |
-| `@Pattern`                                                   | 按正则表达式进行匹配                       |
+| 注解                                                         | 说明                             |
+| :----------------------------------------------------------- | :------------------------------- |
+| `@NotNull`、`@NotBlank`、`@NotEmpty`                         | 非 `null`、非空白、非空的判断    |
+| `@Email`                                                     | 是否为电子邮件地址               |
+| `@Digits`                                                    | 是否是指定范围和类型的数字       |
+| `@Min`、`@Max`、`@DecimalMin`、`@DecimalMax`                 | 数字是否在给定最大、最小范围内   |
+| `@Negative`、`@NegativeOrZero`、`@Positive`、`@PositiveOrZero` | 数字是负数、正数和零的相关判断   |
+| `@Future`、`@FutureOrPresent`、`@Past`、`@PastOrPresent`     | 时间是过去、现在和将来的判断     |
+| `@Size`                                                      | 集合类型、数组、字符串的长度判断 |
+| `@Pattern`                                                   | 按正则表达式进行匹配             |
+
+- **`@NotNull`**: 用于校验注解的元素不能为 `null`
+- **`@NotEmpty`**: 用于校验注解的元素既不能为 `null`，也不能为空。可以用在 String，Collection，Map 和 Array 上。对于字符串来说，它校验字符串长度大于0，对于集合、映射和数组，它检查元素数量大于0。
+- **`@NotBlank`**: 只能用于字符串，并且只校验字符串是否为空或者全为空格。与 `@NotEmpty` 不同的是，它会移除目标字符串的首位空格后再进行非空校验。
+
+
 
 在对象的属性上添加了上述注解后，还需要在控制器方法的对应参数上增加 `@Valid` 注解，声明这个参数需要进行绑定校验。紧随其后的参数必须是 `Errors` 或 `BindingResult` 类型的，以便我们能够获得校验的错误信息。
 
@@ -623,7 +688,9 @@ Jackson提供了三种JSON的处理方式，分别是：
 
 其中前两项功能都是基于`ObjectMapper`来实现的，而流式API功能则需要基于更底层的`JsonGenerator`和`JsonParser`来实现。
 
-使用Maven构建项目，需要添加依赖：
+默认情况下，Jackson 通过 JSON 字段的名称与 Java 对象中的 getter 和 setter 方法进行匹配，将 JSON 对象的字段映射到 Java 对象中的属性。 Jackson 删除了 getter 和 setter 方法名称的 “get” 和 “ set” 部分，并将其余名称的第一个字符转换为小写。所以，强烈推荐JSON字段名首字母小写。
+
+使用 Maven 构建项目，需要添加依赖：
 
 ~~~xml
 <dependency>
@@ -646,9 +713,11 @@ Jackson提供了三种JSON的处理方式，分别是：
 
 ~~~
 
-这里，我们先介绍对象绑定的方式
 
-- JSON字符串转换为Car类对象：
+
+JSON 转 Java 对象：
+
+- JSON 字符串转换为 Car 类对象：
 
   ~~~java
   ObjectMapper mapper = new ObjectMapper();
@@ -698,8 +767,12 @@ Jackson提供了三种JSON的处理方式，分别是：
       jsonObject,
       new TypeReference<Map<String,Object>>(){});
   ~~~
+  
+  
+  
+  
 
-- Java对象到JSON，可以使用以下方法之一进行操作：
+Java 对象转 JSON
 
   - writeValue()
   - writeValueAsString()
@@ -713,11 +786,49 @@ Jackson提供了三种JSON的处理方式，分别是：
   ~~~
 
   
-  
-  
+
   
 
-默认情况下，Jackson通过将JSON字段的名称与Java对象中的getter和setter方法进行匹配
+默认情况下，Jackson 通过把 JSON 字段的名称与 Java 对象中的 getter 和 setter 方法进行匹配。将JSON对象的字段映射到Java对象中的属性。 Jackson删除了getter和setter方法名称的“ get”和“ set”部分，并将其余名称的第一个字符转换为小写。所以建议 JSON 中的字段名首字母小写。
+
+
+
+可以通过 @JsonProperty 这个注解显示指定 JSON 字段名与 Java 属性名之间的映射关系。如果 Java 对象在多个服务间复用，那么不推荐这么做，因为这把 Java 对象强行绑定到一个 JSON 格式上，不利于在多个服务中扩展。这时，可以考虑使用 Map，或者通过 JsonNode 来手动处理：
+
+~~~Java
+ObjectMapper objectMapper = new ObjectMapper();
+JsonNode jsonNode = objectMapper.readTree(json);
+
+String kernelVersion = jsonNode.get("kernelVersion").asText();
+String cpuName = jsonNode.get("cpuName").asText();
+
+ArrayNode nodes = (ArrayNode)jsonNode.get("GPUInfoSlice");
+for (int i = 0; i < nodes.size(); i++) {
+    JsonNode node = nodes.get(i);
+    String gpuName = node.get("gpuName").asText();
+    String gpuMemoryTotal = node.get("gpuMemoryTotal").asText();
+}
+~~~
+
+
+
+~~~java
+@Test
+void jacksonDemo() {
+    String jsonString = "[{\"key1\":\"value1\"}, {\"key2\":\"value2\", \"key3\":3.1}]";
+    ObjectMapper mapper = new ObjectMapper();
+
+    try {
+        List<Map<String, Object>> list = mapper.readValue(jsonString, new TypeReference<List<Map<String,Object>>>(){});
+        // [{key1=value1}, {key2=value2, key3=3.1}]
+        System.out.println(list);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+~~~
+
+
 
 ## 测试
 

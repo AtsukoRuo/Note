@@ -159,6 +159,26 @@ rm -rf
 - `-i`：不区分大小写
 - `-v`：反转匹配，显示所有不匹配的行
 
+~~~shell
+grep [options] pattern [files]
+~~~
+
+- `pattern`: 是你要搜索的文本模式。
+- `files`: 是你要在其中搜索模式的文件。如果不提供任何文件，grep 将从标准输入读取。
+- `options`：影响 grep 搜索的各种设置。
+
+下面是一些常用的 `grep` 命令选项：
+
+- `-i` : 忽略大小写。
+- `-v` : 反转匹配，也就是只输出不匹配该模式的行。
+- `-r` or `-R` : 递归搜索。
+- `-l` : 只列出文件名（匹配某个模式的文件）。
+- `-n` : 显示行号。
+- `-c` : 计数匹配的行数。
+- `--color` : 显示匹配的颜色。
+
+
+
 
 
 `less` 查看大文件
@@ -223,7 +243,7 @@ head -5 /etc/passwd
 - 硬限制（Hard Limit）是用户或进程在任何时候都不能超过的资源限制。由 root 用户设置
 - 软限制（Soft Limit）可以被用户或进程提高或降低，但不能超过硬限制。系统会按照软限制的值限制资源。
 
-
+`ulimit -n 1000` 表示设置进程的文件描述符数量的上限为1000，默认值为1024。不过这个命令仅对当前会话有效。可以在`/etc/rc.local`中添加`ulimit -SHn 1000000`即可永久修改该配置。其中，选项`-S`表示软性极限值，`-H`表示硬性极限值。
 
 `ulimit` 命令：只对当前会话有效，而且不能超过硬限制
 
@@ -455,9 +475,15 @@ Linux目录结构基础
 
 /etc/sudoers 它定义了哪些用户或用户组可以对系统执行哪些操作，可以用来设置管理员。`user ALL=(ALL:ALL) ALL`
 
+### 硬链接
+
+硬连接指通过索引节点来进行连接。
+
+硬连接的作用是允许一个文件拥有多个有效路径名，这样用户就可以建立硬连接到重要文件，以防止“误删”的功能。
+
 ### 符号链接
 
-符号链接为复杂的目录提供了便捷快速的访问方式
+符号链接（也叫软连接）为复杂的目录提供了便捷快速的访问方式
 
 `ln -s target linkname`
 
@@ -721,7 +747,7 @@ uptime
 
    ![wsl2-network-l2w](assets/wsl2-network-l2w.png)
 
-
+172.23.48.1
 
 
 
@@ -763,7 +789,7 @@ ip addr del 192.168.1.2/24 dev eth0
 
 linux服务器配置DNS解析的三种方法：
 
-1. 编辑**/etc/hosts**文件，利用hosts自动解析域名到ip
+1. 编辑 **/etc/hosts** 文件，利用hosts自动解析域名到ip
 
    ~~~bash
    vim /etc/hosts
@@ -1046,7 +1072,7 @@ funWithParam 1 2 3 4 5 6 7 8 9 34 73
 
 ![img](assets/952033-20200103182042686-2100862807.png)
 
-Session 中的每个进程组被称为一个 job，有一个 job 会成为 session 的**前台 job(foreground)**，其它的 job 则是**后台 job(background)**。每个 session 连接一个控制终端（control terminal），控制终端中的输入被发送给前台 job，从前台 job 产生的输出也被发送到控制终端上。
+Session 中的每个进程组被称为一个 job，有一个 job 会成为 session 的 **前台 job(foreground)**，其它的 job 则是 **后台 job(background)**。每个 session 连接一个控制终端（control terminal），控制终端中的输入被发送给前台 job，从前台 job 产生的输出也被发送到控制终端上。
 
 当关闭终端时，内核中会将 SIGHUP 信号发送到整个 session。默认情况下，这会杀死 session 中的所有进程。但是我们可以通过nohup 命令避免这一点。
 
@@ -1076,8 +1102,6 @@ tmux
 ~~~shell
 tmux new -s <session-name>
 ~~~
-
-
 
 按下`Ctrl+b d`或者显式输入`exit`命令，就可以**退出 Tmux 窗口**，但会话中的进程仍然在后台运行。
 

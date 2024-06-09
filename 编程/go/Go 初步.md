@@ -888,7 +888,7 @@ s []int = []int{0, 1, 2, 3}	 	 // OK
 s []int;			 		   // nil
 ~~~
 
-可以通过内置的 make 函数，创建一个指定元素类型、长度和容量的slice。容量部分可以省略，在这种情况下，容量将等于长度。
+可以通过内置的 make 函数，创建一个指定元素类型、长度和容量的 slice。容量部分可以省略，在这种情况下，容量将等于长度。
 
 ~~~go
 make([]T, len)
@@ -901,11 +901,11 @@ make([]T, len, cap) // same as make([]T, cap)[:len]
 s []int = []int;	 			// Error
 ~~~
 
-一个slice由三个部分构成：指针、长度和容量
+一个 slice 由三个部分构成：指针、长度和容量
 
 ![img](assets/ch4-01.png)
 
-slice的底层引用一个数组对象，而且多个 slice 之间可以共享底层的数据。
+slice 的底层引用一个数组对象，而且多个 slice 之间可以共享底层的数据。
 
 如果切片操作超出`cap(s)`的上限将导致一个 panic 异常，但是超出`len(s)`则是意味着扩展了 slice
 
@@ -942,7 +942,7 @@ reverse(a[:])
 - 如果直接比较引用的话，与数组的行为不一致（一个比较引用、一个比较元素值），容易造成混淆。
 - 切片可以引用自身，有循环引用的问题（例如[]interface{}中元素可以是任何类型，当然包括自己）
 
-不过，标准库提供了充分优化的 bytes.Equa l函数来判断两个 []byte 类型的 slice 是否相等（两两元素是否相等）
+不过，标准库提供了充分优化的 bytes.Equal 函数来判断两个 []byte 类型的 slice 是否相等（两两元素是否相等）
 
 slice唯一合法的比较操作是和nil比较
 
@@ -959,7 +959,7 @@ s = []int{}    // len(s) == 0, s != ni
 
 Go语言约定，以相同的方式对待 nil 值的 slice 和 0 长度的 slice。这对于内置函数、range循环来说都成立
 
-内置的 append 函数用于向 slice 追加元素：
+append() 函数可以将元素追加到 Slice 的末尾，这里末尾指的是长度指针指向的位置。如果 Slice 的容量不足以容纳更多的元素，append 函数会创建一个新的底层数组，并将所有元素复制到新数组中
 
 ~~~go
 var x []int
@@ -1006,6 +1006,24 @@ func appendInt(x []int, y int) []int {
 runes = append(runes, r)
 ~~~
 
+
+
+二维切片：
+
+~~~go
+var words [][]string = make([][]string, len(lines))
+for i, line := range lines {
+    // 按照空格进行分割
+    fields := strings.Fields(line)
+    words[i] = make([]string, len(fields))
+    for j, field := range fields {
+        words[i][j] = field
+    }
+}
+~~~
+
+
+
 ### 结构体
 
 ~~~go
@@ -1020,6 +1038,24 @@ type Employee struct {
 }
 
 var dilbert Employee
+
+// 匿名结构体
+i := struct {
+    ID int
+}{ID: 1}
+
+type ConfigData struct {
+	proxyID  int
+	period   int
+    // 匿名结构体，不是嵌套定义
+	Hardware struct {
+		Memory []int `yaml:"Memory"`
+		NIC    []int
+		CPU    int
+		GPU    []int
+		Disk   []int
+	}
+}
 ~~~
 
 如果相邻成员的类型相同的话（例如，Name、Address），那么可以合并到同一行
@@ -1032,24 +1068,30 @@ type Employee struct {
 }
 ~~~
 
-在 Go 语言中，结构体类型的成员顺序是有意义的，也就是说，即使两个结构体中的成员名称、数量和类型都相同，但只要它们的顺序不同，那么就被视为不同的类型。
+语法点：
 
-~~~go
-type Employee struct {
-	ID   int
-	name string
-}
-type Employee2 struct {
-	name string
-	ID   int
-}
-~~~
+1. 在 Go 语言中，结构体类型的成员顺序是有意义的，也就是说，即使两个结构体中的成员名称、数量和类型都相同，但只要它们的顺序不同，那么就被视为不同的类型。
 
-如果结构体成员名字是以大写字母开头的，那么该成员就是导出的；这是Go语言导出规则决定的。
+   ~~~go
+   type Employee struct {
+   	ID   int
+   	name string
+   }
+   type Employee2 struct {
+   	name string
+   	ID   int
+   }
+   ~~~
 
-**结构体之间的复制是深拷贝！**
+2. 如果结构体成员名字是以大写字母开头的，那么该成员就是导出的；这是Go语言导出规则决定的。
 
-**结构体字面量**
+3. **结构体之间的复制是深拷贝！**
+
+4. 如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的。
+
+
+
+初始化时**结构体字面量**
 
 ~~~go
 type Point struct{ X, Y int }
@@ -1060,7 +1102,7 @@ p := Point{Y : 2, X : 1}		// 可以按名称传入，可以忽略某些成员，
 // 不能混合使用两种不同形式的写法
 ~~~
 
-如果结构体的全部成员都是可以比较的，那么结构体也是可以比较的。
+
 
 **访问成员**
 
@@ -1114,6 +1156,9 @@ w.Circle.Center.X = 8
 w.Circle.Center.Y = 8
 w.Circle.Radius = 5
 w.Spokes = 20
+
+
+
 ~~~
 
 Go 语言的匿名成员特性，让我们可以**只声明一个成员对应的数据类型，而不需要指名成员的名字**；当要访问成员时，无需给出完整的访问路径：
@@ -1139,6 +1184,21 @@ w.Y = 8            // equivalent to w.Circle.Point.Y = 8
 w.Radius = 5       // equivalent to w.Circle.Radius = 5
 w.Spokes = 20
 ~~~
+
+在Go语言中，我们无法直接在结构体中声明匿名切片。但是可以通过类型声明来规避掉这一点：
+
+~~~go
+type ServerInfo struct {
+	[]KernelInfo	 // error
+}
+
+type KernelInfoSlice []KernelInfo
+type ServerInfo struct {
+    KernelInfoSlice  // OK
+}
+~~~
+
+
 
 如果想要匿名成员是不导出的，那么只能将相应的类型名称改为小写。
 
@@ -1195,8 +1255,6 @@ func main() {
 	cp.Distance(Point{2, 3})
 }
 ~~~
-
-
 
 不幸的是，结构体字面值并没有简短地表示匿名成员的语法：
 
@@ -1277,7 +1335,7 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 
 
 
-一般用空结构体来模拟Set数据结构
+一般用空结构体来模拟 Set 数据结构
 
 ~~~go
 seen := make(map[string]struct{}) // set of strings
@@ -1287,6 +1345,19 @@ if _, ok := seen[s]; !ok {
     // ...first time seeing s...
 }
 ~~~
+
+
+
+结构体标签 (struct tag)：附着在结构体字段后面的字符串。结构体标签可以被反射包所获取，用来提供关于字段的元信息。结构体标签的格式是由一个或多个由空格分隔的字符串组成，每个字符串都以 `key:"value"` 的形式出现，key 和 value 之间没有空格。
+
+~~~go
+type LogicPkt struct {
+    Header
+    Body []byte `json:"body,omitempty"`
+}
+~~~
+
+
 
 ### Map
 
@@ -1467,7 +1538,7 @@ type Movie struct {
     Actors []string
 }
 
-var movies = []Movie{
+var movies = [] Movie {
     {Title: "Casablanca", Year: 1942, Color: false,
         Actors: []string{"Humphrey Bogart", "Ingrid Bergman"}},
     {Title: "Cool Hand Luke", Year: 1967, Color: true,
@@ -1480,6 +1551,7 @@ var movies = []Movie{
 data, err := json.Marshal(movies)
 
 fmt.Printf("%s\n", data)
+
 /**
 [{"Title":"Casablanca","released":1942,"Actors":["Humphrey Bogart","Ingr
 id Bergman"]},{"Title":"Cool Hand Luke","released":1967,"color":true,"Ac
@@ -1488,7 +1560,7 @@ Actors":["Steve McQueen","Jacqueline Bisset"]}]
 */
 ~~~
 
-可以使用json.MarshalIndent函数输出美观整洁的JSON结果
+可以使用 `json.MarshalIndent` 函数输出美观整洁的JSON结果
 
 ~~~go
 data, err := json.MarshalIndent(movies, "", "    ")
@@ -1525,7 +1597,7 @@ data, err := json.MarshalIndent(movies, "", "    ")
 
 
 
-我们注意到Struct成员后跟着一个字符串，这个字符串称为tag，它通常是用空格分隔的key:"value"键值对序列。
+我们注意到 Struct 成员后跟着一个字符串，这个字符串称为 tag，它通常是用空格分隔的key:"value"键值对序列。
 
 ~~~go
 type Movie struct {
@@ -1536,11 +1608,11 @@ type Movie struct {
 }
 ~~~
 
-其中，`json:"released"`表示在JSON中将Year名字替换为released。而`json:"color, omitempty"`中的omitempty表示当Go语言结构体成员为空或零值时，不生成该JSON对象。
+其中，`json:"released"`表示在JSON中将 Year 名字替换为 released。而`json:"color, omitempty"`中的 omitempty 表示当 Go 语言结构体成员为空或零值时，不生成该JSON对象。
 
 
 
-通过`json.Unmarshal`函数完成JSON到Struct的转换。
+通过`json.Unmarshal`函数完成 JSON 到 Struct 的转换。
 
 ~~~go
 var titles []struct{ Title string }
@@ -1550,7 +1622,16 @@ if err := json.Unmarshal(data, &titles); err != nil {
 fmt.Println(titles) // "[{Casablanca} {Cool Hand Luke} {Bullitt}]"
 ~~~
 
-我们可以在Struct定义我们感兴趣的成员，其他JSON成员会被忽略掉。
+我们可以在 Struct 定义我们感兴趣的成员，其他位未在 Struct 中出现的  JSON 成员会被忽略掉。
+
+JSON 转换为 Map
+
+~~~go
+var result map[string]interface{} // 创建一个 map 来存储解析后的数据
+err := json.Unmarshal([]byte(jsonStr), &result) // 对 JSON 数据进行解析
+~~~
+
+
 
 ### 文本和HTML模板
 
@@ -1616,7 +1697,7 @@ if age, ok := ages["bob"]; !ok { /* ... */ }
 
 
 
-四种for语句
+四种 for 语句
 
 ~~~go
 for initialization; condition; post {
@@ -1634,6 +1715,45 @@ for {
 
 for key, value := range map {
     // code to be executed
+}
+~~~
+
+
+
+range 函数
+
+~~~go
+// i 是索引，num 是 nums 中的元素
+for i, num := range nums {
+    if num == 3 {
+        fmt.Println("index:", i)
+    }
+}
+// range 也可以用在 map 的键值对上。
+kvs := map[string]string{"a": "apple", "b": "banana"}
+for k, v := range kvs {
+    fmt.Printf("%s -> %s\n", k, v)
+}
+
+// range 也可以用来枚举 Unicode 字符串。
+for i, c := range "go" {
+    fmt.Println(i, c)
+}
+~~~
+
+
+
+select 语句类似于 switch 语句，但是 select 会随机执行一个可运行的 case，也就是说，如果有多个 case 都可以运行，Select 会随机公平地选出一个执行。如果没有 case 可运行，那么考虑 default 语句，如果没有提供 default 语句，那么 select 将阻塞，直到有 case 可运行。每个case必须是一个通信操作，要么是发送要么是接收。
+
+~~~go
+select {
+    case communication clause  :
+       statement(s);      
+    case communication clause  :
+       statement(s);
+    /* 你可以定义任意数量的 case */
+    default : /* 可选 */
+       statement(s);
 }
 ~~~
 
