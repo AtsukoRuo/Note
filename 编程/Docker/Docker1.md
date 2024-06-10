@@ -306,13 +306,13 @@ $ sudo docker run -d --name mysql -e MYSQL_RANDOM_ROOT_PASSWORD=yes mysql
 $ sudo docker run -d --name webapp --link mysql webapp:latest
 ~~~
 
-这样就打通两个容器间的网络，实现它们之间的网络互通。只有容器自身允许暴露的端口，才能被其他容器所访问。端口的暴露可以通过 Docker 镜像进行定义，也可以在容器创建时通过 `--expose` 选项来进行定义：
+这样就打通两个容器间的网络，实现它们之间的网络互通。只有容器自身允许暴露的端口，才能被**不在**用同一个网络下的其他容器访问，也就是说，如果两个容器在同一个网络下，它们可以直接访问对方的所有端口，即使这些端口没有被`EXPOSE`指令声明。端口的暴露可以通过 Docker 镜像进行定义，也可以在容器创建时通过 `--expose` 选项来进行定义：
 
 ```shell
 $ sudo docker run -d --name mysql -e MYSQL_RANDOM_ROOT_PASSWORD=yes --expose 13306 --expose 23306 mysql:5.7
 ```
 
-webapp 通过将容器名作为域名，来访问其他容器提供的服务。这是因为Docker 在其内部网络中提供了 DNS 解析功能。
+webapp 通过将容器名作为域名，来访问其他容器提供的服务。这是因为 Docker 在其内部网络中提供了 DNS 解析功能。
 
 ~~~java
 String url = "jdbc:mysql://mysql:3306/webapp"; // 这里通过mysql:3306来访问mysql容器
@@ -377,13 +377,13 @@ bc14eb1da66b        bridge              bridge              local
 35c3ef1cc27d        individual          bridge              local
 ~~~
 
-之后在我们创建容器时，可以通过 `--network` 来指定容器所加入的网络
+之后在我们创建容器时，可以通过 `--network` 来指定容器所加入的网络。
 
 ~~~shell
 $ sudo docker run -d --name mysql -e MYSQL_RANDOM_ROOT_PASSWORD=yes --network individual mysql:5.7
 ~~~
 
-**两个处于不同网络的容器，是不能相互连接引用的。**
+> --link 已被官方废除了，推荐使用 --network 搭建容器网络
 
 
 
@@ -957,5 +957,174 @@ volumes:
 
 docker-compose 里不直接体现容器这个概念，而是把 service 作为配置的最小单元
 
+- build：从指定路径下获取 dockerfile 文件
 
+- cap_add，cap_drop
+
+  ~~~yaml
+  cap_add:
+    - ALL # 开启全部权限
+  cap_drop:
+    - SYS_PTRACE # 关闭 ptrace权限
+  ~~~
+
+- image：指定容器运行的镜像
+
+
+
+## 实践
+
+Docker Maven plugin allow us to manage the Docker images and containers from our Maven pom.xml file
+
+```xml
+<plugin>
+    <groupId>com.spotify</groupId>
+    <artifactId>dockerfile-maven-plugin</artifactId>
+    <version>1.4.10</version>
+    <configuration>
+        <repository>${docker.image.prefix}/
+            ${project.artifactId}</repository>
+        <tag>${project.version}</tag>
+        <buildArgs>
+            <JAR_FILE>target/${project.build.finalName}
+                .jar</JAR_FILE>
+        </buildArgs>
+    </configuration>
+    <executions>
+        <execution>
+        <id>default</id>
+        <phase>install</phase>
+            <goals>
+                <goal>build</goal>
+                <goal>push</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+设置`docker.image.prefix`变量：
+
+```xml
+<properties>
+    <java.version>17</java.version>
+    <docker.image.prefix>ostock</docker.image.prefix>
+</properties>
+```
+
+`Dockerfile`文件一定要放在和`pom.xml`文件一起的最外层目录
+
+[![image-20240119135553450](./assets/image-20240119135553450.png)](https://github.com/AtsukoRuo/note/blob/7b1966b713d9705c960218d896aa8d8746798419/框架 %26 中间件/SpringCloud/assets/image-20240119135553450.png)
+
+可以使用 Basic Dockerfile 或者 Multistage Build Dockerfile 来构建微服务。它们的主要区别在于，使用基础的 Dockerfile，你会复制整个 Spring Boot 微服务；而使用多阶段构建，你只会复制构建微服务所需的部分。
+
+- 基础的 Dockerfile：
+
+  ```shell
+  #Start with a base image containing Java runtime
+  FROM openjdk:17-slim
+  
+  # Add Maintainer Info
+  LABEL maintainer="Illary Huaylupo <illaryhs@gmail.com>"
+  
+  # The application's jar file
+  ARG JAR_FILE
+  
+  # Add the application's jar to the container
+  COPY ${JAR_FILE} app.jar
+  
+  # Execute the application
+  ENTRYPOINT ["java","-jar","/app.jar"]
+  ```
+
+- 多阶段构建
+
+  ```shell
+  #stage 1
+  #Start with a base image containing Java runtime
+  FROM openjdk:17-slim as build
+  
+  # Add Maintainer Info
+  LABEL maintainer="Illary Huaylupo <illaryhs@gmail.com>"
+  
+  # The application's jar file
+  # the Dockerfile obtains the value for the JAR_FILE variable that we set in the<configuration> <buildArgs> section of the pom.xml
+  ARG JAR_FILE
+  
+  # Add the application's jar to the container
+  COPY ${JAR_FILE} app.jar
+  
+  #unpackage jar file
+  RUN mkdir -p target/dependency &&
+   (cd target/dependency; jar -xf /app.jar)
+   
+  #stage 2
+  #Same Java runtime
+  FROM openjdk:11-slim
+  
+  #Add volume pointing to /tmp
+  VOLUME /tmp
+  
+  #Copy unpackaged application to new container
+  ARG DEPENDENCY=/target/dependency
+  #  /BOOT-INF/lib是Spring Boot打包后，存放应用所依赖的第三方JAR包文件。
+  COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
+  COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
+  COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
+  
+  #execute the application
+  ENTRYPOINT ["java","-cp","app:app/lib/*","com.optimagrowth.license.
+   LicenseServiceApplication"]
+  ```
+
+接着开始构建项目
+
+```
+$ mvn clean package
+$ mvn package dockerfile:build
+```
+
+记得打开Docker，以及开启`Expose daemon on tcp://localhost:2375 without TLS`选项。注：左下角Docker图标为绿色的，说明Docker正在运行
+
+[![image-20240111181508213](./assets/image-20240111181508213.png)](https://github.com/AtsukoRuo/note/blob/7b1966b713d9705c960218d896aa8d8746798419/框架 %26 中间件/SpringCloud/assets/image-20240111181508213.png)
+
+然后我们得到这样的输出
+
+[![image-20240111181610055](./assets/image-20240111181610055.png)](https://github.com/AtsukoRuo/note/blob/7b1966b713d9705c960218d896aa8d8746798419/框架 %26 中间件/SpringCloud/assets/image-20240111181610055.png)
+
+Now that we have the Docker image
+
+我们可以使用Docker-compose up来加载镜像
+
+Let’s create our first docker-compose.yml file（与pom.xml在同一目录下）
+
+```yaml
+version: '3.7'
+services:
+	licensingservice:
+        image: ostock/licensing-service:0.0.1-SNAPSHOT
+        ports:
+            - "8080:8080"
+        environment:
+            - "SPRING_PROFILES_ACTIVE=dev"
+        networks:
+            backend:
+                aliases:
+                    - "licenseservice" 
+networks:
+	backend:
+    	driver: bridge
+```
+
+执行以下命令来启动应用程序：
+
+```shell
+$ docker-compose up
+```
+
+如果你想在后台执行该服务可以加上 **-d** 参数：
+
+```shell
+$ docker-compose up -d
+```
 
