@@ -195,10 +195,12 @@ JavaBeans 是 Java 中一种特殊的类，它满足：
 | application | 一个 Web 应用创建一个（仅Web应用可用）       |
 | websocket   | 一个 WebSocket 会话创建一个（仅Web应用可用） |
 
-bean 的创建时机：
+Bean 的实例化时机：
 
-- 对于 Singleton Bean 以及 FactoryBean 本身，都是伴随容器初始化而创建
-- 而 FactoryBean 创建的 Bean 以及 Prototype Bean，都是在使用时延迟创建的（按需创建）
+- 对于 Singleton Bean 以及 FactoryBean（isEagerInit=true），都是伴随容器初始化而创建
+- 而 FactoryBean（isEagerInit=false）、FactoryBean 创建的 Bean 、 Prototype Bean，都是在使用时延迟创建的（按需创建）
+
+它们都是通过 getBean 方法来创建的
 
 ### Bean 的三种配置方式
 
@@ -722,8 +724,6 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 
 3. 在 `<bean/>` 中配置的 `init-method` 或 `destroy-method`，`@Bean` 中配置的 `initMethod` 或 `destroyMethod`。
 
-
-
 对于原型Bean来说，并不会像单例 Bean 那样在容器初始化时执行回调，而是在延迟创建（按需创建）时，执行初始化回调。并且在销毁时，不会执行`destroy-method` 标注的方法。
 
 何时执行销毁回调
@@ -731,14 +731,14 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 - 从容器中删除Bean时：`ctx.getBeanFactroy().destroyBean(pen);`
 - 容器关闭时：`ctx.close();`	
 
-
-
 对于初始化以及销毁方法的要求：
 
 1. 方法无参数
 2. 方法无返回值
 
 ### Aware 接口
+
+
 
 | 接口名                         | 用途                             |
 | ------------------------------ | -------------------------------- |
@@ -752,6 +752,8 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 
 
 
+
+
 例子：
 
 ~~~java
@@ -760,11 +762,13 @@ public class MyBean implements ApplicationContextAware, BeanNameAware {
     private ApplicationContext applicationContext;
 	private String beanName;
     
+    // 会回调此方法的。
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
     
+    // 会回调此方法的。
 	@Override
     public void setBeanName(String name) {
         this.beanName = name;
@@ -782,9 +786,7 @@ public class MyBean implements ApplicationContextAware, BeanNameAware {
 
 ### 事件机制
 
-`ApplicationContext` 提供了一套事件机制，容器在特定条件时，会向实现 `ApplicationListener` 接口的类通知相应的ApplicationEvent事件。例如，`ApplicationContext` 在启动、停止、关闭和刷新时，分别会通知`ContextStartedEvent`、`ContextStoppedEvent`、`ContextClosedEvent` 和 `ContextRefreshedEvent` 事件。
-
-
+`ApplicationContext` 提供了一套事件机制，容器在特定条件时，会向实现 `ApplicationListener` 接口的类通知相应的 ApplicationEvent 事件。例如，`ApplicationContext` 在启动、停止、关闭和刷新时，分别会通知`ContextStartedEvent`、`ContextStoppedEvent`、`ContextClosedEvent` 和 `ContextRefreshedEvent` 事件。
 
 SpringFramework 中内置的监听器接口是 `ApplicationListener`
 
@@ -800,6 +802,8 @@ public interface ApplicationListener<E extends ApplicationEvent> extends EventLi
 ~~~java
 @Component
 public class ContextClosedEventListener implements ApplicationListener<ContextClosedEvent> {
+    // 泛型参数指定要监听何种事件
+    // 当事件发生时，就会调用该方法
     @Override
     public void onApplicationEvent(ContextClosedEvent event) {
         System.out.println("[ApplicationListener]ApplicationContext closed.");
@@ -823,6 +827,35 @@ public class ContextClosedEventAnnotationListener {
 `@EventListener` 还有一些其他的用法，比如，在监听到事件后希望再发出另一个事件，这时可以将方法返回值从 `void` 修改为对应事件的类型
 
 `@EventListener` 也可以与 `@Async` 注解结合，实现在另一个线程中处理事件。
+
+
+
+`PayloadApplicationEvent`是`ApplicationEvent`的扩展，它能承载任何类型的数据：
+
+~~~java
+public class PayloadApplicationEvent<T> extends ApplicationEvent implements ResolvableTypeProvider {
+	private final T payload;
+
+	public PayloadApplicationEvent(Object source, T payload) {
+		super(source);
+		this.payload = payload;
+	}
+}
+~~~
+
+使用示例：
+
+~~~java
+public class PayloadObjectApplicationListener implements ApplicationListener<PayloadApplicationEvent> {
+    
+    @Override
+    public void onApplicationEvent(PayloadApplicationEvent event) {
+        System.out.println("监听到PayloadApplicationEvent ------> " + event.getPayload());
+    }
+}
+~~~
+
+如果指定了`PayloadApplicationEvent`的泛型为 `Integer` ，那就只会监听 `Integer` 类型的 payload 事件了。如果不指定具体的泛型，则会监听所有的 `PayloadApplicationEvent` 事件
 
 
 
@@ -854,158 +887,17 @@ public class CustomEventPublisher implements ApplicationEventPublisherAware {
 }
 ~~~
 
+子容器的事件会向上传播到父容器，父容器的事件不会向下传播。
 
 
-### 容器的扩展点
-
-Spring Framework 中有很多机制是通过容器自身的扩展点来实现的，比如 **Spring AOP** 等。我们可以通过这些扩展点，来自定义一些功能。
-
-`BeanPostProcessor` 接口是用来定制 Bean 的，该接口中有两个方法：
-
-- `postProcessBeforeInitialization()` 方法在 Bean 初始化前执行，
-- `postProcessAfterInitialization()` 方法在 Bean 初始化之后执行
-
-如果有多个 `BeanPostProcessor`，可以通过 `Ordered` 接口或者 `@Order` 注解来指定运行的顺序
-
-~~~java
-@Configuration
-public class Application {
-    public static void main(String[] args) {
-        AnnotationConfigApplicationContext applicationContext =
-                new AnnotationConfigApplicationContext(Application.class);
-
-        applicationContext.close();
-    }
-
-    @Bean
-    public Hello hello() {
-        return new Hello();
-    }
-	
-    // 向 Spring 返回一个 Bean 处理器
-    @Bean
-    public HelloBeanPostProcessor helloBeanPostProcessor() {
-        return new HelloBeanPostProcessor();
-    }
-}
-
-class Hello {
-    @PostConstruct
-    public void init() {
-        System.out.println("Hello PostConstruct");
-    }
-
-    @PreDestroy
-    public void dispose() {
-        System.out.println("Hello PreDestroy");
-    }
-    
-    public String hello() {
-        return "Hello World!";
-    }
-}
-
-
-class HelloBeanPostProcessor implements BeanPostProcessor {
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        if ("hello".equals(beanName)) {
-            System.out.println("Hello postProcessBeforeInitialization");
-        }
-        return bean;
-    }
-
-
-    @Override
-    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if ("hello".equals(beanName)) {
-            System.out.println("Hello postProcessAfterInitialization");
-        }
-        return bean;
-    }
-}
-
-/** output: 
- Hello postProcessBeforeInitialization
- Hello PostConstruct
- Hello postProcessAfterInitialization
- Hello PreDestroy
- */
-~~~
-
-此外，还有BeanFactoryPostProcessor接口，它是`BeanFactory` 的后置处理器，我们可以通过它来定制 Bean 的配置元数据。其中的 `postProcessBeanFactory()` 方法会在 `BeanFactory` 加载所有 Bean 定义但尚未对其进行初始化时（在`postProcessBeforeInitialization()`之前）介入
-
-~~~java
-public class Application {
-    public static void main(String[] args) {
-        AnnotationConfigApplicationContext applicationContext =
-                new AnnotationConfigApplicationContext(Application.class);
-
-        applicationContext.close();
-    }
-
-    @Bean
-    static public HelloBeanPostProcessorFactory helloBeanPostProcessorFactory() {
-        return new HelloBeanPostProcessorFactory();
-    }
-
-    @Bean
-    public Hello hello() {
-        return new Hello();
-    }
-}
-
-class HelloBeanPostProcessorFactory implements BeanFactoryPostProcessor {
-
-    @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        BeanDefinition helloDefinition = beanFactory.getBeanDefinition("hello");
-        System.out.println(helloDefinition);
-    }
-}
-/**
-Root bean: class [null]; scope=; abstract=false; lazyInit=null; autowireMode=3; dependencyCheck=0; autowireCandidate=true; primary=false; factoryBeanName=application; factoryMethodName=hello; initMethodName=null; destroyMethodName=(inferred); defined in learning.spring.helloworld.Application
-*/
-~~~
-
-需要注意的是：
-
-- 如果用 Java 配置类来注册，那么返回Bean的方法需要声明为 `static`
-- 由于 Spring AOP 也是通过 `BeanPostProcessor` 实现的，因此实现该接口的类，以及其中依赖注入的 Bean 都会被特殊对待，**不会**被 AOP 增强。而且BeanPostProcessor所依赖注入的Bean而不会走`postProcessBeanFactory()`方法
-- 此外，`BeanPostProcessor` 和 `BeanFactoryPostProcessor` 都仅对当前容器上下文的 Bean 有效，不会去处理其他上下文。
 
 ### 关闭容器
 
 Java 进程在退出（正常退出、抛出异常、System.exit）时，我们可以通过 `Runtime.getRuntime().addShutdownHook()` 方法添加一些钩子，在关闭进程时执行特定的操作。
 
-`ConfigurableApplicationContext` 接口扩展自 `ApplicationContext`，其中提供了一个 `registerShutdownHook()`。`AbstractApplicationContext` 类实现了该方法，正是调用了前面说到的 `Runtime.getRuntime().addShutdownHook()`，并且在其内部调用了 `doClose()` 方法。下面给出ApplicationContext的实现
+`ConfigurableApplicationContext` 接口扩展自 `ApplicationContext`，其中提供了一个 `registerShutdownHook()`。`AbstractApplicationContext` 类实现了该方法，正是调用了前面说到的 `Runtime.getRuntime().addShutdownHook()`，并且还在其中调用了 `doClose()` 方法。
 
-~~~java
-public abstract class AbstractApplicationContext extends DefaultResourceLoader implements ConfigurableApplicationContext {
-    @Override
-    public void registerShutdownHook() {
-        if (this.shutdownHook == null) {
-            // No shutdown hook registered yet.
-            this.shutdownHook = new Thread() {
-                @Override
-                public void run() {
-                    synchronized (startupShutdownMonitor) {
-                        doClose();
-                    }
-                }
-            };
-            // 也是通过这种方式来添加
-            Runtime.getRuntime().addShutdownHook(this.shutdownHook);
-        }
-    }
-
-    protected void doClose() {
-        //...
-    }
-}
-~~~
-
-我们只要在创建AbstractApplicationContext时，覆写该方法即可：
+我们只要在创建 `AbstractApplicationContext` 时，覆写 `doClose()` 方法即可：
 ~~~java
 ConfigurableApplicationContext context = new AbstractApplicationContext() {
     @Override
@@ -1021,41 +913,6 @@ ConfigurableApplicationContext context = new AbstractApplicationContext() {
     public ConfigurableListableBeanFactory getBeanFactory() throws IllegalStateException { return null; }
 };
 ~~~
-
-
-
-一个 Bean 通过 `ApplicationContextAware` 注入了 `ApplicationContext`，业务代码根据逻辑判断从 `ApplicationContext` 中取出对应名称的 Bean，再进行调用；问题出现在容器关闭时（`context.close()`），容器已经开始销毁 Bean 了，可是这段业务代码还在执行，仍在继续尝试从容器中获取 Bean，这该如何是好？
-
-针对这种情况，我们可以实现 Spring Framework 提供的 `Lifecycle` 接口，让Bean感知容器的启动和停止。
-
-~~~java
-public class Hello implements Lifecycle {
-    private boolean flag = false;
-
-    public String hello() {
-        return flag ? "Hello World!" : "Bye!";
-    }
-
-    @Override
-    public void start() {
-        System.out.println("Context Started.");
-        flag = true;
-    }
-
-    @Override
-    public void stop() {
-        System.out.println("Context Stopped.");
-        flag = false;
-    }
-
-    @Override
-    public boolean isRunning() {
-        return flag;
-    }
-}
-~~~
-
-除此之外，我们还可以借助 `Spring Framework` 的事件机制，让`Bean`实现`ApplicationListener`接口来监听容器关闭事件。
 
 ### 容器的抽象
 
@@ -1234,9 +1091,9 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
 
 `TaskScheduler`对定时任务有着很好的支持。
 
-- 在依赖注入后，可以直接调用它的schedule()方法
+- 在依赖注入后，可以直接调用它的 schedule() 方法
 
-- 也可以使用@Scheduled注解
+- 也可以使用 @Scheduled 注解
 
   ~~~java
   @Scheduled(fixedRate=1000) // 每隔1000ms执行
@@ -1264,10 +1121,8 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-@Import
-public @interface EnableTavern {
-
-}
+@Import		// 这里应该向 @Import 应该注册一些类，但省略掉了
+public @interface EnableTavern {}
 ~~~
 
 在配置类上添加该注解：
@@ -1275,12 +1130,10 @@ public @interface EnableTavern {
 ~~~java
 @Configuration
 @EnableTavern
-public class TavernConfiguration {
-    
-}
+public class TavernConfiguration {}
 ~~~
 
-这样，通过`@Import`注册的类，可以添加到该配置类上
+这样，通过`@Import`注册的类，可以添加到该配置类上。
 
 `@Import`的定义：
 
@@ -1295,17 +1148,15 @@ public @interface Import {
 }
 ~~~
 
-
-
 向 @Import 注册的三种方式：
 
-- 在@Import接口中，直接导入「类」，或者「配置类」
+- 在 @Import 接口中，直接导入「类」，或者「配置类」
 
   ~~~java
   @Import({Boss.class, BartenderConfiguration.class})
   ~~~
 
-- 编写一个实现`ImportSelector` 接口的类：
+- 编写一个实现`ImportSelector` 接口的类（通过类名来加载）
 
   ~~~java
   public class BarImportSelector implements ImportSelector {
@@ -1325,14 +1176,14 @@ public @interface Import {
   @Import(BarImportSelector.class)
   ~~~
 
-- 编写一个实现`ImportBeanDefinitionRegistrar` 接口的类：
+- 编写一个实现`ImportBeanDefinitionRegistrar` 接口的类（通过 BeanDefinition 来加载）
 
   ~~~java
   public class WaiterRegistrar implements ImportBeanDefinitionRegistrar {
       
       @Override
       public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
-          // 通过BeanDefinitionRegistry注册Bean
+          // 通过 BeanDefinitionRegistry 注册 Bean
           registry.registerBeanDefinition("waiter", new RootBeanDefinition(Waiter.class));
       }
   }
@@ -1350,7 +1201,7 @@ public @interface Import {
 
 另一个是`@Conditional`注解。被 `@Conditional` 注解标注的组件，只有所有指定条件都匹配时，才有资格注册。如果 `@Configuration` 配置类被 `@Conditional` 标记，则与该类关联的所有 `@Bean` 的工厂方法，`@Import` 注解和 `@ComponentScan` 注解也将受条件限制。
 
-`@Conditional` 注解中需要传入`Condition` 实现类的数组
+`@Conditional` 注解中需要传入`Condition` 实现类的数组，这里它们的定义：
 
 ~~~java
 @Target({ElementType.TYPE, ElementType.METHOD})
@@ -1368,9 +1219,7 @@ public interface Condition {
 }
 ~~~
 
-
-
-@Conditional注解可以派生出来。扫描注解 A 时，A 的派生注解也会被扫描进来。
+下面给出一个使用示例（注意，这里我们使用了派生注解，下面有对此做解释）：
 
 ~~~java
 @Documented
@@ -1381,8 +1230,6 @@ public @interface ConditionalOnBean {
     String[] beanNames() default {};
 }
 ~~~
-
-在@Conditional中指定Condition实现类，Condition实现类可以获取派生注解中的额外信息
 
 ~~~java
 public class OnBeanCondition implements Condition {
@@ -1403,6 +1250,323 @@ public class OnBeanCondition implements Condition {
 public Bar bbbar() {
     return new Bar();
 }
+~~~
+
+> 在 Java 中，如果一个注解被 `@Target(ElementType.TYPE)` 或 `@Target(ElementType.ANNOTATION_TYPE)` 标注，那么，该注解可以标注其它注解。被标注的注解称为**复合注解（Composed Annotation）**。这类似于继承的关系，但是派生注解不仅**不继承**元素，还要必须设置没有默认值的元素。
+>
+> ~~~java
+> @Target(ElementType.TYPE)
+> @Retention(RetentionPolicy.RUNTIME)
+> public @interface Zero {
+> 	String value() default "";
+> }
+> 
+> 
+> @Target(ElementType.TYPE)
+> @Retention(RetentionPolicy.RUNTIME)
+> @Zero("114514")
+> public @interface One {
+> 	String value() default "";
+> }
+> 
+> @One
+> class App { }
+> ~~~
+>
+> 获取注解的注解
+>
+> ~~~java
+> One annotationOne = App.class.getAnnotation(One.class);  
+> Class<? extends Annotation> classOne = annotationOne.annotationType(); 
+> Zero annotationZero = classOne.getAnnotation(Zero.class);
+> ~~~
+
+## 装配实战
+
+需求：通过标注一个 `@EnableJdbc` 的注解，能够根据当前工程中所导入的数据库连接驱动，注册对应的数据源到 IOC 容器中去。
+
+### V1
+
+~~~java
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Import(JdbcConfiguration.class)
+public @interface EnableJdbc {}
+~~~
+
+下面我们编写条件装配
+
+~~~java
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Conditional(OnClassNameConditional.class)
+public @interface ConditionalOnClassName {
+    String value();
+}
+~~~
+
+~~~java
+public class OnClassNameConditional implements Condition {
+    
+    @Override
+    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+        String className = (String) metadata.getAnnotationAttributes(ConditionalOnClassName.class.getName()).get("value");
+        try {
+            Class.forName(className);
+            return true;
+        } catch (ClassNotFoundException e) {
+        	return false;
+        }
+    }
+}
+~~~
+
+编写被@Import 导入的配置类 `JdbcConfiguration`：
+
+~~~java
+@Configuration
+public class JdbcConfiguration {
+    @Bean
+    @ConditionalOnClassName("com.mysql.jdbc.Driver")
+    public DataSource dataSource() {
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql://localhost:3306/test?characterEncoding=utf8");
+        dataSource.setUsername("root");
+        dataSource.setPassword("123456");
+        return dataSource;
+    }
+    
+    @Bean
+    @ConditionalOnClassName("h2")
+    public DataSource dataSource() {
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName("h2");
+        dataSource.setUrl("jdbc:h2://localhost:3306/test");
+        // ...
+    }
+}
+~~~
+
+这一版有以下问题：
+
+1. 配置都是写死在配置类
+2. 数据源的装配重复
+
+### V2
+
+创建一个 `jdbc.properties` 文件：
+
+~~~java
+jdbc.url=jdbc:mysql://localhost:3306/test?characterEncoding=utf8
+jdbc.username=root
+jdbc.password=123456
+~~~
+
+用 `EnvironmentAware` 向 `JdbcConfiguration` 注入 `Environment` ，然后每个 `DataSource` 的创建就可以使用 `Environment` 的取值了：
+
+~~~java
+@Bean
+@ConditionalOnClassName("com.mysql.jdbc.Driver")
+public DataSource mysqlDataSource() {
+    DruidDataSource dataSource = new DruidDataSource();
+    dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+    dataSource.setUrl(environment.getProperty("jdbc.url"));
+    dataSource.setUsername(environment.getProperty("jdbc.username"));
+    dataSource.setPassword(environment.getProperty("jdbc.password"));
+    return dataSource;
+}
+~~~
+
+这样就可以做到外化配置了。
+
+### V3
+
+首先介绍一下**SPI（Service Provider Interface 服务提供接口）**，它通过「**服务寻找**」的机制，动态加载接口 / 抽象类对应的具体实现类。
+
+我们先来看 JDK 的 SPI。所有定义的 SPI 文件都必须放在工程的 `META-INF/services` 目录下，且文件名必须命名为接口 / 抽象类的全限定名，文件内容为接口 / 抽象类的具体实现类的全限定名。SPI 文件的示例：
+
+~~~java
+com.linkedbear.spring.configuration.z_spi.bean.DemoMySQLDaoImpl
+com.linkedbear.spring.configuration.z_spi.bean.DemoOracleDaoImpl
+~~~
+
+测试代码：
+
+~~~java
+public static void main(String[] args) throws Exception {
+    ServiceLoader<DemoDao> serviceLoader = ServiceLoader.load(DemoDao.class);
+    serviceLoader.iterator().forEachRemaining(dao -> {
+        // 这里的 dao 对象的类型就是DemoDao接口/抽象类的实现类
+        System.out.println(dao);
+    });
+}
+~~~
+
+然后我们再来看 SpringFramework 的 SPI，它可不像 JDK SPI 那样，局限于接口 / 抽象类，而是可以服务发现任何一个类、接口、注解。所有定义的 SPI 文件都必须放在工程的`META-INF` 下，且文件名必须为 `spring.factories`，key 是要服务发现的对象，而 value 是实现它的类，如果有多个类，那么用逗号分割。SPI 文件的示例：
+
+~~~properties
+com.linkedbear.spring.configuration.z_spi.bean.DemoDao=\
+  com.linkedbear.spring.configuration.z_spi.bean.DemoMySQLDaoImpl,\
+  com.linkedbear.spring.configuration.z_spi.bean.DemoOracleDaoImpl
+~~~
+
+测试代码：
+
+~~~java
+ // 加载并实例化
+List<DemoDao> demoDaos = SpringFactoriesLoader
+	.loadFactories(
+    	DemoDao.class, 
+    	SpringSpiApplication.class.getClassLoader());
+
+demoDaos.forEach(dao -> {
+    System.out.println(dao);
+});
+/**
+com.linkedbear.spring.configuration.z_spi.bean.DemoMySQLDaoImpl@7506e922
+com.linkedbear.spring.configuration.z_spi.bean.DemoOracleDaoImpl@4ee285c6
+*/
+
+// 只加载全限定类名
+List<String> daoClassNames = SpringFactoriesLoader
+	.loadFactoryNames(
+    	DemoDao.class, 
+    	SpringSpiApplication.class.getClassLoader());
+daoClassNames.forEach(className -> {
+    System.out.println(className);
+});
+/**
+com.linkedbear.spring.configuration.z_spi.bean.DemoMySQLDaoImpl
+com.linkedbear.spring.configuration.z_spi.bean.DemoOracleDaoImpl
+*/
+~~~
+
+
+
+下面我们就用 Spring SPI 机制来实现需求：
+
+首先将每个 Bean 数据源单独拆分到不同的配置类中
+
+~~~java
+@Configuration
+@ConditionalOnClassName("com.mysql.jdbc.Driver")
+public class MySQLJdbcConfiguration extends AbstractJdbcConfiguration {
+    @Bean
+    public DataSource dataSource() {
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+        dataSource.setUrl(environment.getProperty("jdbc.url"));
+        dataSource.setUsername(environment.getProperty("jdbc.username"));
+        dataSource.setPassword(environment.getProperty("jdbc.password"));
+        return dataSource;
+    }
+}
+//...
+~~~
+
+然后把几个配置类都声明到 `spring.factories` 中
+
+~~~properties
+com.linkedbear.spring.configuration.e_enablejdbc.config.EnableJdbc=\
+  com.linkedbear.spring.configuration.e_enablejdbc.config.MySQLJdbcConfiguration,\
+  com.linkedbear.spring.configuration.e_enablejdbc.config.OracleJdbcConfiguration,\
+  com.linkedbear.spring.configuration.e_enablejdbc.config.H2JdbcConfiguration
+~~~
+
+通过 `ImportSelector`加载全限定名对应的类：
+
+~~~java
+public class JdbcConfigSelector implements ImportSelector {
+    @Override
+    public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+        List<String> configClassNames = SpringFactoriesLoader
+                .loadFactoryNames(EnableJdbc.class, this.getClass().getClassLoader());
+        return configClassNames.toArray(new String[0]);
+    }
+}
+~~~
+
+之后，在 `@EnableJdbc` 注解上，把这个 `JdbcConfigSelector` 导入进去：
+
+~~~java
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Import(JdbcConfigSelector.class)
+public @interface EnableJdbc {}
+~~~
+
+### v4
+
+在拆分配置类时，我们很容易注意到代码重复性高。我们可以使用 BeanDefinition 来消除冗余代码：
+
+~~~java
+public class DataSourceRegisterPostProcessor implements BeanDefinitionRegistryPostProcessor, EnvironmentAware {
+    
+    private Environment environment;
+    
+    @Override
+    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+        BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(DruidDataSource.class)
+                .addPropertyValue("url", environment.getProperty("jdbc.url"))
+                .addPropertyValue("username", environment.getProperty("jdbc.username"))
+                .addPropertyValue("password", environment.getProperty("jdbc.password"));
+        // 根据当前classpath下的数据库连接驱动添加driverClassName
+        List<String> driverClassNames = SpringFactoriesLoader.
+            loadFactoryNames(Driver.class, this.getClass().getClassLoader());
+        
+        String driverClassName = null;
+        for (String temp : driverClassNames) {
+            try {
+                Class.forName(temp);
+                driverClassName = temp;
+                break;
+            } catch (ClassNotFoundException ignored) {
+                // 加载失败，classpath 下无当前驱动，继续下一个
+            }
+        }
+        // 存在驱动，注册DataSource
+        if (driverClassName != null) {
+            builder.addPropertyValue("driverClassName", driverClassName);
+            registry.registerBeanDefinition("dataSource", builder.getBeanDefinition());
+        }
+    }
+    
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+    }
+    
+    @Override
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+}
+~~~
+
+编写配置类：
+
+~~~java
+@Configuration
+public class JdbcConfiguration {
+
+    @Bean
+    public DataSourceRegisterPostProcessor dataSourceRegisterPostProcessor() {
+        return new DataSourceRegisterPostProcessor();
+    }
+}
+~~~
+
+在  `@EnableJdbc`中导入这个配置类：
+
+~~~java
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Import(JdbcConfiguration.class)
+public @interface EnableJdbc {}
 ~~~
 
 
