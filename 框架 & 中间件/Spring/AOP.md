@@ -4,7 +4,7 @@
 
 ## 概述
 
-**「Aspect Oriented Programming（面向切面编程）」**是一种编程范式，在于通过**「分离关注点（cross-cutting concerns）」**来提升代码的模块化程度。这里的关注点就是一个**特定的功能**。
+**「Aspect Oriented Programming（面向切面编程）」**是一种编程范式，在于通过**「分离关注点（cross-cutting concerns）」**来提升代码的模块化程度。这里的关注点就是一个**特定的功能**。EJB、Spring，Hibernate，JBOSS 以及 AOP 都在试图摆脱 Java 静态类型的束缚，让某些应用模型具有更强的适应性。
 
 通过下面例子，我们来理解何为「分离关注点」。一个后台客服系统的每个模块都需要记录客服的操作日志，这就是一个能从业务逻辑中分离出来的关注点，完全不用耦合在每个模块的代码中，可以作为一个单独的模块存在。
 
@@ -17,18 +17,16 @@
 |    通知（advice）    |   定义了切面要做什么以及何时使用。   |
 |  切入点（pointcut）  | 定义了切面在何处（哪一个连接点）使用 |
 
-AOP 的实现原理就是使用了**动态代理技术**。 这种技术可以用JDK 动态代理（`InvocationHandler`接口 + `Proxy.newProxyInstance()`）或者是 CGLIB 代理来实现。其中，CGLIB是一个生成或转换 Java 字节码的 API，广泛应用于各种框架中。
+AOP 的实现原理就是使用了**动态代理技术**。 这种技术可以用 JDK 动态代理（`InvocationHandler`接口 + `Proxy.newProxyInstance()`）或者是 CGLIB 代理来实现。其中，CGLIB是一个生成或转换 Java 字节码的 API，广泛应用于各种框架中。
 
 |              | 必须要实现接口 | 支持拦截 `public` 方法 | 支持拦截 `protected` 方法 | 拦截默认作用域方法 |
 | :----------- | :------------: | :--------------------: | :-----------------------: | :----------------: |
 | JDK 动态代理 |       ✔️        |           ✔️            |             ❌             |         ❌          |
 | CGLIB 代理   |       ❌        |           ✔️            |             ✔️             |         ✔️          |
 
-最流行的AOP框架分别是`Spring AOP`和`AspectJ`。Spring Framework 同时支持 `@AspectJ` 注解和 XML Schema 这两种方式来使用 AOP，下面分别介绍它们。
+最流行的 AOP 框架分别是`Spring AOP`和`AspectJ`。。Spring Framework 通过后置处理器`AnnotationAwareAspectJAutoProxyCreator`来实现，它兼容 AspectJ 风格的切面声明，以及 SpringFramework 原生的 AOP 编程。
 
-
-
-EJB、Spring，Hibernate，JBOSS以及AOP都在试图摆脱Java静态类型的束缚，让某些应用模型具有更强的适应性
+注意，AspectJ 中的代理对象增强了 equals 方法，增强了 hashcode 方法，就是没有增强 toString 方法。
 
 ## @Aspect
 
@@ -59,15 +57,13 @@ public class Config { }
 
 `@EnableAspectJAutoProxy` 有两个属性
 
-- `proxyTargetClass` 用于选择是否开启基于类的代理（是否使用 CGLIB 来做代理）默认值是 `false`。若`ProxyFactoryBean` 使用了 JDK 动态代理，那么`AopProxyFactory` 就会创建 `JdkDynamicAopProxy`；若使用是采用 CGLIB 代理，则会创建 `ObjenesisCglibAopProxy`。
+- `proxyTargetClass`： 用于选择是否开启基于类的代理（是否使用 CGLIB 来做代理）默认值是 `false`。若`ProxyFactoryBean` 使用了 JDK 动态代理，那么`AopProxyFactory` 就会创建 `JdkDynamicAopProxy`；若使用是采用 CGLIB 代理，则会创建 `ObjenesisCglibAopProxy`。
 
 - `exposeProxy` 用于选择是否将代理对象暴露到 `AopContext` 中，默认值是 `false`。
 
 
 
-如果是通过XML来配置Bean对象的话（`<context:component-scan base-package="learning.spring"/>`），那么需要在XML中使用`<aop:aspectj-autoproxy/>`标签来开启对 `@AspectJ` 支持
-
-
+如果是通过 XML 来配置Bean对象的话（`<context:component-scan base-package="learning.spring"/>`），那么需要在 XML中使用`<aop:aspectj-autoproxy/>`标签来开启对 `@AspectJ` 支持。
 
 在完成配置后，我们就可以使用 `@Aspect` 注解来声明切面了：
 
@@ -82,7 +78,7 @@ public void afterPrint() {
 }
 ~~~
 
--  添加 `@Aspect` 注解只是告诉 Spring这个类是切面，而不是定义一个Bean
+-  添加 `@Aspect` 注解只是告诉 Spring 这个类是切面，而不是定义一个 Bean
 - Spring Framework 会对带有 `@Aspect` 注解的类做特殊对待，因为其本身就是一个切面，所以不会被别的切面自动拦截。
 
 这里，通过包扫描机制，向IoC容器注册这个切面类。
@@ -99,16 +95,16 @@ public void afterPrint() {
 ~~~java
 @Aspect
 public class HelloPointcut {
-    @Pointcut("target(learning.spring.helloworld.Hello)")	//切入点表达式
+    @Pointcut("target(learning.spring.helloworld.Hello)")	// 切入点表达式
     public void helloType() {} 
 
-    @Pointcut("execution(public * say())")			//切入点表达式
+    @Pointcut("execution(public * say())")			// 切入点表达式
     public void sayOperation() {} 
 
-    @Pointcut("helloType() && sayOperation()") // 切入点方法签名
+    @Pointcut("helloType() && sayOperation()") // 切入点方法签名，复用上面两个切入点表达式
     public void sayHello() {} 
     
-    // 我们只需在切入点表达式中，标注方法名即可
+    // 这是一个切面，就是切入点 + 通知
     @After("helloType()")
     public void afterPrint() {
         System.out.println("Logger afterPrint run ......");
@@ -116,7 +112,7 @@ public class HelloPointcut {
 }
 ~~~
 
-注意，**@Pointcut所注解的方法应该是空的**
+注意，**@Pointcut 所注解的方法应该是空的**
 
 
 
@@ -184,17 +180,32 @@ public class MyAspect {
 
 Spring AOP 中有多种通知类型：
 
-- `@Before` ：定义一个前置通知。它可以对被拦截方法的参数进行加工，这是通过特殊的args语法做到的
+- `@Before` ：定义一个前置通知，在目标对象的方法之前触发。它可以对被拦截方法的参数进行加工，这是通过特殊的args 语法做到的
 
   ~~~java
   @Before("learning.spring.helloworld.HelloPointcut.sayHello() && args(count)")
-  // 这里将count参数名作为args的值，它有以下两个作用：
-  // 1. args拦截只有一个参数，且参数类型与count对应的类型（AtomicInteger）相同的方法
-  // 2. 可以将拦截到到的参数值传入到count形参中
+  // 这里将 count 参数名作为 args 的值，它有以下两个作用：
+  // 1. args 拦截只有一个参数，且参数类型与 count 对应的类型（AtomicInteger）相同的方法
+  // 2. 可以将拦截到到的参数值传入到 count 形参中
   public void before(AtomicInteger count) {
       // 操作count
   }
   ~~~
+
+  我们还可以通过 JoinPoint 获取更多被代理对象的信息：
+
+  ~~~java
+  @Before("execution(public * com..FinanceService.*(..))")
+  public void beforePrint(JoinPoint joinPoint) {
+      joinPoint.getTarget(); // 获取被代理对象
+      joinPoint.getThis();	// 获取代理对象
+      joinPoint.getArgs();	// 被拦截的方法的参数列表
+      (MethodSignature)joinPoint.getSignature();	// 被拦截的方法的签名
+      
+  }
+  ~~~
+
+  
 
 - `@AfterReturing` ：拦截正常返回的调用
 
@@ -205,7 +216,7 @@ Spring AOP 中有多种通知类型：
   }
   ~~~
 
-  这里`returning`注解元素限制了，该通知只拦截返回类型与words形参类型相同的方法。同时将拦截方法的返回值传入到words形参中
+  这里`returning`注解元素限制了，该通知只拦截返回类型与 words 形参类型相同的方法。同时将拦截方法的返回值传入到 words 形参中。一般形参类型指定为 Object 即可。
 
 - `@AfterThrowing`：如果想要拦截抛出异常的调用，可以使用 `@AfterThrowing` 注解
 
@@ -216,9 +227,9 @@ Spring AOP 中有多种通知类型：
   }
   ~~~
 
-- `@After` ：如果想要拦截正常返回或者异常返回的方法，可以使用`@After` 注解。@After注释的切面方法获取到不返回值以及异常对象，一般只能做资源清理的工作。
+- `@After` ：如果想要拦截正常返回或者异常返回的方法，可以使用`@After` 注解。但是`@After`注释的切面方法，**不能**获取返回值以及异常对象，一般只能做资源清理的工作。
 
--  `@Around`：环绕通知，不仅可以在方法执行前后加入自己的逻辑，甚至可以完全替换方法本身的逻辑，或者替换调用参数。@Around 注解的切面方法的第一个参数必须是 ProceedingJoinPoint 类型，方法的返回类型是被拦截方法的返回类型，直接使用Object类型即可。
+-  `@Around`：环绕通知，不仅可以在方法执行前后加入自己的逻辑，甚至可以完全替换方法本身的逻辑，或者替换调用参数。`@Around` 注解的切面方法的第一个参数必须是 `ProceedingJoinPoint` 类型，而该切面方法的返回类型是被拦截方法的返回类型，一般直接使用 Object 类型即可。
 
    ~~~java
    @Aspect
@@ -262,7 +273,6 @@ Spring AOP 中有多种通知类型：
   
   @Component
   public class FemaleAnimal implements Animal {
-  
       @Override
       public void eat() {
           System.out.println("我是雌性，我比雄性更喜欢吃零食");
@@ -287,7 +297,7 @@ Spring AOP 中有多种通知类型：
       AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(AnnotationConfig.class);
       Person person = (Person) ctx.getBean("women");
       person.likePerson();
-      // person代理类已经实现了Animal接口
+      // person 代理类已经实现了 Animal 接口
       Animal animal = (Animal)person;
       animal.eat();
   }
@@ -295,10 +305,54 @@ Spring AOP 中有多种通知类型：
   
   引入声明后，在 Spring 容器中取到的 Bean 就已经完成了增强，**甚至在前置通知中也是如此。**
 
-
-
-
 在这些通知注解上就可以指明切入点，为什么我们还要将这些切入点单独放在一个类中呢？答：复用性！要是存在多个通知作用于同一处，可以让切面类实现 `Ordered` 接口，或者在上面添加 `@Order` 注解。
+
+切面的默认执行顺序，是按照字母表顺序来的。我们可以通过 `@Order` 或者 `Order` 接口来显式指定切面的执行顺序。
+
+~~~java
+@Order(0)
+public class LogAspect {
+    @Before()
+    public void printLog() {}
+    
+    @Before()
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public void def() {}
+}
+~~~
+
+
+
+如果代理对象要调用自身被代理的方法，那么可以通过 `AopContext` 来优雅地实现这一点。注：直接调用的是未被代理的方法。一定要设置 `@EnableAspectJAutoProxy` 上的 `exposeProxy` 属性
+
+~~~java
+@Service
+public class UserService {
+    public void update(String id, String name) {
+        ((UserService) AopContext.currentProxy()).get(id);
+    }
+    
+    public void get(String id) {}
+}
+~~~
+
+不优雅的解决方案：
+
+~~~java
+@Service
+public class UserService {
+    @Autowired
+    UserService userService;
+    
+    public void update(String id, String name) {
+        // this.get(id);
+        userService.get(id);
+    }
+    public void get(String id) {}
+}
+~~~
+
+
 
 ## XML Scheme
 
@@ -338,10 +392,6 @@ Spring AOP 相关的 XML 配置，都要放在 `<aop:config/>` 中，
     <bean id="aspectBean" class="..." />
 </beans>
 ~~~
-
-
-
-
 
 基于 XML Schema 的通知同样分为六类
 
@@ -386,6 +436,8 @@ Spring AOP 相关的 XML 配置，都要放在 `<aop:config/>` 中，
           default-impl="learning.spring.helloworld.DefaultGoodByeImpl"/>
   </aop:aspect>
   ~~~
+
+
 
 
 

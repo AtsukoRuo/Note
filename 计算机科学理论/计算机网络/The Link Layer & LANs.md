@@ -1,2 +1,0 @@
-# The Link Layer & LANs
-

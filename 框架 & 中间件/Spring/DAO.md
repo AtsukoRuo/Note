@@ -330,34 +330,6 @@ SpEL基本表达式：
 
 ## 事务
 
-### 概念
-
-事务就是一组逻辑操作的组合，它被赋予四个特性：
-
-- **原子性**：一个事务就是一个不可再分解的单位，事务中的操作要么全部做，要么全部不做。
-- **一致性**：事务执行后，所有的数据都应该保持一致状态。
-- **隔离性**：多个数据库操作并发执行时，一个请求的事务操作不能被其它操作干扰，多个并发事务执行之间要相互隔离。
-- **持久性**：事务执行完成后，它对数据的影响是永久性的。
-
-其中，原子性、隔离性、持久性是手段，而一致性是目的
-
-事务并发操作中会出现三种问题：
-
-- 脏读：一个事务读到了另一个事务没有提交的数据
-- 不可重复读
-- 幻读
-
-针对上述三个问题，由此引出了事务的隔离级别：
-
-- **read uncommitted** 读未提交 —— 不解决任何问题
-- **read committed** 读已提交 —— 解决脏读
-- **repeatable read** 可重复读 —— 解决脏读、不可重复读
-- **serializable** 可串行化 —— 解决脏读、不可重复读、幻读
-
-
-
-
-
 ### JDBC中的事务
 
 ~~~java
@@ -412,8 +384,6 @@ try {
 }
 ~~~
 
-
-
 ### Spring的事务控制模型
 
 SpringFramework 的事务控制模型就是
@@ -421,8 +391,6 @@ SpringFramework 的事务控制模型就是
 - `PlatformTransactionManager` ：平台事务管理器
 - `TransactionDefinition` ：事务定义
 - `TransactionStatus` ：事务状态
-
-
 
 当事务创建时，就会被绑定到一个线程上。该线程会伴随着事务整个生命周期，直到事务提交、回滚或挂起（临时解绑）。而且`TransactionSynchronizationManager`的使用是基于`ThreadLocal`的。
 
@@ -449,13 +417,9 @@ public interface PlatformTransactionManager extends TransactionManager {
 
 `DataSourceTransactionManager`、`JtaTransactionManager` 和 `HibernateTransactionManager` 这些底层事务管理器都实现了上述接口。
 
-PlatformTransactionManager的继承体系：
-
-![img](assets/06a9422871274d4396c700260bbc72d2tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
 #### TransactionDefinition
 
-**TransactionDefinition**：事务的属性
+**TransactionDefinition**：定义了事务的属性
 
 ~~~java
 public interface TransactionDefinition {
@@ -491,22 +455,7 @@ public interface TransactionDefinition {
 
 - 是否只读
 
-TransactionDefinition的继承体系：
 
-![img](assets/a309500dd0694c41bb6e72430950fa57tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-
-
-我们在此看一下`TransactionAttribute`接口：
-
-~~~java
-public interface TransactionAttribute extends TransactionDefinition {
-    String getQualifier();
-    boolean rollbackOn(Throwable ex);
-}
-~~~
-
-这里的`rollbackOn` 方法，正是`@Transactional` 注解中 `rollbackFor` 属性的底层支撑
 
 #### 指定事务管理器
 
@@ -515,23 +464,23 @@ public interface TransactionAttribute extends TransactionDefinition {
 @EnableTransactionManagement
 public class Profiledemo implements TransactionManagementConfigurer {
 
-	//注入事务管理器2
+	// 注入事务管理器2
     @Resource(name="txManager2")
     private PlatformTransactionManager txManager2;
 
-    //创建事务管理器2
+    // 创建事务管理器2
     @Bean(name = "txManager2")
     public PlatformTransactionManager txManager2(EntityManagerFactory factory) {
         return new JpaTransactionManager(factory);
     }
 
-    //创建事务管理器1
+    // 创建事务管理器1
     @Bean(name = "txManager1")
     public PlatformTransactionManager txManager(DataSource dataSource) {
         return new DataSourceTransactionManager(dataSource);
     }
 
-    //实现接口TransactionManagementConfigurer方法，其返回值代表在拥有多个事务管理器的情况下默认使用的事务管理器
+    // 默认使用的事务管理器
     @Override
     public PlatformTransactionManager annotationDrivenTransactionManager() {
         return txManager2;
@@ -550,8 +499,6 @@ public class Service{
 	public void xxx() {}
 }
 ~~~
-
-
 
 #### TransactionStatus
 
@@ -577,14 +524,6 @@ public Boolean execute(){
 }
 ~~~
 
-
-
-事务状态的继承体系：
-
-![img](assets/eb8431fea54c427aa73e2a68c91442e7tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-
-
 ### 事务管理
 
 在Spring中，事务有两种实现方式：
@@ -594,9 +533,11 @@ public Boolean execute(){
 
 
 
-如果一个类或者一个类中的 public 方法上被标注`@Transactional` 注解的话，Spring 容器就会在启动的时候为其创建一个代理类，在调用被`@Transactional` 注解的 public 方法的时候，实际调用的是，`TransactionInterceptor` 类中的 `invoke()`方法。这个方法的作用就是在目标方法之前开启事务，方法执行过程中如果遇到异常的时候回滚事务，方法调用完成之后提交事务。
+如果 public 方法上被标注`@Transactional` 注解的话，Spring 容器就会在启动的时候为其创建一个代理：
 
-
+- 在调用被`@Transactional` 注解的 public 方法的时候，实际调用的是，`TransactionInterceptor` 类中的 `invoke()`方法。这个方法的作用就是在目标方法之前开启事务，
+- 如果在方法执行过程中**抛出异常**，那么就回滚事务。如果在方法中捕获了异常，那么并不会回滚。
+- 方法正常返回才提交事务。
 
 ### 编程式事务管理
 
@@ -784,7 +725,7 @@ public void saveAndQuery() {
 
 
 
-当一个方法被标记了`@Transactional` 注解的时候，Spring 事务管理器只会在被其他类方法调用的时候生效，而不会在一个类中方法调用生效。这是因为 Spring AOP 工作原理决定的。我们代理对象就无法拦截到这个内部调用，因此事务也就失效了。解决方法：
+当一个方法被标记了`@Transactional` 注解的时候，Spring 事务管理器只会在被其他类方法调用的时候生效，而不会在一个类中方法调用生效。这是因为 Spring AOP 工作原理决定的。我们代理对象就无法拦截到这个内部调用，因此事务也就失效了。解决方法是使用 AopContext 对象：
 
 ~~~java
 @Service
@@ -800,46 +741,45 @@ public class MyService {
 }
 ~~~
 
-
-
 ### 事务传播
 
 注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常
 
-示例代码：
+下面那我们通过一个示例，来认识事务传播机制
 
 ~~~java
-//将传入参数 a 存入ATable
+//将传入参数 a 存入 ATable
 pubilc void A(a){
     insertIntoATable(a);    
 }
 
-//将传入参数 b 存入BTable
+//将传入参数 b 存入 BTable
 public void B(b){
     insertIntoBTable(b);
 }
-// 注：事务由于通过AOP实现的，这种直接调用是起不到事务的作用。这里为了演示，在写法上做了妥协
 ~~~
 
-- **REQUIRED【默认值】**
+- **REQUIRED【默认值】**（❌ 表示在正常方法中调用事务方法，✔️ 表示在事务中调用事务方法）
 
-  - ❌：新建一个事务
+  - ：新建一个事务
 
     ~~~java
     public void testMain(){
-        A(a1);  //调用A入参a1
+        A(a1);  	//调用A入参a1
         testB();    //调用testB
     }
     
     @Transactional(propagation = Propagation.REQUIRED)
     public void testB(){
-        B(b1);  //调用B入参b1
+        B(b1);  			//调用B入参b1
         throw Exception;     //发生异常抛出
-        B(b2);  //调用B入参b2
+        B(b2);  			//调用B入参b2
     }
+    
+    // 注：事务由于通过 AOP 实现的，这种直接调用是起不到事务的作用。这里为了演示，在写法上做了妥协
     ~~~
 
-    执行testB时会自己新建一个事务，testB抛出异常则只有testB中的操作发生了回滚，也就是b1的存储会发生回滚，但a1数据不会回滚，所以最终a1数据存储成功，b1和b2数据没有存储
+    执行 testB 时会自己新建一个事务，testB 抛出异常则只有 testB 中的操作发生了回滚，也就是 b1 的存储会发生回滚，但 a1 数据不会回滚，所以最终 a1 数据存储成功，b1 和 b2 数据没有存储。
 
   - ✔️：加入这个事务
 
@@ -883,21 +823,21 @@ public void B(b){
     }
     ~~~
 
-    这种情形的执行结果就是a1没有存储，而b1和b2存储成功，因为testB的事务传播设置为REQUIRES_NEW,所以在执行testB时会开启一个新的事务，testMain中发生的异常时在testMain所开启的事务中，所以这个异常不会影响testB的事务提交
+    这种情形的执行结果就是 a1 没有存储，而 b1 和 b2 存储成功，因为 testB 的事务传播设置为 REQUIRES_NEW ,所以在执行 testB 时会开启一个新的事务，testMain 中发生的异常时在 testMain 所开启的事务中，所以这个异常不会影响testB 的事务提交。
 
 - **NESTED ：嵌套**
 
   - ❌：新建一个事务
 
-  - ✔️：在嵌套事务中执行
+  - ✔️：在嵌套事务中执行。下面是 NESTED 与 REQUIRES_NEW 的对比
 
-    - 在 REQUIRES_NEW 情况下，原有事务回滚，不会影响新开启的事务。
-    - 在 NESTED 情况下父事务回滚时，子事务也会回滚
+    - 在 REQUIRES_NEW 情况下，父事务回滚，不会影响新开启的事务。
+    - 在 NESTED 情况下，父事务回滚时，子事务也会回滚
 
-    
+    下面是 NESTED 与 REQUIRED 的对比
 
-    - REQUIRED 情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否 catch 其异常，事务都会回滚
-    - 在NESTED情况下，被调用方发生异常时，调用方可以 catch 其异常，这样只有子事务回滚，父事务不受影响
+    - 在REQUIRED 情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否 catch 其异常，事务都会回滚
+    - 在 NESTED 情况下，被调用方发生异常时，调用方可以 catch 其异常，这样只有子事务回滚，父事务不受影响
 
 - **SUPPORTS ：支持**
 

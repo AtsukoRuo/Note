@@ -349,3 +349,68 @@ public interface Lifecycle {
 5. 标记本身为不可用
 
 注意，程序员要自己管理原型 bean 的生命周期。Spring 框架已经帮我们管理了单例Bean 的生命周期。
+
+## 循环依赖
+
+下面我们来看一个循环依赖的例子：
+
+~~~java
+@Component
+public class CycleA {
+	@Autowired
+	private CycleB cycleB;
+}
+
+@Component
+public class CycleB {
+	@Autowired
+	private CycleA cycleA;
+}
+~~~
+
+Spring 能够处理这种循环依赖，解决循环依赖问题的核心思路是「利用**三级缓存**来**提前暴露 bean 的引用**」，这就破坏了循环等待这个条件。
+
+![img](./assets/2264262-20220607195802233-1596191675.png)
+
+IOC无法解决的两种循环依赖：
+
+1. 非单例对象：因为非单例对象不会放入缓存的，每次都是按需要创建
+
+2. 构造器注入：调用构造器创建实例是在 `createBeanInstance` 方法，而解决循环依赖是在`populateBean`（负责属性注入的方法）这个方法中，执行顺序也决定了无法解决该种循环依赖。
+
+   可以给构造器参数添加 @Lazy 来解决构造器之间的循环依赖问题：
+
+   ~~~java
+   public CycleB(@Lazy CycleA cycleA){
+       this.cycleA = cycleA;
+   }
+   ~~~
+
+   
+
+三级缓存如下：
+
+- `singletonObjects`：单例对象的缓存，也就是常说的一级缓存，key-value为 bean 名称到 bean 实例，这里的实例是**完整**的 bean
+- `earlySingletonObjects`：早期单例对象的缓存，也就是常说的二级缓存，key-value 为 bean 名称到 bean 实例，这里的实例是**半成品**的 bean（未属性注入的）。
+- `singletonFactories`：单例工厂的缓存，也就是常说的三级缓存，key-value 为 bean 名称到创建该 bean 的`ObjectFactory`。
+
+下图就说明如何解决上面的例子循环依赖问题：
+
+1. 在实例化 A 之后，先把 A 放在三级缓存中
+2. 在 A 的 populateBean （属性注入）中，发现依赖对象 B。由于在缓存中没有找到 B 对象，故开始初始化 B 对象。
+3. 实例化 B，并将其放在三级缓存中。
+4. 在 B 的 populateBean （属性注入）中，发现依赖对象 A。从三级缓存中获取 A 对象，然后放在二级缓存中。此时的 A 对象仅仅完成了实例化，并没有完成初始化工作（包括属性注入），是一个半成品 Bean。
+5. B 完成初始化工作，放在一级缓存中
+6. A 注入完整的 B 对象，然后完成初始化工作，放在一级缓存中。此时对于 B 来说，A 已经是一个完整的 Bean 了。
+
+![在这里插入图片描述](./assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80Mzk2NjYzNQ==,size_16,color_FFFFFF,t_70.png)
+
+
+
+从理论上来说，使用二级缓存是可以解决 AOP 代理 Bean 的循环依赖的。但是这样的话，每次要实例化 Bean 之后，都要为其创建代理对象。但这违反了 Bean 的生命周期设计，正常的流程是：
+
+1. 创建实例 createBeanInstance
+2. 填充依赖 populateBean 
+3. 后置处理 initializeBean ，包括 AOP 对象的产生
+
+我们只需**特殊情况特殊对待**就行，而不是将整个 AOP 机制提前到 populateBean 中执行。所以，Spring 引入了一个三级缓存，并使用  ObjectFacotry 对象来包装半成品 Bean。当从三级缓存中获取的 Bean 对象，就会对其调用`wrapIfNecessary()`方法来**尝试**进行代理。而 `wrapIfNecessary()`另一个调用点在`AnnotationAwareAspectJAutoProxyCreator#postProcessAfterInitialization()`方法里，该方法会在对象实例化后、初始化完成后再进行调用。这里是在属性注入的时候就已经创建，所以相对而言，创建代理的时机提前了。

@@ -1368,6 +1368,12 @@ jdbc.password=123456
 用 `EnvironmentAware` 向 `JdbcConfiguration` 注入 `Environment` ，然后每个 `DataSource` 的创建就可以使用 `Environment` 的取值了：
 
 ~~~java
+private EnvironmentAware environment
+@Override
+void setEnvironmentAware(EnvironmentAware environment) {
+    this.environment = environment;
+}
+
 @Bean
 @ConditionalOnClassName("com.mysql.jdbc.Driver")
 public DataSource mysqlDataSource() {
@@ -1444,8 +1450,6 @@ com.linkedbear.spring.configuration.z_spi.bean.DemoOracleDaoImpl
 */
 ~~~
 
-
-
 下面我们就用 Spring SPI 机制来实现需求：
 
 首先将每个 Bean 数据源单独拆分到不同的配置类中
@@ -1514,6 +1518,7 @@ public class DataSourceRegisterPostProcessor implements BeanDefinitionRegistryPo
                 .addPropertyValue("url", environment.getProperty("jdbc.url"))
                 .addPropertyValue("username", environment.getProperty("jdbc.username"))
                 .addPropertyValue("password", environment.getProperty("jdbc.password"));
+        
         // 根据当前classpath下的数据库连接驱动添加driverClassName
         List<String> driverClassNames = SpringFactoriesLoader.
             loadFactoryNames(Driver.class, this.getClass().getClassLoader());
@@ -1536,8 +1541,7 @@ public class DataSourceRegisterPostProcessor implements BeanDefinitionRegistryPo
     }
     
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-    }
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {}
     
     @Override
     public void setEnvironment(Environment environment) {
