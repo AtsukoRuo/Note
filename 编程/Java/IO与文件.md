@@ -260,95 +260,15 @@ Files.write(path, bytes, StandardOpenOption.APPEND);
 
   ~~~java
   public enum StandardOpenOption implements OpenOption {
-      /**
-       * Open for read access.
-       */
       READ,
-  
-      /**
-       * Open for write access.
-       */
       WRITE,
-  
-      /**
-       * If the file is opened for {@link #WRITE} access then bytes will be written
-       * to the end of the file rather than the beginning.
-       *
-       * <p> If the file is opened for write access by other programs, then it
-       * is file system specific if writing to the end of the file is atomic.
-       */
       APPEND,
-  
-      /**
-       * If the file already exists and it is opened for {@link #WRITE}
-       * access, then its length is truncated to 0. This option is ignored
-       * if the file is opened only for {@link #READ} access.
-       */
       TRUNCATE_EXISTING,
-  
-      /**
-       * Create a new file if it does not exist.
-       * This option is ignored if the {@link #CREATE_NEW} option is also set.
-       * The check for the existence of the file and the creation of the file
-       * if it does not exist is atomic with respect to other file system
-       * operations.
-       */
       CREATE,
-  
-      /**
-       * Create a new file, failing if the file already exists.
-       * The check for the existence of the file and the creation of the file
-       * if it does not exist is atomic with respect to other file system
-       * operations.
-       */
       CREATE_NEW,
-  
-      /**
-       * Delete on close. When this option is present then the implementation
-       * makes a <em>best effort</em> attempt to delete the file when closed
-       * by the appropriate {@code close} method. If the {@code close} method is
-       * not invoked then a <em>best effort</em> attempt is made to delete the
-       * file when the Java virtual machine terminates (either normally, as
-       * defined by the Java Language Specification, or where possible, abnormally).
-       * This option is primarily intended for use with <em>work files</em> that
-       * are used solely by a single instance of the Java virtual machine. This
-       * option is not recommended for use when opening files that are open
-       * concurrently by other entities. Many of the details as to when and how
-       * the file is deleted are implementation specific and therefore not
-       * specified. In particular, an implementation may be unable to guarantee
-       * that it deletes the expected file when replaced by an attacker while the
-       * file is open. Consequently, security sensitive applications should take
-       * care when using this option.
-       *
-       * <p> For security reasons, this option may imply the {@link
-       * LinkOption#NOFOLLOW_LINKS} option. In other words, if the option is present
-       * when opening an existing file that is a symbolic link then it may fail
-       * (by throwing {@link java.io.IOException}).
-       */
       DELETE_ON_CLOSE,
-  
-      /**
-       * Sparse file. When used with the {@link #CREATE_NEW} option then this
-       * option provides a <em>hint</em> that the new file will be sparse. The
-       * option is ignored when the file system does not support the creation of
-       * sparse files.
-       */
       SPARSE,
-  
-      /**
-       * Requires that every update to the file's content or metadata be written
-       * synchronously to the underlying storage device.
-       *
-       * @see <a href="package-summary.html#integrity">Synchronized I/O file integrity</a>
-       */
       SYNC,
-  
-      /**
-       * Requires that every update to the file's content be written
-       * synchronously to the underlying storage device.
-       *
-       * @see <a href="package-summary.html#integrity">Synchronized I/O file integrity</a>
-       */
       DSYNC;
   }
   ~~~
@@ -388,25 +308,25 @@ I/O流要考虑以下两点：
 
 `InputStream`用于表示那些**从不同源生成输入**（读操作）的类。不同的**输入源**有不同的子类：
 
-| 类                         | 功能                                                         | 构造器参数                                                   | 使用方法                                                     |
-| :------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| `ByteArray-` `InputStream` | 使内存中的缓冲区可以充当`InputStream`                        | 用于提取出字节的缓冲区                                       | 作为一种数据源：通过将其连接到`FilterInputStream`对象来提供有用的接口 |
-| `FileInputStream`          | 用于从一个文件中读取信息                                     | 一个用于表示文件名或`File`对象，还有`FileDescriptor`对象的字符串 | 作为一种数据源：通过将其连接到`FilterInputStream`对象来提供有用的接口 |
-| `PipedInputStream`         | 用于生成写入到对应的`PipedOutputStream`中的数据。它实现了“管道传输”的概念 | `PipedOutputStream`                                          | 作为一种多线程形式的数据源：通过将其连接到`FilterInputStream`对象来提供有用的接口 |
-| `FilterInputStream`        | 作为装饰器接口的抽象类，装饰器用来为其他`InputStream`类提供有用的功能。 |                                                              |                                                              |
+|           类           |                             功能                             |
+| :--------------------: | :----------------------------------------------------------: |
+| `ByteArrayInputStream` |                     从一段内存中读取字节                     |
+|   `FileInputStream`    |                   用于从一个文件中读取信息                   |
+|   `PipedInputStream`   |                 与 `PipedOutputStream` 搭配                  |
+|  `FilterInputStream`   | 作为装饰器接口的抽象类，装饰器用来为其他`InputStream`类提供有用的功能。 |
 
 
 
 `OutputStream`用于表示那些**向不同源生成输出**（写操作）的类。不同的**输出源**有不同的子类：
 
-| 类                          | 功能                                                         | 构造器参数                                                   | 使用方法                                                     |
-| :-------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| `ByteArray-` `OutputStream` | 在内存创建一块缓冲区，所有发送到流中的数据都被放在该缓冲区   | 缓冲区初始大小，为可选参数                                   | 用于指定数据的目的地：通过将其连接到`FilterOutputStream`对象来提供有用的接口 |
-| `FileOutputStream`          | 用于向文件发送信息                                           | 用于表示文件名或`File`对象，还有`FileDescriptor`对象的字符串 | 用于指定数据的目的地：通过将其连接到`FilterOutputStream`对象来提供有用的接口 |
-| `PipedOutputStream`         | 向其中写入的任何信息都将自动作为对应的`PipedInputStream`的输入。实现了“管道传输”的概念 | `PipedInputStream`                                           | 用于为多线程指定数据的目的地：通过将其连接到`FilterOutputStream`对象来提供有用的接口 |
-| `FilterOutputStream`        | 作为装饰器接口的抽象类，装饰器用来为其他`OutputStream`类提供有用的功能。参见表7-4 | 参见表7-4                                                    | 参见表7-4                                                    |
+|           类            |                             功能                             |
+| :---------------------: | :----------------------------------------------------------: |
+| `ByteArrayOutputStream` |                      向一段内存写入字节                      |
+|   `FileOutputStream`    |                      用于向文件发送信息                      |
+|   `PipedOutputStream`   |                  与 `PipedInputStream` 搭配                  |
+|  `FilterOutputStream`   | 作为装饰器接口的抽象类，装饰器用来为其他`OutputStream`类提供有用的功能。 |
 
-`FilterOutputStream`为“装饰器”类（用于为输出流增加属性或有用的接口）提供了基类
+
 
 
 
@@ -414,20 +334,22 @@ I/O流要考虑以下两点：
 
 ### FilterInputStream & FilterOutputStream 装饰器类
 
-| 类                          | 功能                                                         | 构造器参数                                    | 使用方法                                                     |
-| :-------------------------- | :----------------------------------------------------------- | :-------------------------------------------- | :----------------------------------------------------------- |
-| `DataInputStream`           | 与`DataOutputStream`配合使用                                 | `InputStream`                                 | 包含用于读取基本类型的全部接口                               |
-| `Buffered-` `InputStream`   | 用于防止在每次需要更多数据时都进行物理上的读取（磁盘，对于内存上的缓冲是无用）。相当于声明“使用缓冲区” | `InputStream`以及可选参数：（指定）缓冲区大小 | 这本质上并未提供接口，只是为进程增加缓冲操作而已，需要与接口对象搭配使用 |
-| `LineNumber-` `InputStream` | 自动追踪并维护行号,每读取一行,行号会自动加1。可以调用`getLineNumber()`和`setLineNumber(int)`手动设置行号 | `InputStream`                                 | 只是增加了行号而已，因此可能需要与接口对象搭配使用           |
-| `Pushback-` `InputStream`   | 包含一个单字节回退缓冲区，用于将最后读取的字符推回输入流     | `InputStream`                                 | 通常用于编译器的扫描器，一般不会用到                         |
+`FilterOutputStream`为“装饰器”类，在基本输入输出流的基础上，增加了额外的功能。
+
+|             类              |                             功能                             |
+| :-------------------------: | :----------------------------------------------------------: |
+|      `DataInputStream`      |                    提供读取基本类型的方法                    |
+|  `Buffered-` `InputStream`  | 用于防止在每次需要更多数据时都进行物理上的读取（磁盘，对于内存上的缓冲是无用）。相当于声明“使用缓冲区” |
+| `LineNumber-` `InputStream` | 自动追踪并维护行号,每读取一行,行号会自动加1。可以调用`getLineNumber()`和`setLineNumber(int)`手动设置行号 |
+|  `Pushback-` `InputStream`  |   包含一个单字节回退缓冲区，用于将最后读取的字符推回输入流   |
 
 
 
-| 类                         | 功能                                                         | 构造器参数                                                   | 使用方法                                                     |
-| :------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| `DataOutputStream`         | 与`DataInputStream`搭配使用，这样就能以可移植的方式向流中写入基本类型（`int`、`char`、`long`，等等）了 | `OutputStream`                                               | 包含用于写入基本类型数据的全部接口                           |
-| `PrintStream`              | 用于生成格式化的输出。`DataOutputStream`是直接以数据的二进制来输出的，而`PrintStream`是以字符解释的形式来输出的 | `OutputStream`以及可选参数：`boolean`，表示是否在每次换行时都清空缓冲区 | 应该作为`OutputStream`对象的“最终”包装。可能会经常用到       |
-| `Buffered-` `OutputStream` | 声明“使用缓冲”。可以调用`flush()`来清空缓冲区                | `OutputStream`以及可选参数：（指定）缓冲区大小               | 这本质上并未提供接口，只是为进程增加缓冲操作而已，需要与接口对象搭配使用 |
+|             类             |                             功能                             |
+| :------------------------: | :----------------------------------------------------------: |
+|     `DataOutputStream`     |                    提供写入基本类型的方法                    |
+|       `PrintStream`        | 用于生成格式化的输出。`DataOutputStream`是直接以数据的二进制来输出的，而`PrintStream`是以字符解释的形式来输出的 |
+| `Buffered-` `OutputStream` |        声明“使用缓冲”。可以调用`flush()`来清空缓冲区         |
 
 
 
@@ -483,17 +405,17 @@ public class TestEOF {
 
 注意，`available()`的工作方式会随着所读取媒介类型的不同而有所不同——该方法的字面意思是“**在没有阻塞的情况下**所能读取的字节数量”。对于文件来说，这意味着整个文件，但是对于不同类型的流来说，则可能并不是这样。
 
-还有DataOutputStream的`writeUTF()`和`readUTF()`使用的是一种适用于Java的特殊UTF-8变体（JDK文档中有关于这些方法的描述），因此如果你用非Java程序来读取用`writeUTF()`写入的字符串，就必须编写特殊的代码来妥当地读取该字符串。
+还有 DataOutputStream 的`writeUTF()`和`readUTF()`使用的是一种适用于 Java 的特殊 UTF-8 变体（JDK文档中有关于这些方法的描述），因此如果你用非 Java 程序来读取用`writeUTF()`写入的字符串，就必须编写特殊的代码来妥当地读取该字符串。
 
 ### Reader & Writer
 
-Java 1.1对基础流式I/O库进行了重大的修改。`InputStream`和`OutputStream`类仍然以**面向字节**（8位字节流）的I/O的形式提供了有价值的功能。而`Reader`和`Writer`类则提供了兼容Unicode（国际化）并且基于字符的I/O能力（**面向字符**）。
+Java 1.1对基础流式 I/O 库进行了重大的修改。`InputStream`和`OutputStream`类仍然以**面向字节**（8位字节流）的 I/O 的形式提供了有价值的功能。而`Reader`和`Writer`类则提供了兼容Unicode（国际化）并且基于字符的I/O能力（**面向字符**）。
 
 
 
 | 来源和去处：Java 1.0中的类           | Java 1.1中对应的类   |
 | :----------------------------------- | :------------------- |
-| `InputStream                         | `InputStreamReader`  |
+| `InputStream` |`InputStreamReader`|
 | `OutputStream`                       | `OutputStreamWriter` |
 | `FileInputStream`                    | `FileReader`         |
 | `FileOutputStream`                   | `FileWriter`         |
@@ -527,21 +449,16 @@ Java 1.1对基础流式I/O库进行了重大的修改。`InputStream`和`OutputS
 
 `RandomAccessFile`适合用来处理由大小已知的记录组成的文件，由此可以通过`seek()`在各条记录上来回移动，然后读取或者修改记录
 
-
-
 ~~~java
 String file = "";
 try(
-      RandomAccessFile rf =
-        new RandomAccessFile(file, "r")
+    RandomAccessFile rf = new RandomAccessFile(file, "r")
 ) {
-      System.out.println("Value " + i + ": " + rf.readDouble());
+    System.out.println(rf.readDouble());
 } catch(IOException e) {
-      throw new RuntimeException(e);
+    throw new RuntimeException(e);
 }
 ~~~
-
-
 
 
 
@@ -553,13 +470,13 @@ try(
 
 
 
-从标准输入中读取
+从标准输入中读取:
 
 ~~~java
 BufferedReader br = new BufferReader(new InputStreamRead(System.in));
 ~~~
 
-向标准输出中写入
+向标准输出中写入：
 
 ~~~java
 PrintWriter out = new PrintWriter(System.out, true);
@@ -1051,8 +968,6 @@ channel.send(buffer, new InetSocketAddress("127.0.0.1",18899));
    - select(long timeout)
    - selectNow()
 
-
-
 ### 视图
 
 通过视图缓冲区，可以很方便地写入基本数据类型。事实上，视图缓冲区的底层仍然是 ByteBuffer，当通过视图缓冲区读取时，它会按照相应语义来解释二进制数据的，并将相应操作映射成对 ByteBuffer 中数据的修改。
@@ -1085,14 +1000,6 @@ public class Endians {
 [97, 0, 98, 0, 99, 0, 100, 0, 101, 0, 102, 0]
 */
 ~~~
-
-
-
-
-
-
-
-
 
 ## 内存映射文件
 

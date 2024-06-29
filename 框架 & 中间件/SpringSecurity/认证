@@ -1,0 +1,751 @@
+[TOC]
+
+## 简单示例
+
+![image-20240626154712798](./assets/image-20240626154712798.png)
+
+~~~java
+@Configuration
+public class ProjectConfig {
+   
+    @Bean
+    public UserDetailsService userDetailsService() {
+        // 在内存中存储用户的凭证，在生产环境中并不推荐这样做。
+        // 这个对象实际上是 UserDetailsManager 类型
+        var userDetailsService = new InMemoryUserDetailsManager();
+        // 构建一个用户，这里的 User 实现了 UserDetails 接口
+        var user = User.withUsername("john")
+                .password("12345")
+                .authorities("read")
+                .build();
+        userDetailsService.createUser(user);
+        return userDetailsService;
+    }
+
+    // 如果我们自己提供了 UserDetailsService，那么同时必须提供一个 PassworEncoder
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // NoOpPasswordEncoder treats passwords as plain text. It does not encrypt or hash them.
+        // NoOpPasswordEncoder only compares the strings using the underlying equals(Object o) method of the String class
+        return NoOpPasswordEncoder.getInstance();
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // 要求对所有端点进行授权
+        http.authorizeHttpRequests(auth -> {
+            auth.anyRequest().authenticated();
+        });
+
+        // 放行所有端点的授权
+        http.authorizeHttpRequests(auth -> {
+            auth.anyRequest().permitAll();
+        });
+        return http.build();
+    }
+}
+~~~
+
+在 Spring Security 5.7.0-M2 中，弃用了 `WebSecurityConfigurerAdapter`，鼓励用户转向使用 `SecurityFilterChain`。
+
+我们可以通过实现 `AuthenticationProvider` 接口来自己定义认证逻辑：
+
+~~~java
+@Component
+class CustomAuthenticationProvider implements AuthenticationProvider {
+    // 实现了认证逻辑
+    @Override
+    public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+        // 在 Spring Security 默认提供的 AuthenticationProvider 中，它的认证逻辑委托给了 UserDetailsService 以及 PasswordEncoder
+        // 在我们自定义认证逻辑时，可以不把认证逻辑委托给 UserDetailsService & PasswordEncoder。这里便是这么做的
+        String username = authentication.getName();
+        String password = String.valueOf(authentication.getCredentials());
+        if ("john".equals(username) && "12345".equals(password)) {
+            return new UsernamePasswordAuthenticationToken(username, password, Arrays.asList());
+        } else {
+            // 抛出异常表示验证失败
+            throw  new AuthenticationCredentialsNotFoundException("Error in authentication!");
+        }
+    }
+	// 如果 supports() 方法返回 true，那么 Spring Security 将调用 authenticate() 方法来进行身份验证
+    @Override
+    public boolean supports(Class<?> authenticationType) {
+        // 如果 authenticationType 是 UsernamePasswordAuthenticationToken 类或者其子类，isAssignableFrom() 方法将返回 true
+        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authenticationType);
+    }
+}
+
+@Configuration
+// 已省略无关代码
+public class ProjectConfig {
+    @Autowired
+    private CustomAuthenticationProvider authenticationProvider;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) 
+        throws Exception {
+		// 注册我们自己的认证逻辑
+        http.authenticationProvider(authenticationProvider);
+    }
+}
+~~~
+
+## 用户
+
+![image-20240627123423571](./assets/image-20240627123423571.png)
+
+- `UserDetails`：描述了用户
+- `GrantedAuthority`：定义用户可以执行的操作`
+- `UserDetailsService`：`Spring Security`支持各种来源的用户验证数据，包括内存、数据库等。它们被抽象为一个`UserDetailsService`接口，任何实现了`UserDetailsService` 接口的对象都可以作为进行认证的数据源。
+- `UserDetailsManager`：扩展（继承）了 `UserDetailsService`。具体来说就是， `UserDetailsService` 仅负责通过用户名来检索用户，这是框架完成身份验证所需的唯一操作。而 `UserDetailsManager` 扩展了添加、修改或删除用户的操作。
+
+### UserDetails
+
+`UserDetails` 的定义如下：
+
+~~~java
+public interface UserDetails extends Serializable {
+    Collection<? extends GrantedAuthority> getAuthorities();
+    String getPassword();
+    String getUsername();
+    
+	// 用于检查用户账户是否过期
+    default boolean isAccountNonExpired() {return true;}
+    
+    // 检查用户账户是否被锁定
+    default boolean isAccountNonLocked() { return true;}
+    
+    // 检查用户的凭证（通常是密码）是否过期
+    default boolean isCredentialsNonExpired() {return true;}
+    
+    // 检查用户账户是否被启用
+    default boolean isEnabled() {return true;}
+}
+~~~
+
+~~~java
+// 创建 UserDetials 对象
+UserBuilder builder1 = User.withUsername("john");
+UserDetails u1 = builder1
+	.password("12345")
+	.authorities("read", "write")
+	.passwordEncoder(p -> encode(p))
+    .accountExpired(false)
+	.disabled(true)
+	.build();
+
+UserBuilder builder2 = User.withUserDetails(u);	// 还可以从现有的 UserDetails 实例构建用户
+UserDetails u2 = builder2.build();
+~~~
+
+~~~java
+// 自定义 UserDetials 对象
+@Entity
+public class User {
+    @Id
+    private int id;
+    private String username;
+    private String password;
+    private String authority;
+    // 省略了 getter 和 setter
+}
+public class SecurityUser implements UserDetails {
+    // 强烈推荐使用组合来实现 UserDetails，这样职责分工更加明确
+    // User 只负责 JPA 实体的责任，而 UserDetails 负责在 Spring Securrity 中描述用户的责任
+    private final User user;
+    public SecurityUser(User user) {
+        this.user = user;
+    }
+    @Override
+    public String getUsername() {
+        return user.getUsername();
+    }
+    @Override
+    public String getPassword() {
+        return user.getPassword();
+    }
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(() -> user.getAuthority());
+    }
+    // 省略的代码
+}
+~~~
+
+### GrantedAuthority
+
+`GrantedAuthority` 的定义如下：
+
+~~~java
+public interface GrantedAuthority extends Serializable {
+	String getAuthority();
+}
+~~~
+
+~~~java
+// 实现 GrantedAuthority 接口
+GrantedAuthority g1 = () -> "READ";
+GrantedAuthority g2 = new SimpleGrantedAuthority("READ");
+~~~
+
+### UserDetailsService
+
+`UserDetailsService` 的定义如下：
+
+~~~java
+public interface UserDetailsService {
+    UserDetails loadUserByUsername(String username)
+        throws UsernameNotFoundException;
+}
+~~~
+
+在 `Spring Security` 中默认实现的 `AuthenticationProvider` 与 `UserDetailsService` 的关系 。
+
+![image-20240627130053274](./assets/image-20240627130053274.png)
+
+下面我们来实现一个 `UserDetailsService` 接口。
+
+~~~java
+@Service
+public class JpaUserDetailsService implements UserDetailsService {
+    // 在数据库中保留用户凭证
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Override
+    public CustomUserDetails loadUserByUsername(String username) {
+        Supplier<UsernameNotFoundException> s =
+            () -> new UsernameNotFoundException(
+            "Problem during authentication!");
+        User u = userRepository
+            .findUserByUsername(username)
+            .orElseThrow(s);
+        return new CustomUserDetails(u);
+    }
+}
+~~~
+
+然后记得注册这个认证源
+
+```java
+@Autowired
+private UserDetailsService userDetailsService;
+
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http.userDetailsService(userDetailsService);
+}
+```
+
+
+
+`UserDetailsManager` 接口的定义如下：
+
+~~~java
+public interface UserDetailsManager extends UserDetailsService {
+    void createUser(UserDetails user);
+    void updateUser(UserDetails user);
+    void deleteUser(String username);
+    void changePassword(String oldPassword, String newPassword);
+    boolean userExists(String username);
+}
+~~~
+
+`SrpingSecurity` 提供了两个`UserDetailsService`的实现类（不推荐使用）：
+
+- `InMemoryUserDetailsManager`
+- `JdbcUserDetailsManager`
+
+一定要注意，注册的逻辑需要在 `Controller` 层中实现，此时要依赖注入一个 `UserDetailsManager`，然后调用 `createUser` 方法来完成注册。
+
+
+
+## 密码
+
+我们先来明确编码、加密、哈希这三者之间的区别。
+
+- 编码指的是对给定输入的任何转换 `x -> y`
+- 加密是编码的一种特殊类型，需要提供输入值和一个密钥来获取输出。`(x, k) -> y`。
+  - 如果可以通过 k 获取输入，即 `(y, k) -> x` 那么我们称 k 为对称的。
+  - 如果可以通过 `l` 获取输入`（l != k）`，即 `(x, k) -> y & （y, l）-> x` ，那么 `(l, k)`称为密钥对，`l`称为私玥，而`k`称为公玥
+- 哈希是一种特殊类型的编码，但是转换是单向的。有时哈希函数也可以添加一个随机值作为输入 `(x,s)->y`，我们称 s 为盐值。它增大了从结果中获取逆函数的难度。
+
+
+
+`PasswordEncoder`用于将密码加密。它的定义如下：
+
+~~~java
+public interface PasswordEncoder {
+    String encode(CharSequence rawPassword);
+    boolean matches(CharSequence rawPassword, String encodedPassword);
+    default boolean upgradeEncoding(String encodedPassword) {
+        // 是否二次加密
+        return false;
+    }
+}
+~~~
+
+实现一个使用 SHA-512 的 `PasswordEncoder`：
+
+~~~java
+public class Sha512PasswordEncoder
+    implements PasswordEncoder {
+    @Override
+    public String encode(CharSequence rawPassword) {
+        return hashWithSHA512(rawPassword.toString());
+    }
+    @Override
+    public boolean matches(CharSequence rawPassword, String encodedPassword) {
+        String hashedPassword = encode(rawPassword);
+        return encodedPassword.equals(hashedPassword);
+    }
+    private String hashWithSHA512(String input) {
+        StringBuilder result = new StringBuilder();
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-512");
+            byte [] digested = md.digest(input.getBytes());
+            for (int i = 0; i < digested.length; i++) {
+                result.append(Integer.toHexString(0xFF & digested[i]));
+            }
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Bad algorithm");
+        }
+        return result.toString();
+    }
+}
+~~~
+
+
+
+我们可以使用`PasswordEncoderFactories.createDelegatingPasswordEncoder()` 可以创建一个包含大量算法的 `PasswordEncoder` 实例（底层是 `DelegatingPasswordEncoder`）
+
+```java
+// 直接通过配置类来注册加密器即可
+@Bean
+PasswordEncoder passwordEncode() {
+    return new PasswordEncoderFactories.createDelegatingPasswordEncoder();
+}
+```
+
+使用示例如下：
+
+~~~java
+@Autowired
+PasswordEncoder encoder;
+
+public void foo() {
+    // 指定编码器
+    // 这样密码 123456 被加密为 {bcrypt}$2a$10$X5...
+    UserDetails u1 = User.withUsername("john")
+        .password("12345")
+        .passwordEncoder(p -> encode(p))		
+        .build();
+    
+    // 使用依赖注入的编码器
+    UserDetails u2 = User.withUsername("Mike")
+        .password(encoder.encode("123456"))		
+        
+    // 如果你想使用 SHA-256 加密方式，你可以这样编写密码：{sha256}myPassword
+    // 这样密码被加密为 {sha256}$2a$10$dXJ...
+     UserDetails u3 = User.withUsername("Mike")
+        .password(encoder.encode("{sha256}123456"))
+}
+~~~
+
+在编码时， `DelegatingPasswordEncoder`会根据明文的前缀自动选择编码器。下表给出了前缀对应的 `PasswordEncoder` 实现。如果没有前缀，那么就默认使用 `{bcrypt}`
+
+| 前缀                           | 对应的 `PasswordEncoder` 实现                              |
+| ------------------------------ | ---------------------------------------------------------- |
+| `{noop}`                       | `NoOpPasswordEncoder`                                      |
+| `{bcrypt}`                     | `BCryptPasswordEncoder`                                    |
+| `{pbkdf2}`                     | `Pbkdf2PasswordEncoder("", 8, 185000, 256)`                |
+| `{pbkdf2@SpringSecurity_v5_8}` | `Pbkdf2PasswordEncoder("", 16, 310000, DEFAULT_ALGORITHM)` |
+| `{scrypt}`                     | `SCryptPasswordEncoder`                                    |
+| `{SHA-1}`                      | `MessageDigestPasswordEncoder`                             |
+| `{SHA-256}`                    | `MessageDigestPasswordEncoder`                             |
+| `{sha256}`                     | `StandardPasswordEncoder`                                  |
+
+同样在对比密码（调用 `match`方法）时，会根据密文的前缀自动选择编码器：
+
+![image-20240627150640802](./assets/image-20240627150640802.png)
+
+我们可以自定义前缀与 `PasswordEncoder` 之间的关系。实际上，上述介绍的 `PasswordEncoderFactories` 也是按照我们下述代码的思路来实现的。
+
+~~~java
+@Bean
+public PasswordEncoder passwordEncoder() {
+    Map<String, PasswordEncoder> encoders = new HashMap<>();
+    encoders.put("noop", NoOpPasswordEncoder.getInstance());
+    encoders.put("bcrypt", new BCryptPasswordEncoder());
+    encoders.put("scrypt", new SCryptPasswordEncoder());
+    return new DelegatingPasswordEncoder("bcrypt", encoders);
+}
+~~~
+
+## 身份认证
+
+![image-20240626154712798](./assets/image-20240626154712798.png)
+
+- `AuthenticationFilter`，它的要点如下：
+
+  - 在特定情况下，它才执行认证逻辑。例如，匹配到 /login 端点的 POST 请求。 否则，直接将请求继续在过滤链中传递下去。
+
+  - 它从 HTTP Request 的 Header 中解析出用户凭证，封装为一个 `Authentication`，然后将其委托给 `AuthenticationManager` 来进行验证。如果认证失败，那么返回 `HTTP 401` 错误；否则（认证成功），调用 `RemenverMeService` 后，返回 `HTTP 200 OK`。可见无论认证成功与否，都不再向过滤链中继续传递请求。
+  - 如果要自定义登录逻辑，那么最好在 `AuthenticationFilter` 之前执行自己的过滤器，并不再向过滤链中继续传递请求。
+
+- `AuthenticationManager`：实现类`ProviderManager` 持有多个 `Authentication Provider`。将 `Authentication` 依次传入 `Authentication Provider`，只要有任一一个验证通过，那么 `Authentication` 就认证成功，如果都没验证通过，那么就认证失败。
+
+- `Authentication Provider`：真正负责验证的组件，认证成功后，回填 `Authentication` 对象中的一些属性（例如权限）。抛出异常或者返回 null 表示认证失败。
+
+
+
+`AuthenticationProvider` 负责身份验证逻辑。它的接口定义如下：
+
+~~~java
+public interface AuthenticationProvider {
+    Authentication authenticate(Authentication authentication)
+        throws AuthenticationException;
+    boolean supports(Class<?> authentication);
+}
+~~~
+
+- `authenticate()` ：实现认证逻辑，抛出 `AuthenticationException` 或者返回 `null`，表示认证失败。
+- `supports()`：是否支持验证指定的 `Authentication` 对象。如果返回 `false`，那么就认证失败，并不会调用 `authenticate()` 
+
+
+
+`SecurityContext` 接口的定义如下：
+
+~~~java
+public interface SecurityContext extends Serializable {
+    Authentication getAuthentication();
+    void setAuthentication(Authentication authentication);
+}
+~~~
+
+其中 `Authentication` 接口来表示认证主体，它由下面三个部分组成：
+
+~~~java
+public interface Authentication extends Principal, Serializable {
+    Collection<? extends GrantedAuthority> getAuthorities();
+    Object getCredentials();
+    Object getDetails();
+    Object getPrincipal();
+    boolean isAuthenticated();
+    void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException;
+}
+
+public interface Principal {
+    public String getName();
+    // ...
+}
+
+~~~
+
+- `getPrincipal()`方法，当用户成功登录后，可以通过调用`Authentication.getPrincipal()`方法获取到一个`UserDetails`对象。也就是说，`UserDetails` 被封装到认证对象`Authentication`中
+- `isAuthenticated()`：如果身份验证过程结束则返回 true，如果仍在进行中则返回 false
+- `getAuthorities()`：返回已授予的权限集合
+- `getCredentials()`：返回用户提供的用于进行身份验证的凭据，通常是密码。
+- `getDetails()` 方法用于获取更详细的身份验证信息。这可能包括 IP 地址、证书细节或者自定义的信息。
+
+当前用户实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。请求结束后，`SpringSecurity`将认证结果存储到 `Session`，对应的 `Key` 是：`SPRING_SECURITY_CONTEXT`，并且会生成一个与此 `Session` 相关联的 `JSESSIONID`。每次请求携带 `JSESSIONID`，再从 `Session` 对象中取回认证信息。这些都是由 `SecurityContextPersistenceFilter` 来完成的
+
+`SecurityContextHolder` 是 `SecurityContext` 的工具类，`Controller` 类可以通过它获取 `SecurityContext`：
+
+~~~java
+@GetMapping("/hello")
+public String hello() {
+    SecurityContext context = SecurityContextHolder.getContext();
+    Authentication a = context.getAuthentication();
+    return "你好，" + a.getName() + "!";
+}
+
+@GetMapping("/hello")
+// 可以直接获取 Authentication 对象
+public String hello(Authentication a) {
+    return "你好，" + a.getName() + "!";
+}
+~~~
+
+`SecurityContextHolder` 提供了以下三种策略：
+
+- `MODE_THREADLOCAL`：Allows each thread to store its own details in the security
+
+  context. 
+
+  ![image-20240627182509044](./assets/image-20240627182509044.png)
+
+- `MODE_INHERITABLETHREADLOCAL`：Similar to MODE_THREADLOCAL but also
+
+  instructs Spring Security to copy the security context to the next thread in case
+
+  of an asynchronous method. 
+
+  ![image-20240627182459322](./assets/image-20240627182459322.png)
+
+- `MODE_GLOBAL`：Makes all the threads of the application see the same security
+
+  context instance.
+
+  由于 `SecurityContext` 并不是线程安全的。所以在这种策略下，请注意并发安全问题
+
+
+通过 @Bean 方法来指定策略
+
+~~~java
+@Configuration
+@EnableAsync
+public class ProjectConfig {
+    @Bean
+    public InitializingBean initializingBean() {
+        return () -> SecurityContextHolder.setStrategyName(
+            SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+    }
+}
+~~~
+
+注意只有 @Async 创建的线程在`MODE_INHERITABLETHREADLOCAL`中才可以复制下来，而自己手动创建的线程是不能复制的。实际上，像下面这种在手动创建的线程中复制 SecurityContext 的方法也是不可行的
+
+~~~java
+@Autowire
+ExecutorService e
+
+@GetMapping("/ciao")
+public String ciao() throws Exception {
+    Callable<String> task = () -> {
+        SecurityContext context = SecurityContextHolder.getContext();
+        return context.getAuthentication().getName();
+    };
+    e.submit(task).get() 	// 会抛出 `NullPointerException`，
+}
+~~~
+
+这时候，我们可以使用 `DelegatingSecurityContextExecutorService` 来包装 `ExecutorService`，从而能正确获取到 `SecurityContext`：
+
+~~~java
+@Autowire
+private Executor executor;
+
+@GetMapping("/ciao")
+public String ciao() throws Exception {
+    Callable<String> task = () -> {
+        SecurityContext context = SecurityContextHolder.getContext();
+        return context.getAuthentication().getName();
+    };
+    executor.submit(task).get() 	// 会抛出 `NullPointerException`，
+}
+~~~
+
+~~~java
+@Bean
+public Executor getAsyncExecutor() {
+    return new DelegatingSecurityContextExecutorService(Executors.newFixedThreadPool(1))
+}
+~~~
+
+此外，`SpringSecurity` 还提供了 `DelegatingSecurityContextExecutor`、`DelegatingSecurityContextScheduledExecutorService`、`DelegatingSecurityContextRunnable`、`DelegatingSecurityContextCallable`
+
+~~~java
+Runnable runnable = DelegatingSecurityContextRunnable.create(() -> {
+  //线程处理逻辑
+  ...
+}, SecurityContextHolder.getContext());
+new Thread(runnable).start();
+~~~
+
+
+
+下面我们来实现一个 `AuthenticationProvider`。实际上，像手机验证码等认证方式，都可以在 `AuthenticationProvider` 中实现相应的逻辑。
+
+~~~java
+@Component
+class CustomAuthenticationProvider implements AuthenticationProvider {
+    // 获取认证源
+    @Autowired
+    private UserDetailsService userDetailsService;
+	
+    // 获取编码器
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Override
+    public Authentication authenticate(Authentication authentication) {
+        // 获取用户的输入
+        String username = authentication.getName();
+        String password = authentication.getCredentials().toString();
+	
+        // 开始认证
+        UserDetails u = userDetailsService.loadUserByUsername(username);
+        if (passwordEncoder.matches(password, u.getPassword())) {
+            // 这里认证成功，返回 Authentication，之后框架会将其存放在 SecurityContext 中。
+            return new UsernamePasswordAuthenticationToken(
+                    username,
+                    password,
+                    u.getAuthorities()
+            );
+        } else {
+            throw new BadCredentialsException("Error!");
+        }
+    }
+
+    @Override
+    public boolean supports(Class<?> authenticationType) {
+        return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authenticationType);
+    }
+}
+~~~
+
+注册这个 `AuthenticationProvider`
+
+~~~java
+@Configuration
+// 已省略无关代码
+public class ProjectConfig {
+    @Autowired
+    private CustomAuthenticationProvider authenticationProvider;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) 
+        throws Exception {
+		// 注册我们自己的认证逻辑
+        http.authenticationProvider(authenticationProvider);
+    }
+}
+~~~
+
+`Spring Security` 默认提供的 `AuthenticationProvider`，它的实现验证的逻辑与我们上述代码的思路类似，都是委托给 `PasswordEncoder` 与 `UserDetailsService` 来完成验证。
+
+
+
+## 登录、登出
+
+如果您在未登录的情况下访问授权页面，那么 SpringSecurity 会自动重定向到 /login 页面。
+
+**`formLogin()` 提供的一些常用配置**
+
+| 配置方法               | 作用                     |
+| ---------------------- | ------------------------ |
+| `usernameParameter()`  | 指定表单中的用户名字段名 |
+| `passwordParameter()`  | 指定表单中的密码字段名   |
+| `defaultSuccessUrl()`  | 登录成功后跳转的 URL     |
+| `failureUrl()`         | 登录失败后跳转的 URL     |
+| `loginProcessingUrl()` | 处理验证的URL，POST      |
+| `loginPage()`          | 指定自己的登录页，GET    |
+
+**`logout()` 提供的一些常用配置方法**
+
+| 配置方法                  | 作用                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `logoutUrl()`             | 触发退出操作的 URL，默认是 `/logout`                         |
+| `logoutSuccessUrl()`      | 成功退出后跳转的 URL                                         |
+| `logoutSuccessHandler()`  | 指定自定义的 `LogoutSuccessHandler`，有这个设置 `logoutSuccessUrl()` 会失效 |
+| `invalidateHttpSession()` | 是否清理 HTTP Session                                        |
+| `deleteCookies()`         | 删除指定 Cookies                                             |
+| `addLogoutHandler()`      | 添加 `LogoutHandler`，                                       |
+| `logoutRequestMatcher()`  | 设置退出请求的路径                                           |
+
+Spring Security 中默认开启了 CSRF 防护，所以 `/logout` 也要求带有 CSRF 的 Token，而且必须要使用 `POST` 方法
+
+下面这种链式调用已经被废除了
+
+```java
+formLogin.loginPage("/login").permitAll()
+```
+
+推荐使用回调版本的：
+
+```java
+http.formLogin(formLogin -> {
+    formLogin.loginPage("/login").permitAll();
+});
+```
+
+登录成功后，可以通过`successHandler()`回调函数的 `Authentication` 参数，获取到用户名等信息：
+
+```java
+formLogin
+    .loginPage("/login").permitAll()
+    // 这里推荐依赖注入一个 AuthenticationSuccessHandler，尽可能做到解耦
+    .successHandler(new AuthenticationSuccessHandler() {
+        @Override
+        public void onAuthenticationSuccess(
+            HttpServletRequest request, 
+            HttpServletResponse response, 
+            Authentication authentication) 
+            throws IOException, ServletException {
+
+            // 通过 HttpServletResponse 返回一些自定义的JSON数据
+            authentication.getAuthorities();
+            // 如果这里调用 response.sendRedirect 来指定重定向 URL
+            // 那么就会忽略 defaultSuccessUrl() 指定的 URL
+        }
+    });
+```
+
+相应地，也有登录失败处理器`failureHandler`（处理用户名找不到的情况，即抛出`UsernameNotFoundException`异常）。
+
+## 异常
+
+**Spring Security** 中的异常主要分为两大类：一类是认证异常（`AuthenticationException`），另一类是授权相关的异常（`AccessDeniedException`）。
+
+**HTTP 401 错误 - 未授权(Unauthorized)**，一般来说该错误消息表明您首先需要登录
+
+**HTTP 403 错误 - 被禁止(Forbidden)** 出现该错误表明您在访问受限资源时没有得到许可
+
+`exceptionHandling()`用于统一处理异常。
+
+```java
+http.exceptionHandling(e -> {
+    e.accessDeniedHandler(new AccessDeniedHandler() {
+        @Override
+        public void handle(
+            HttpServletRequest request, 
+            HttpServletResponse response, 
+            AccessDeniedException accessDeniedException) 
+            throws IOException, ServletException {
+            
+            System.out.println("Fail");
+        }
+    });
+});
+```
+
+## 记住我
+
+在 Spring Security 中，它保证了在一次会话中保持登录状态，但是如果要在多次会话中保持登录状态，那么要考虑实现「记住我」的功能了
+
+Spring Security 里为我们提供了一个 `RememberMeServices` 抽象，由它来实现“记住我”功能，默认有几个实现：
+
+- `NullRememberMeServices`，空实现，即不提供「记住我」功能，`UsernamePasswordAuthenticationFilter` 内部默认使用了这个实现；
+
+- `TokenBasedRememberMeServices`，通过 `Cookie` 中的一段经 `BASE64` 编码的令牌来实现「记住我」功能，实现较为简单；
+
+  ```
+  base64(用户名 + ":" + 失效时间 + ":" + md5Hex(用户名 + ":" + 失效时间 + ":" + 密码 + ":" + 私钥))
+  ```
+
+  
+
+  这样服务器就可以根据令牌来将用户信息放入到安全上下文中了
+
+- `PersistentTokenBasedRememberMeServices`，通过持久化的令牌来实现「记住我」功能，这里的持久化可以是在内存里的（这严格上不算真正的持久化），也可以是持久化到数据库里的。
+
+一个示例：
+
+```
+http.rememberMe(e -> e.rememberMeParameter("rememberMe").key("i*24qg}{bp}"));
+```
+
+ 
+
+`rememberMe()` 中常用的配置方法
+
+| 配置方法                 | 作用                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| `key()`                  | 设置 `md5Hex()` 时使用的私钥                                 |
+| `rememberMeParameter()`  | 请求中表示是否要“记住我”的参数名，默认是 `remember-me`       |
+| `rememberMeCookieName()` | 在 Cookies 中保存令牌的 Cookie 名称，默认是 `remember-me`    |
+| `tokenValiditySeconds()` | 令牌的有效时间，默认两周                                     |
+| `userDetailsService()`   | 设置用来根据用户名获取用户信息的 `UserDetailsService`        |
+| `alwaysRemember()`       | 是否始终开启“记住我”功能                                     |
+| `tokenRepository()`      | 设置用于保存持久化令牌的 `PersistentTokenRepository`，设置了这个后，就会使用 `PersistentTokenBasedRememberMeServices`，否则是 `TokenBasedRememberMeServices` |

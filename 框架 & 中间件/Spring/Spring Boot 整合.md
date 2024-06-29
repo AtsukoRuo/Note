@@ -2,34 +2,32 @@
 
 [TOC]
 
-
-
 ## Https
 
-有两种方式可以获取到SSL证书：
+有两种方式可以获取到 SSL 证书：
 
 1. 自己通过 keytool 生成
 2. 通过证书授权机构购买
 
 ```shell
-keytool -genkey -alias tomcat -dname "CN=Andy,OU=kfit,O=kfit,L=HaiDian,ST=BeiJing,C=CN" -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore keystore.p12 -validity 365
+keytool -genkey -alias SpringSecurity -dname "CN=GaoRuofan,OU=Personal,O=Personal,L=JINAN,ST=SHANDONG,C=CN" -storetype PKCS12 -keyalg RSA -keysize 2048 -keystore keystore.p12 -validity 365
 ```
 
-- -genkey ：生成key；
-- -alias ：key的别名；
+- -genkey ：要求命令进行生成 key 的操作；
+- -alias ：key 的别名；
 - -dname：指定证书拥有者信息
-- -storetype ：密钥库的类型为JCEKS。常用的有JKS(默认),JCEKS(推荐),PKCS12,BKS,UBER。每个密钥库只可以是其中一种类型。
-- -keyalg ：DSA或RSA算法(当使用-genkeypair参数)，DES或DESede或AES算法(当使用-genseckey参数)；
-- -keysize ：密钥的长度为512至1024之间(64的倍数)
-- -keystore ：证书库的名称
-- -validity ： 指定创建的证书有效期多少天
-- dname的值详解：
-  - CN(Common Name名字与姓氏)
-  - OU(Organization Unit组织单位名称)
-  - O(Organization组织名称)
-  - L(Locality城市或区域名称)
-  - ST(State州或省份名称)
-  - C(Country国家名称）
+  - CN：Common Name 名字与姓氏
+  - OU：Organization Unit 组织单位名称
+  - O：Organization 组织名称
+  - L：Locality 城市或区域名称
+  - ST：State 州或省份名称
+  - C：Country 国家名称
+
+- -storetype ：指定密钥库的类型。常用的有 JKS（默认）、JCEKS（推荐）、PKCS12、BKS、UBER。
+- -keyalg ：指定要使用的算法
+- -keysize ：指定密钥的长度
+- -keystore ：指定证书文件的存储路径
+- -validity ： 指定证书的有效期
 
 
 
@@ -40,9 +38,13 @@ Spring Boot 配置 SSL 很简单，只需要通过一系列的 `server.ssl.*` �
 ~~~properties
 server.port=8443
 server.ssl.protocol=TLS
-server.ssl.key-store=classpath:javastack.keystore
+
+# 证书的路径
+server.ssl.key-store=classpath:javastack.keystore		
+
+# 密钥库口令，在生成证书时设置的
 server.ssl.key-store-password=javastack
-server.ssl.key-store-type=JKS
+server.ssl.key-store-type=PKCS12 
 ~~~
 
 
@@ -1136,12 +1138,6 @@ Spring 缓存抽象的默认实现为`ConcurrentHashMap`，其实 Spring 的缓�
 | `JCacheCacheManager`        | JCache              | 适用于遵循 JSR-107 规范的缓存                             |
 
 此外还有 Redis、Hazelcast、Infinispan。
-
-
-
-## Security
-
-
 
 ## Quartz
 
