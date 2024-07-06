@@ -1,16 +1,12 @@
-# Android集成
+# Android 集成
 
-
-
-## 与Android集成
+## 与 Android 集成
 
 https://juejin.cn/post/7054743801520193543#heading-14
 
+这里有两个方案，（原本Android官方提供一个插件，可以很方便地进行集成，但是后面又删除了）。方案一是将 Flutter 打包成 aar，再集成到 Android。这样做有一个好处，就是Android 端的开发人员无需安装 Flutter SDK。
 
-
-这里有两个方案，（原本Android官方提供一个插件，可以很方便地进行集成，但是后面又删除了）。方案一是将Flutter打包成aar，再集成到Android。这样做有一个好处，就是Android端的开发人员无需安装Flutter SDK。
-
-但需要注意的是，并不是修改了 `fluuter_model` 中的代码，直接重新编译 android后， 页面就会发生改变。在 android 项目中，flutter 的代码是一个 aar 包的形式存在的，所以 flutter 代码更新后，需要重新执行 `flutter build aar` 命令重新打一个aar 包才可以。而且有些插件在打包成aar后会出现问题。因此，我们更加推荐方案 B - **依赖模块的源码**。该方式可以使你的 Android 项目和 Flutter 项目能够同步一键式构建。
+但需要注意的是，并不是修改了 `fluuter_model` 中的代码，直接重新编译 android 后， 页面就会发生改变。在 android 项目中，flutter 的代码是一个 aar 包的形式存在的，所以 flutter 代码更新后，需要重新执行 `flutter build aar` 命令重新打一个aar 包才可以。而且有些插件在打包成 aar 后会出现问题。因此，我们更加推荐方案 B - **依赖模块的源码**。该方式可以使你的 Android 项目和 Flutter 项目能够同步一键式构建。
 
 将 `Flutter` 模块作为子项目添加到宿主应用的 `settings.gradle` 中：
 

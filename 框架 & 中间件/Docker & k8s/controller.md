@@ -1,5 +1,9 @@
 # Controller
 
+[TOC]
+
+
+
 ## Deployment
 
 Pod 没有自愈能力，不能扩缩容，也不支持方便的升级和回滚。而 Deployment 可以。因此，建议绝大多数情况下采用 Deployment 来部署 Pod。Deployment 在底层利用了另一种名为 ReplicaSet 的对象。并不建议直接操作 ReplicaSet。
@@ -42,8 +46,8 @@ spec:
       labels:
         app: hello-world
     spec:
-      containers:
-      - name: hello-pod
+      containers:	
+      - name: hello-pod		# 容器名
         image: nigelpoulton/k8sbook:1.0
         ports:
         - containerPort: 8080
@@ -151,12 +155,8 @@ Service 与 Pod 之间是通过 Label 和 Label 筛选器（selector）松耦合
 下面是 Service 如何工作的基本介绍
 
 1. 每一个 Service 在被创建的时候，都会得到一个关联的 Endpoint 对象。整个 Endpoint 对象其实就是一个**动态**列表，其中包含匹配该 Service Label 筛选器的健康 Pod 的 IP。 
-2. 当要通过 Service 将流量转发到 Pod 时，首先在集群内部的 DNS 中查询 Service 的 IP。当节点将流量打到 ClusterIP 时，会被内核捕获拦截（具体来说是每个节点都有的 kube-proxy 系统服务），然后将 IP 改写为某个健康 Pod 的 IP 地址。
+2. 当要通过 Service 将流量转发到 Pod 时，首先在集群内部的 DNS 中查询 Service 的 IP。当节点将流量打到 ClusterIP 时，会被内核捕获拦截（具体来说是每个节点都有的 kube-proxy 系统服务），然后将 IP 改写为某个健康 Pod 的 IP 地址。所以说，流量实际上并不会流经 Service
 3. 不过，Kubernetes 原生应用是可以直接查询 Endpoint API，而无须查找 DNS 和使用 Service IP 的。
-
-
-
-
 
 
 
@@ -204,11 +204,50 @@ Kubernetes 通过以下方式来实现**服务发现**（Service discovery）
 
 
 
+Kubernetes 支持多个虚拟集群，它们底层依赖于同一个物理集群。 这些虚拟集群被称为**命名空间**，它们在逻辑上彼此隔离。这可以作为在多个团队之间访问控制和资源限额的一种手段。不过，它不能作为流量隔离的手段来使用。这里仅仅介绍如果创建
 
+Kubernetes 启动时会创建四个初始名字空间：
 
-每一个集群都有一个地址空间，而命名空间为集群的地址空间的分区。
+1. **default**：如果一个对象并没有指定命名空间，那么它就会放入到 default 中
+2. **kube-node-lease**
+3. **kube-public**
+4. **kube-system**
 
+当你创建一个 Service 时， Kubernetes 会创建一个相应的 DNS 条目，该条目的形式是`<object-name>.<namespace>.svc.cluster.local`。这也被称为 Service 对象的**全限定域名（FQDN）**。prod 命名空间中的 Pod 可以使用短名称（比如 ent 和 voy）来访问本命名空间内部的 Service。而如果需要连接其他命名空间中的 Service，则需要使用 FQDN，比如 `ent.dev.svc.cluster.local`作为域名。
 
+![image-20240702101058933](./assets/image-20240702101058933.png)
+
+下面给出一个命名空间的示例：
+
+~~~~yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+~~~~
+
+Deployment 对象的命名空间绑定
+
+~~~yaml
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: enterprise
+  labels:
+    app: enterprise
+  namespace: prod
+spec:
+~~~
+
+单独 Pod 对象（不放在 Controller 中）的命名空间绑定
+
+~~~yaml
+apiVersion: v1
+kind: Pod
+metadata:
+   name: jump
+   namespace: dev
+~~~
 
 
 
@@ -218,9 +257,149 @@ Service 可以用在简单的灰度发布上，我们只需修改该 Label Selec
 
 ![image-20240702023028336](./assets/image-20240702023028336.png)
 
-## 服务发现
-
-
-
 ## StatefulSet 
+
+Deployment 和 StatefulSet 都支持自愈、自动扩缩容、滚动更新等特性。但是 StatefulSet  能够确保即使发生故障、扩缩容，调度等操作之后， Pod 名字、DNS 主机名、卷的绑定之间都是保持不变。这 3 个属性构成了 Pod 的状态。
+
+举个简单的例子，由 StatefulSet 管理的 Pod，在发生故障后会被新的 Pod 代替，不过依然保持相同的名字、相同的 DNS 主机名和相同的卷。即使新的 Pod 在另一个节点上启动，亦是如此。
+
+下面就是一个典型的 StatefulSet 定义：
+
+~~~yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+	name: tkb-sts 
+spec: 
+	selector:
+		matchLabels:
+			app: mongo 
+	ServiceName: "tkb-sts" 
+	replicas: 3 
+	template: 
+		metadata:
+			labels:
+				app: mongo
+	spec:
+		containers:
+		- name: ctr-mongo 
+		image: mongo:latest
+~~~
+
+StatefulSet 的 Pod 名字遵循`<StatefulSetName>-<Integer>`的规则。其中 Integer 是一个从零开始的索引号
+
+
+
+关于 StatefulSet 的另一个基本特性就是，对 Pod 的启动和停止是受控和有序的。就是说在扩容时，StatefulSet 等前一个 Pod 达到运行且就绪状态之后，才开始创建下一个 Pod。
+
+![image-20240702224742674](./assets/image-20240702224742674.png)
+
+当缩容时，控制器会首先终止拥有最高索引号的 Pod，等待其被完全删除之后，再继续删除下一个拥有最高索引号的 Pod。还可以借助 `terminationGracePeriodSeconds` 这样的参数来调整间隔时间，以控制缩容速度。但请注意，删除一个 StatefulSet 并不是按序依次终止所有 Pod 的。
+
+当一个 StatefulSet Pod 被创建时，所需的卷也会被创建，每一个 Pod 和卷（PVC）都是通过名字建立正确的绑定关系的。
+
+![image-20240702225259829](./assets/image-20240702225259829.png)
+
+如果 StatefulSet 的一个 Pod 在缩容操作中被删除，则当 StatefulSet 被再次扩容时，新增的 Pod 会通过名字的匹配，继续连接到之前已存在的卷上。当进行 Pod 的替换时，只需要保持名字不变，就可以连接同一个卷。
+
+
+
+
+
+headless Service，就是一个将 spec.clusterIP 设置为 None 的 Service 对象。当这个 headless Service 被设置为 StatefulSet 的 spec.ServiceName 时，它就成为了 StatefulSet 的 governing Service。在二者如此关联之后，Service 会为所匹配的每个 Pod 副本创建 DNS SRV 记录。其他 Pod 可以通过对 headless Service 发起 DNS 查询来获取 StatefulSet 的信息。下面给出一个例子
+
+~~~yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-prod
+spec: 
+  clusterIP: None		# 一个 headless Service
+  selector:
+  app: mongo
+  env: prod
+~~~
+
+~~~yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sts-mongo
+spec: 
+  ServiceName: mongo-prod			# 通过名字来指定与这个 StatefulSet 关联的 Headless Service
+~~~
+
+Headless Service 与常见的 Service 对比：
+
+- **正常的 Service**：适用于无状态应用，流量会通过 Service 的负载均衡策略分发到多个 Pod 上。
+- **Headless Service**：适用于有状态应用，流量可以直接路由到特定的 Pod，适用于需要知道具体 Pod 地址的应用场景。
+
+通过 `<object-name>.<Service-name>.<namespace>.svc.cluster.local`  域名来查询特定 Pod 的地址
+
+
+
+下面给出一个例子：
+
+~~~yaml
+# 部署 StorageClass
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: flash
+provisioner: pd.csi.storage.gke.io
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: pd-ssd
+  
+# 部署 governing headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: dullahan
+  labels:
+    app: web
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: web
+    
+# 部署 StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tkb-sts  # StatefulSet的名字
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  serviceName: "dullahan"	# 通过名字来指定与这个 StatefulSet 关联的 Headless Service
+  
+  # Pod 模板 
+  template:
+    # 略
+  volumeClaimTemplates:
+  # 每个 Pod 都关联两个 PVC
+  - metadata:
+      name: webroot
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "flash"		# 通过名字指定 StorageClass
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: logs
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 500Mi
+~~~
+
+`volumeClaimTemplate` 用于在每次创建一个新的 Pod 副本的时候，自动创建一个 PVC，并且为 PVC 命名，以便实现与 Pod 的准确关联。
 

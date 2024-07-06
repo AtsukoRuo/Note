@@ -275,7 +275,7 @@ Future对象还有一个`whenComplete`方法，当该`Future`处于完成状态�
 
 
 
-`timeout`方法创建一个新的Future对象，接收一个`Duration`类型的`timeLimit`参数来设置超时时间。如果原`Future`在超时之前完成，最终的结果就是该原`Future`的值；如果达到超时时间后还未完成，就会产生`TimeoutException`异常。 该方法有一个`onTimeout`可选参数，如果设置了该参数，当发生超时时会调用该函数，该函数的返回值为Future的新的值，而不会产生`TimeoutException`。
+`timeout`方法创建一个新的 Future 对象，接收一个`Duration`类型的`timeLimit`参数来设置超时时间。如果原`Future`在超时之前完成，最终的结果就是该原`Future`的值；如果达到超时时间后还未完成，就会产生`TimeoutException`异常。 该方法有一个`onTimeout`可选参数，如果设置了该参数，当发生超时时会调用该函数，该函数的返回值为 Future 的新的值，而不会产生`TimeoutException`。
 
 
 

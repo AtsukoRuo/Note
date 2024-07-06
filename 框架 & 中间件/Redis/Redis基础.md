@@ -550,7 +550,7 @@ Redis的 `lpush+brpop `命令组合即可实现阻塞队列，生产者客户端
 
   返回结果代表成功添加成员的个数。
 
-  Redis3.2为 zadd 命令添加了 nx、xx、ch、incr 四个选项： 
+  Redis3.2 为 zadd 命令添加了 nx、xx、ch、incr 四个选项： 
 
   - nx：member 必须不存在，才可以设置成功，用于添加。 
   - xx：member 必须存在，才可以设置成功，用于更新。 

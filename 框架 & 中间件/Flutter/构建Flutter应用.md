@@ -384,41 +384,6 @@ class _AsyncButtonState extends State<AsyncButton> {
 
 
 
-## 下拉刷新 上拉加载
-
-两个关键点：
-
-1. 触发加载的逻辑
-
-   ~~~dart
-   // 下拉到90%时，触发加载操作
-     bool get _shouldLoadMore {
-       if (!_scrollCtrl.hasClients) 
-           return false;
-       final maxScroll = _scrollCtrl.position.maxScrollExtent;
-       final currentScroll = _scrollCtrl.offset;
-       final bool down = _scrollCtrl.position.userScrollDirection == ScrollDirection.reverse;
-         
-       return currentScroll >= (maxScroll * 0.9) && down;
-     }
-   ~~~
-
-2. `ListView.builder`构造方法在重新构造后，仍会保留滚动偏移量。此时可以通过`itemExtent`来对重新构造的性能进行优化
-
-   ~~~dart
-     @override
-     Widget build(BuildContext context) {
-       return ListView.builder(
-         controller: _scrollCtrl,
-         itemCount: ,					// 这里更新即可
-         itemExtent: 70,
-         itemBuilder: (_, index) => ,
-       );
-     }
-   ~~~
-
-基于以上两点，我们可以自定义下拉刷新的操作
-
 
 
 ## 平台界面适配
