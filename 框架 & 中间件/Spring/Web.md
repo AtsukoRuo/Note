@@ -204,7 +204,7 @@ public class SimpleApplication {
 
 ~~~
 
-在`@RequestMapping`方法中，Spring会将简单类型和某些特殊类型默认标记为`@RequestParam`。然而，对于 POJO 类型，Spring 会尝试将请求参数注入到到这些对象。如果一个请求参数被`@RequestParam`显式指定到其他参数上，那么该参数不会自动注入到 POJO 对象中。
+在`@RequestMapping`方法中，Spring 会将简单类型和某些特殊类型（String 类型）默认标记为`@RequestParam`。然而，对于 POJO 类型，Spring 会尝试将请求参数注入到到这些对象。如果一个请求参数被`@RequestParam`显式指定到其他方法参数上，那么该参数不会自动注入到 POJO 对象中。
 
 
 
@@ -1243,39 +1243,31 @@ void cachedContent(ResposeEntity resposeEntity) {
 
 ###  RestTemplate
 
-当我们以Rest风格远程调用一个 HTTP 接口时，我们经常会用到 RestTemplate 这个类。Spring 官网对它的介绍如下：
-
-- `RestTemplate`: The original Spring REST client with a synchronous, template method API.
-
-
+当我们以 Rest 风格远程同步调用一个 HTTP 接口时，我们经常会用到 RestTemplate 这个类。
 
 **表 9-16　`RestTemplate` 的一些常用方法**
 
-| 方法名              | 返回类型            | 对应 HTTP 方法 | 说明                                                         |
-| :------------------ | :------------------ | :------------- | :----------------------------------------------------------- |
-| `getForObject()`    | `T`                 | `GET`          | 获取内容并转换为指定类型                                     |
-| `getForEntity()`    | `ResponseEntity<T>` | `GET`          | 获取内容并转换为指定类型，同时提供 HTTP 应答头等信息         |
-| `postForObject()`   | `T`                 | `POST`         | 提交内容，将结果转换为指定类型                               |
-| `postForEntity()`   | `ResponseEntity<T>` | `POST`         | 提交内容，将结果转换为指定类型，同时提供 HTTP 应答头等信息   |
-| `postForLocation()` | `URI`               | `POST`         | 提交内容，无须获得返回，只要拿到结果中的地址信息即可         |
-| `put()`             | `void`              | `PUT`          | 发送 `PUT` 请求，创建或更新内容，无返回值                    |
-| `delete()`          | `void`              | `DELETE`       | 发送 `DELETE` 请求，删除内容，无返回值                       |
-| exchange            |                     |                | 接收一个 `RequestEntity` 参数，可以自己设置 HTTP method，URL，headers 和 body，返回 ResponseEntity； |
+![img](./assets/1775037-20200922215954239-1690710117.png)
 
+**当返回 404、503 错误时， RestTemplate 会直接抛出异常**
 
-
-`RestTemplateAutoConfiguration` 向容器注册了 `RestTemplateBuilder` Bean。`RestTemplateAutoConfiguration` 会将上下文中的 `RestTemplateCustomizer` 和 `RestTemplateRequestCustomizer` 收集起来，放到 `RestTemplateBuilder` 里。而我们可以直接通过这个 `RestTemplateBuilder` 的 `build()` 方法来构造自己的 `RestTemplate` Bean。
+创建一个 RestTemplate 客户端：
 
 ~~~java
-@SpringBootApplication
-public class CustomerApplication {
-    @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
-        return builder
-                .setConnectTimeout(Duration.ofSeconds(1)) 	// 连接超时
-                .setReadTimeout(Duration.ofSeconds(5)) 		// 读取超时
-                .build();
-    }
+@Bean
+public RestTemplate restTemplate(ClientHttpRequestFactory factory) {
+    RestTemplate restTemplate = new RestTemplate(factory);
+    return restTemplate;
+}
+
+@Bean
+public ClientHttpRequestFactory simpleClientHttpRequestFactory() {
+    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+    factory.setReadTimeout(5000);
+    factory.setConnectTimeout(15000);
+    // 设置代理
+    //factory.setProxy(null);
+    return factory;
 }
 ~~~
 
@@ -1283,7 +1275,17 @@ public class CustomerApplication {
 
 使用示例：
 
+发送请求
+
 ~~~java
+RestTemplate restTemplate = new RestTemplate();
+String url = "http://localhost:8001/fund/account/{id}";
+// GET请求，返回 Account 对象
+// 第三个参数对应 URL 中的占位符{id}
+// 根据 responseType 的类型，当响应返回的时候，再调用合适的 HttpMessageConvert 进行响应转换
+Account account = restTemplate.getForObject(url, Account.class, 1L);
+
+// 第三个参数可以接收一个 Map
 Map<String, String> vars = Collections.singletonMap("hotel", "42");
 String result = restTemplate.getForObject(
     "https://example.com/hotels/{hotel}/rooms/{hotel}", 
@@ -1291,20 +1293,60 @@ String result = restTemplate.getForObject(
     vars);
 ~~~
 
-
+POST 请求
 
 ~~~java
-String url = "http://127.0.0.1:8080/hello";
-JSONObject param = new JSONObject();
-// restTemplate 会根据 params 的具体类型，调用合适的 HttpMessageConvert 将请求参数写到请求体 body 中，并在请求头中添加合适的 content-type；
-ResponseEntity<JSONObject> responseEntity = restTemplate.postForEntity(
-    url,
-    params,
-    JSONObject.class);
-// 等待结果，是一个同步方法
+public static void post() {
+   RestTemplate restTemplate = new RestTemplate();
+   String url = "http://localhost:8001/fund/account";
+   // 请求头
+   HttpHeaders headers = new HttpHeaders();
+    
+   // 设置请求体为JSON
+   headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+   Account account = new Account();
+    
+   // 封装请求实体对象，将账户对象设置为请求体
+   HttpEntity<Account> request = new HttpEntity<>(account, headers);
+    
+   // 发送POST请求，返回 Account 对象
+   Account result = restTemplate.postForObject(url, request, Account.class);
+}
 ~~~
 
+PUT 请求
 
+~~~java
+public static void put() {
+   RestTemplate restTemplate = new RestTemplate();
+   String url = "http://localhost:8001/fund/account";
+   // 请求头
+   HttpHeaders headers = new HttpHeaders();
+   // 设置请求体媒体类型为JSON
+   headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+   Account account = new Account();
+   // 封装请求对象
+   HttpEntity<Account> request = new HttpEntity<>(account, headers);
+   // 发送请求，put 请求是无返回值的
+   restTemplate.put(url, request);
+}   
+~~~
+
+DELETE 请求
+
+~~~java
+public static void delete() {
+   RestTemplate restTemplate = new RestTemplate();
+    
+   // {id}是占位
+   String url = "http://localhost:8001/fund/account/{id}";
+    
+   // DELETE请求没有返回值
+   restTemplate.delete(url, 123L);
+}
+~~~
+
+exchange 方法调用
 
 ~~~java
 // 添加 Header 和 Cookie
@@ -1317,10 +1359,9 @@ RequestEntity<JSONObject> requestEntity = RequestEntity.post(uri).
 ResponseEntity<JSONObject> responseEntity = restTemplate.exchange(requestEntity, JSONObject.class);
 ~~~
 
-
+文件上传：
 
 ~~~java
-// 文件上传
 public String uploadFile(String filePath) {
     String requestUrl = "";
     File file = new File(filePath);
@@ -1334,112 +1375,15 @@ public String uploadFile(String filePath) {
     //3.设置文件名称，处理文件名是中文的情况
     headers.setContentDispositionFormData("fileName", URLEncoder.encode(file.getName()));
 
-    //4.设置请求体，注意是LinkedMultiValueMap
+    //4.设置请求体，注意是 LinkedMultiValueMap
     MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-    //5.把文件填充到表单里，注意使用FileSystemResource
+    //5.把文件填充到表单里，注意使用 FileSystemResource
     form.add("uploadedFile", new FileSystemResource(file));
     HttpEntity requestEntity = new HttpEntity<>(form, headers);
     //6.发起请求
     ResponseEntity<String> responseEntity = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
 }
 ~~~
-
-
-
-下面介绍如何更精细地配置`RestTemplate`
-
-`RestTemplate` 在其父类 `HttpAccessor` 中默认设置了 `SimpleClientHttpRequestFactory` 作为请求工厂类。该工厂使用 Java 内置的 `HttpURLConnection` 来处理请求。但其实 `RestTemplate` 支持不少 HTTP 客户端（与浏览器一样，可以处理SSL、Cookie等Web特性）：
-
-| 客户端                | 版本                                            | `ClientHttpRequestFactory` 实现类                            |
-| :-------------------- | :---------------------------------------------- | :----------------------------------------------------------- |
-| Apache HttpComponents | 从 Spring Framework 4.0 开始仅支持 4.3 以上版本 | `HttpComponentsClientHttpRequestFactory`                     |
-| OkHttp                | 3.*x* 版本                                      | `OkHttp3ClientHttpRequestFactory`                            |
-| Netty                 | 4.*x* 版本                                      | `ReactorClientHttpConnector`，在 Spring Framework 5.0 前是 `Netty4ClientHttpRequestFactory` |
-
-下面给出使用HttpComponents 作为底层 HTTP 客户端的例子：
-
-~~~java
-@SpringBootApplication
-public class CustomerApplication {
-    // 省略其他代码
-    @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
-        return builder
-                .requestFactory(this::requestFactory)		// 设置HTTP客户端
-                .setConnectTimeout(Duration.ofSeconds(1)) 	// 连接超时
-                .setReadTimeout(Duration.ofSeconds(5)) 		// 读取超时
-                .build();
-    }
-
-    @Bean
-    public ClientHttpRequestFactory requestFactory() {
-        HttpClientBuilder builder = HttpClientBuilder.create()
-        .disableAutomaticRetries() // 默认重试是开启的，建议关闭
-        .evictIdleConnections(10, TimeUnit.MINUTES) // 空闲连接10分钟关闭
-        .setConnectionTimeToLive(30, TimeUnit.SECONDS) // 连接的TTLS时间
-        .setMaxConnTotal(200) // 连接池大小
-        .setMaxConnPerRoute(20); // 每个主机的最大连接数
-        return new HttpComponentsClientHttpRequestFactory(builder.build());
-    }
-}
-~~~
-
-
-
-
-
-**`Keep-Alive`** 是一个通用消息头，说明连接的状态，还可以用来设置超时时长（主动断开）和最大请求数。
-
-~~~http
-Keep-Alive: timeout=5, max=1000
-~~~
-
-通过 `HttpClientBuilder` 构造的 `HttpClient` 默认会使用 `DefaultConnectionKeepAliveStrategy` 这个 Keep-Alive 策略，该策略比较简单：
-
-- 查看HTTP头部是否设置了Keep-Alive，若未设置，那么将其设置为-1，即永久连接
-
-连接永久有效往往不是我们想要的结果，通常都会给一个默认时间，比如 300 秒。可以像下面这样通过 Lambda 表达式来实现一个 `ConnectionKeepAliveStrategy`，传给 `HttpClientBuilder`：
-
-~~~java
-builder.setKeepAliveStrategy((response, context) ->
-        Arrays.asList(response.getHeaders(HTTP.CONN_KEEP_ALIVE))
-                .stream()
-                .filter(h -> StringUtils.equalsIgnoreCase(h.getName(), "timeout")
-                	&& StringUtils.isNumeric(h.getValue()))
-                .findFirst()
-                .map(h -> NumberUtils.toLong(h.getValue(), 300L))
-                .orElse(300L) * 1000);
-
-// StringUtils 和 NumberUtils 都是 Apache Common Langs3 中的辅助类。
-~~~
-
-
-
-
-
-往往在很多企业内部会选择自己签发证书，这时 Java 无法验证证书的有效性，出于安全考虑就会让请求失败。这时有以下方案可以选择：
-
-1. 将自签证书的根证书导入 Java 的证书链里
-
-2. 调整 `HttpClient` 的设置，忽略证书校验相关的错误
-
-   ~~~java
-   // 不校验证书和主机名的 HttpClientBuilder 代码片段
-   SSLContext sslContext = null;
-   try {
-       sslContext = SSLContextBuilder.create()
-       // 放过所有证书校验
-       .loadTrustMaterial(null, (certificate, authType) -> true).build();
-   } catch (GeneralSecurityException e) {
-       log.error("Can NOT create SSLContext", e);
-   }
-   if (sslContext != null) {
-       builder.setSSLContext(sslContext) // 设置SSLContext
-               .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE); // 不校验主机名
-   }
-   ~~~
-
-   如果是希望加载一个证书用于校验，可以在使用 `loadTrustMaterial()` 时，传入对应的证书与密码。
 
 
 

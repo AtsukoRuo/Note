@@ -41,6 +41,8 @@ CREATE TABLE `common_lock` (
 
 # Redis
 
+## 互斥锁
+
 Redisson 客户端提供了完善的分布式锁解决方案，我们先看一个 Demo
 
 ~~~java
@@ -616,7 +618,7 @@ latch.await();
 
 设置门闩数量
 
-~~~java
+~~~lua
 if redis.call("exists", KEYS[1]) == 0 then
     redis.call("set", KEY[1], ARGV[2]);
 	redis.call("publish", KEYS[2], ARGV[1]);
@@ -628,9 +630,10 @@ end
 
 减少门闩数量：
 
-~~~java
+~~~lua
 local v = redis.call("decr", KEYS[1]);
 if v <= 0 then redis.call("del", KEYS[1]) end;
+-- 向 await 发布通知
 if v == 0 then redis.call('publish', KEYS[2], ARGV[1]) end;
 ~~~
 

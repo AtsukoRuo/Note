@@ -8,8 +8,6 @@
 
 JDBC 的全称是 `Java Database Connectivity`，是一套面向关系型数据库的规范。每个数据库生厂商都提供了基于 JDBC 规范实现的 JDBC 驱动。开发者只需要面向 JDBC 接口编程，就能在很大程度上规避掉由数据库实现的差异所带来的问题。
 
-
-
 在建立了数据源之后，我们可以通过JDBC接口来操纵数据。JDBC操作的具体流程如下：
 
 1. 获取 `Connection` 连接
@@ -22,7 +20,7 @@ JDBC 的全称是 `Java Database Connectivity`，是一套面向关系型数据�
 
 
 
-代码配置JdbcTemplate对象：
+代码配置 JdbcTemplate 对象：
 
 ~~~java
 DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -156,7 +154,13 @@ int[] count = jdbcTemplate.batchUpdate(INSERT_SQL, batchArgs);
 
 ## 数据源
 
-常用的数据库连接池都实现了 `DataSource` 接口，通过其中的 `getConnection()` 方法即可获得数据库的一个连接。常见的连接池有：HikariCP 、 Druid、 DBCP2 和 C3P0。
+实际上，数据连接池与数据源并不是同一个概念。
+
+- 连接池使用池化技术来维护客户端与数据库之间的连接。
+
+- 数据源实现了 `DataSource` 接口，它指定了数据从哪里来，可以通过 `getConnection()` 方法来获得数据库的一个连接。
+
+通常，我们在配置数据源时，同时也配置了连接池。
 
 部分常用的 `spring.datasource` 配置项：
 
@@ -1029,3 +1033,7 @@ public void onApplicationEvent(ApplicationEvent event) {
   ~~~
 
 - 如果最后还是匹配不上，就降级到其他 `SQLExceptionTranslator` 上。
+
+
+
+## 

@@ -1383,8 +1383,6 @@ MyBatis中的插件本质上就是一个拦截器。官方文档中列出了四�
 - ResultSetHandler： 增强封装结果集的动作
 - StatementHandler：增强 Statement 的创建和执行的动作
 
-
-
 下面，我们来编写一个简单的插件：
 
 ~~~java
@@ -1409,16 +1407,12 @@ public class CustomInterceptor implements Interceptor {
 </plugins>
 ~~~
 
-
-
 拦截 query 方法：
 
 ~~~java
 @Intercepts(@Signature(type = Executor.class, method = "query",
                        args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}))
 ~~~
-
-
 
 拦截器还可以读取配置文件中有关该插件的参数
 

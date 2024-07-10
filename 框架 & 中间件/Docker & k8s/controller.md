@@ -155,8 +155,8 @@ Service 与 Pod 之间是通过 Label 和 Label 筛选器（selector）松耦合
 下面是 Service 如何工作的基本介绍
 
 1. 每一个 Service 在被创建的时候，都会得到一个关联的 Endpoint 对象。整个 Endpoint 对象其实就是一个**动态**列表，其中包含匹配该 Service Label 筛选器的健康 Pod 的 IP。 
-2. 当要通过 Service 将流量转发到 Pod 时，首先在集群内部的 DNS 中查询 Service 的 IP。当节点将流量打到 ClusterIP 时，会被内核捕获拦截（具体来说是每个节点都有的 kube-proxy 系统服务），然后将 IP 改写为某个健康 Pod 的 IP 地址。所以说，流量实际上并不会流经 Service
-3. 不过，Kubernetes 原生应用是可以直接查询 Endpoint API，而无须查找 DNS 和使用 Service IP 的。
+2. 当要通过 Service 将流量转发到 Pod 时，首先在集群内部的 DNS 中查询 Service 的 IP。当节点将流量打到 ClusterIP 时，会被内核捕获拦截（具体来说是每个节点都有的 kube-proxy 系统服务），然后将 IP 改写为某个健康 Pod 的 IP 地址。
+3. Kubernetes 原生应用是可以直接查询 Endpoint API，而无须查找 DNS 和使用 Service IP 的。
 
 
 
@@ -177,8 +177,8 @@ port:8080
 NodePort:30050
 ~~~
 
-- 在集群内部，可以通过`(Name、ClusterIP、port)`来直接访问这个名为 magic sandbox 的服务。
-- 在集群外部，可以发送请求到集群中的任何一个节点上的端口 30050 来访问该服务。
+- 在集群内部，可以通过`(ClusterIP、port)`来直接访问这个服务。
+- 在集群外部，可以发送请求到集群中的任何一个节点上的 `NodePort` 端口来访问该服务。
 
 下面给出一个访问 NodePort Service 的例子
 
@@ -188,6 +188,8 @@ NodePort:30050
 2. 请求被转发至 Service 对象
 3. 从 Endpoint 中获取健康的 Pod
 4. 请求被转发至 Node1 上的 Pod1
+
+
 
 `LoadBalancer Service` 基于 NodePort，并且集成了基于云的负载均衡器
 
@@ -213,7 +215,7 @@ Kubernetes 启动时会创建四个初始名字空间：
 3. **kube-public**
 4. **kube-system**
 
-当你创建一个 Service 时， Kubernetes 会创建一个相应的 DNS 条目，该条目的形式是`<object-name>.<namespace>.svc.cluster.local`。这也被称为 Service 对象的**全限定域名（FQDN）**。prod 命名空间中的 Pod 可以使用短名称（比如 ent 和 voy）来访问本命名空间内部的 Service。而如果需要连接其他命名空间中的 Service，则需要使用 FQDN，比如 `ent.dev.svc.cluster.local`作为域名。
+当你创建一个 Service 时， Kubernetes 会创建一个相应的 DNS 条目，该条目的形式是`<object-name>.<namespace>.svc.cluster.local`。这也被称为 Service 对象的**全限定域名（FQDN）**。在下面例子中，prod 命名空间中的 Pod 可以使用短名称（比如 ent 和 voy）来访问本命名空间内部的 Service。而如果需要连接其他命名空间中的 Service，则需要使用 FQDN，比如 `ent.dev.svc.cluster.local`作为域名。
 
 ![image-20240702101058933](./assets/image-20240702101058933.png)
 

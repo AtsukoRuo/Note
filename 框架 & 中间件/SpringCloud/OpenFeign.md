@@ -1,5 +1,7 @@
 # 声明式调用——OpenFeign
 
+[TOC]
+
 ## 使用
 
 Maven 依赖：
@@ -102,11 +104,11 @@ public interface UserClient extends UserFacade {}
 
 ### 注解
 
-在注解 @FeignClient 上配置
+注解 `@FeignClient` 的配置见下表
 
 ![image-20240609153440650](./assets/image-20240609153440650.png)
 
-configuration 这个配置项的内容是一个注解 @Configuration 的类，它的目的是创建 OpenFeign 所需的解码器、编码器和协议来处理各种 Spring MVC 请求类型。官方提供了一个默认配置类 `FeignClientsConfiguration`。我们可以根据以下配置项提供自己的配置类。
+configuration 这个配置项的内容是一个注解 @Configuration 的类，它的目的是创建 OpenFeign 所需的解码器、编码器和协议来处理各种 Spring MVC 请求类型。官方提供了一个默认配置类 `FeignClientsConfiguration`。我们可以根据以下配置项提供自己定义的配置类。
 
 ![image-20240609154824558](./assets/image-20240609154824558.png)
 
@@ -199,6 +201,8 @@ feign:
         # 执行请求超时时间（单位毫秒）
         readTimeout: 5000
 ~~~
+
+
 
 这里介绍下 `request-interceptors` ，它定义了一个拦截器（实现 `RequestInterceptor` 接口），这样可以根据自己的需要定制 RestTemplate 和请求参数、请求体等。
 

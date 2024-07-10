@@ -1050,6 +1050,28 @@ public class DataSourceConfiguration {
   
   我们可以在配置类上添加`@PropertySource("classpath:basic_di/value/red.properties")`，其中注解值为属性文件的路径。那么 @Value 可以从属性文件中获取属性值。
 
+
+
+此外，还有 `@ConfigurationProperties`，它将配置文件中的符合规则的配置项，注入到 Bean 对象中，下面给出一个示例：
+
+~~~yaml
+spring.datasource.druid.read.url=jdbc:mysql://localhost:3306/jpa
+spring.datasource.druid.read.username=root
+spring.datasource.druid.read.password=1
+spring.datasource.druid.read.driver-class-name=com.mysql.jdbc.Driver
+~~~
+
+~~~java
+@ConfigurationProperties(prefix = "spring.datasource.druid.read")
+@Bean(name = "readDruidDataSource")
+public DataSource readDruidDataSource() {
+    // spring.datasource.druid.read 开头的配置项都注入到 DruidDataSource 中了
+    return new DruidDataSource();
+}
+~~~
+
+
+
 #### 任务抽象
 
 Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别对任务的异步执行与定时执行进行了抽象
