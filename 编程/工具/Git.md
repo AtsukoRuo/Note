@@ -150,6 +150,41 @@ xxx/**/*.txt 	 # 目录中所有以txt结尾的文件，包括子目录
 git gc --prune=now
 ~~~
 
+
+
+Git 可以给仓库历史中的某一：个提交打上标签，Git 支持两种标签：
+
+- 轻量标签（lightweight）：只是某个特定提交的引用
+
+  ~~~shell
+  git tag v1.4-lw
+  ~~~
+
+- 附注标签（annotated）：包含打标签者的名字、电子邮件地址、日期时间
+
+  ~~~shell
+  git tag -a v1.4 -m "my version 1.4"		# 在 HEAD 上打标签
+  git tag -a v1.2 9fceb02				   # 在指定 Commit 上打标签
+  ~~~
+
+默认情况下，`git push` 命令并不会传送标签到远程仓库服务器上，除非显式指定：
+
+~~~shell
+ git push origin <tagname>
+ git push origin --tags			# 推送所有的标签
+~~~
+
+删除标签
+
+~~~shell
+git tag -d <tagname>
+git push origin --delete <tagname>
+~~~
+
+使用 `git checkout` 命令，将 HEAD 指向某个 TAG 
+
+
+
 ## 分支
 
 

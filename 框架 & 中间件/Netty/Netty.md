@@ -59,7 +59,7 @@ public class NettyDiscardServer {
         // boss 相当于 Accept Reactor 中的线程池
         EventLoopGroup bossLoopGroup = new NioEventLoopGroup(1);
         
-        // worker 相当于处理业务数据的 Reactor中的线程池
+        // worker 相当于处理业务数据的 Reactor 中的线程池
         EventLoopGroup workerLoopGroup = new NioEventLoopGroup();
 
         try {
@@ -129,10 +129,6 @@ bootstrap.connect("juejin.cn", 80).addListener(future -> {
 });
 ~~~
 
-
-
-
-
 `NioEventLoopGroup` 内部维护了一个线程池，所持有的线程对象就是 `NioEventLoop`，`NioEventLoopGroup` 构造函数可以指定内部线程数，默认是 $2 * CPU$。
 
 `NioEventLoop` 是 Netty 中对本地线程的抽象。通常来说，NioEventLoop 肩负着两种任务
@@ -152,10 +148,6 @@ bootstrap.connect("juejin.cn", 80).addListener(future -> {
   ~~~
 
   
-
-Netty 中, 每个 Channel 都有且仅有一个 EventLoop 与之关联。注意，EventLoop 和 NettyChannel 是一对多的关系。
-
-![image-20240519131604037](./assets/image-20240519131604037.png)
 
 实际上，服务器端的 ServerSocketChannel 只绑定到了 bossGroup 中的一个线程，在大多数情况下，给 bossGroup 设置多个线程是无意义的。但当我们绑定多个端口时，bossGroup 的线程池就有意义了：
 
@@ -224,9 +216,11 @@ Netty 的 `Channel` 对 Java NIO 的 `SelectableChannel` 进行了封装和扩�
 - 连接监听类型
 - 数据传输类型
 
-在 Netty 中，负责连接监听的通道（例如，NioServerSocketChannel）称为父通道，而负责数据传输的通道称为子通道。每个 SocketChannel 代表了 TCP 一个连接。
+在 Netty 中，负责连接监听的通道（例如，NioServerSocketChannel）称为父通道，而负责数据传输的通道称为子通道。**每个 SocketChannel 代表了一个  TCP 连接**。
 
+Netty 中, 每个 Channel 都有且仅有一个 EventLoop 与之关联。注意，EventLoop 和 NettyChannel 是一对多的关系。
 
+![image-20240519131604037](./assets/image-20240519131604037.png)
 
 
 
@@ -275,7 +269,7 @@ serverBootstrap.bind(port).addListener(new GenericFutureListener<Future<? super 
 
 
 
-`ChannelPipeline` 用于处理 `Channel` 和 `Handler` 之间的绑定关系。
+`ChannelPipeline` 用于处理 `Channel` 和 `Handler` 之间的绑定关系。而 `ChannelHandlerContext` 会被注入给 `Handler`，它表示当前 `ChannelPipeline` 的上下文，提供了一些方法。
 
 ![image-20240519140218957](./assets/image-20240519140218957.png)
 
@@ -437,9 +431,7 @@ if (heapBuf.hasArray()) {
 
 
 
-
-
-Netty 的通过引用计数方式来管理 ByteBuf 的生命周期的。ByteBuf 实例的`retain()`方法将引用计数`+1`，而`release()`方法将引用计数 `-1`。如果引用计数为`0`，那么就不可以访问该`ByteBuf`（包括调用`retain()` & `release()`方法），否则抛出`IllegalReferenceCountException`异常。当 ByteBuf 的引用计数为 0 时，Netty 会分情况对 ByteBuf 进行回收：
+Netty 的通过引用计数方式来管理 ByteBuf 的生命周期的。ByteBuf 实例的`retain()`方法将引用计数`+1`，而`release()`方法将引用计数 `-1`。如果引用计数为`0`，那么就不可以访问该`ByteBuf`（调用`retain()` & `release()`方法），否则抛出`IllegalReferenceCountException`异常。当 ByteBuf 的引用计数为 0 时，Netty 会分情况对 ByteBuf 进行回收：
 
 - 如果属于池化的 ByteBuf 内存，直接放回 ByteBuf 池中（堆或者直接内存）
 - 如果**非**池化的 ByteBuf 内存 
@@ -449,7 +441,17 @@ Netty 的通过引用计数方式来管理 ByteBuf 的生命周期的。ByteBuf 
 Netty 还提供了一组用于增加和减少引用计数的静态方法
 
 - ReferenceCountUtil.retain(Object)
+
 - ReferenceCountUtil.release(Object)
+
+  ~~~java
+  public static boolean release(Object msg) {
+      if (msg instanceof ReferenceCounted) {
+          return ((ReferenceCounted) msg).release();
+      }
+      return false;
+  }
+  ~~~
 
 Netty 在 HeadContext 以及 TailContext 这两个处理器中自动释放一次 ByteBuf（如果传入的类型为 ByteBuf ）。但是如果截断了传播，即没有调用 super.channelRead 。那么必须手动释放 ByteBuf
 
@@ -495,7 +497,7 @@ public abstract class SimpleChannelInboundHandler<I> extends ChannelInboundHandl
 }
 ~~~
 
-实际上，SimpleChannelInboundHandler 的泛型参数 I 指定了它可以处理的类型。如果从上一个 Handler 中传递的数据类型不为 I，那么直接将该数据传递到下一个 Handler。
+实际上，SimpleChannelInboundHandler 的泛型参数 I 指定了它可以处理的类型。如果从上一个 Handler 中传递的数据类型不为 I，那么直接将该数据传递到下一个 Handler，并且不是方 ByteBuf。
 
 
 
@@ -652,27 +654,67 @@ ChannelHandlerAdapter 在事件传播中介绍
 
 ChannelHandler 在 Netty 中的作用只是负责处理 IO 逻辑。它并不会感知到它在 pipeline 中的位置，更不会感知和它相邻的两个 ChannelHandler。这样设计就使得 ChannelHandlerContext 和 ChannelHandler 的职责单一，各司其职，具有高度的可扩展性。
 
-
-
-`ChannelHandler` 中的方法
+`ChannelHandler` 的生命周期
 
 ![img](./assets/03.png)
 
-`ChannelInboundHandler` 的方法：
+Netty 提供 2个重要的 ChannelHandler 子接口：
 
-![img](./assets/04.png)
+- ChannelInboundHandler - 处理进站数据和所有状态更改事件
+- ChannelOutboundHandler - 处理出站数据，允许拦截各种操作
 
-ChannelOutboundHandler 的方法：
+`ChannelInboundHandler` 的方法，这些方法仅仅是回调方法而已，进行一些拦截操作
 
-![img](./assets/07.png)
+| 类型                      | 描述                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| channelRegistered         | Invoked when a Channel is registered to its EventLoop and is able to handle I/O. |
+| channelUnregistered       | Invoked when a Channel is deregistered from its EventLoop and cannot handle any I/O. |
+| channelActive             | Invoked when a Channel is active; the Channel is connected/bound and ready. |
+| channelInactive           | Invoked when a Channel leaves active state and is no longer connected to its remote peer. |
+| channelReadComplete       | Invoked when a read operation on the Channel has completed.  |
+| channelRead               | Invoked if data are read from the Channel.                   |
+| channelWritabilityChanged | Invoked when the writability state of the Channel changes. The user can ensure writes are not done too fast (with risk of an OutOfMemoryError) or can resume writes when the Channel becomes writable again.Channel.isWritable() can be used to detect the actual writability of the channel. The threshold for writability can be set via Channel.config().setWriteHighWaterMark() and Channel.config().setWriteLowWaterMark(). |
+| userEventTriggered(...)   | Invoked when a user calls Channel.fireUserEventTriggered(...) to pass a pojo through the ChannelPipeline. This can be used to pass user specific events through the ChannelPipeline and so allow handling those events. |
 
-In Netty, the write methods are basically asynchronous.，so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes.
+ChannelInboundHandler 的生命周期：
 
-The write operation will write the messages through the [`ChannelPipeline`](https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html). Those are then ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called
+- `Registered`：当处理器挂载到 Pipeline 上
+- `Active`：当连接建立完成
+- `Inactive`：当连接断开时
+- `Unregistered`当处理器从 Pipeline 上卸载时
 
 
 
-通过 ChannelInitializer，向 Channel 注册处理器。
+
+
+`ChannelOutboundHandler` 的方法，这些方法仅仅是回调方法而已，进行一些拦截操作
+
+| 类型       | 描述                                                         |
+| ---------- | ------------------------------------------------------------ |
+| bind       | Invoked on request to bind the Channel to a local address    |
+| connect    | Invoked on request to connect the Channel to the remote peer |
+| disconnect | Invoked on request to disconnect the Channel from the remote peer |
+| close      | Invoked on request to close the Channel                      |
+| deregister | Invoked on request to deregister the Channel from its EventLoop |
+| read       | Invoked on request to read more data from the Channel        |
+| flush      | Invoked on request to flush queued data to the remote peer through the Channel |
+| write      | Invoked on request to write data through the Channel to the remote peer |
+
+
+
+In Netty, the write methods are basically asynchronous.，so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes. The write operation is ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called
+
+~~~java
+public class OutBoundHandlerA extends ChannelOutboundHandlerAdapter {
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        System.out.println("OutBoundHandlerA: " + msg);
+        super.write(ctx, msg, promise);
+    }
+}
+~~~
+
+通过 ChannelInitializer，向每一个连接的 Channel 注册处理器。
 
 ~~~java
 b.childHandler(new ChannelInitializer<SocketChannel>() {
@@ -692,7 +734,7 @@ A `ChannelHandler` can modify the layout of a `ChannelPipeline` in real time by 
 
 ![img](./assets/13.png)
 
-> Normally each `ChannelHandler` in the `ChannelPipeline` processes events that are passed to it by its `EventLoop` (the I/O thread). It’s critically important not to block this thread as it would have a negative effect on the overall handling of I/O.
+
 
 
 
@@ -725,7 +767,7 @@ b.childHandler(new ChannelInitializer<SocketChannel>() {
 
 
 
-The following table shows the `ChannelPipeline` operations for accessing `ChannelHandlers`. 这些方法在热插拔 Handler 时十分有用。
+The following table shows the `ChannelPipeline` operations for accessing `ChannelHandlers`，这些方法在热插拔 Handler 时十分有用。
 [![img](./assets/14.png)](https://mindawei.github.io/images/00014/14.png)
 
 
@@ -734,11 +776,13 @@ The ChannelPipeline API exposes additional methods for invoking inbound and outb
 
 ![img](./assets/15.png)
 
+这些方法会真正与底层连接进行交互。
+
 ![img](./assets/16.png)
 
-**这里的 next 应当理解为首个 Handler**
+**这里的 next 应当理解为传播方向上的首个 Handler**
 
-
+这里的 read 方法首先向对端请求更多的数据，然后传播 OutHandler 的 read 事件。
 
 ### ChannelHandlerContext
 
@@ -747,14 +791,16 @@ A `ChannelHandlerContext` represents an association between a `ChannelHandler` a
 The following table summarizes the `ChannelHandlerContext` API.
 [![img](./assets/17.png)](https://mindawei.github.io/images/00014/17.png)
 
-**这里的 next 应当理解为下一个 Handler**
+**这里的 next 应当理解为当前处理器的下一个 Handler**
+
+这里的  write 仅仅是将写事件传递给下一个 Handler，进行一些拦截操作。而 Channel 里的 write 操作，会涉及到底层连接。
+
+这里的 ChannelHandlerContext#close 方法同样也会关闭连接，但是从当前处理器开始，调用下一个的 close 方法，而不是传出方向的首个 Handler。
 
 ### 事件传播
 
-If you want to propagate an event starting at a specific point in the `ChannelPipeline`, the following listing and figure 6.6 illustrate this use.
-[![img](./assets/22.png)](https://mindawei.github.io/images/00014/22.png)
-
 As shown in figure 6.6, the message flows through the `ChannelPipeline` starting at the *next* `ChannelHandler`, bypassing all the preceding ones.
+
 [![Figure 6.6 Event flow for operations triggered via the ChannelHandlerContext](./assets/23-1716307888940-35.png)](https://mindawei.github.io/images/00014/23.png)
 
 The method bodies provided in `ChannelInboundHandlerAdapter` and `ChannelOutboundHandlerAdapter` call the equivalent methods on the associated `ChannelHandlerContext`, thereby forwarding events to the next `ChannelHandler` in the pipeline。

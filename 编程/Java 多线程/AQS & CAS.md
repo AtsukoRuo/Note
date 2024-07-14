@@ -168,11 +168,11 @@ LongAccumulator accumulator = new LongAccumulator(Long::max, Long.MIN_VALUE);
 
 ![image.png](./assets/9f6ca89c0dadff6dabddf1bd6c8c4893.png)
 
-JUC 包内许多类都是基于AQS构建的，例如 ReentrantLock、Semaphore、CountDownLatch、ReentrantReadWriteLock、FutureTask 等。AQS 是 CLH 队列的一个变种，只不过它在内部维护一个 FIFO 双向链表。
+JUC 包内许多类都是基于AQS构建的，例如 ReentrantLock、Semaphore、CountDownLatch、ReentrantReadWriteLock、FutureTask 等。**AQS 是 CLH 队列的一个变种，只不过它在内部维护一个 FIFO 双向链表。**
 
- AQS 使用 state 变量来表示同步状态，并提供了相应的方法：
+AQS 使用 state 变量来表示同步状态，并提供了相应的方法：
 
-~~~java
+```java
 private volatile int state;
 
 // 返回同步状态
@@ -187,11 +187,11 @@ protected final void setState(int newState) {
 protected final boolean compareAndSetState(int expect, int update) {
     return unsafe.compareAndSwapInt(this, stateOffset, expect, update);
 }
-~~~
+```
 
 以可重入的互斥锁 `ReentrantLock` 为例，`state` 的初始值为 0，表示锁处于未锁定状态。当线程 A 调用 `lock()` 方法时，会尝试通过 `tryAcquire()` 方法独占该锁，并让 `state` 的值加 1。如果成功了，那么线程 A 就获取到了锁。如果失败了，那么线程 A 就会被加入到一个等待队列（CLH 队列）中，直到其他线程释放该锁。释放锁之前，A 线程自己是可以重复获取此锁的（`state` 会累加），这就是可重入性的体现。
 
-`AbstractQueuedSynchronizer` 继承了 `AbstractOwnableSynchronizer`，这个基类只有一个变量 `exclusiveOwnerThread`，表示当前独占该锁的线程：
+`AbstractQueuedSynchronizer` 继承了 `AbstractOwnableSynchronizer`，这个基类只有一个变量 `exclusiveOwnerThread`，表示当前独占该锁的线程。
 
 ~~~java
 public abstract class AbstractOwnableSynchronizer
@@ -210,58 +210,17 @@ public abstract class AbstractOwnableSynchronizer
 }
 ~~~
 
-`AbstractQueuedSynchronizer` 的底层数据结构是使用虚拟的双向队列，也就是说，仅存在结点之间的关联关系：
-
-~~~java
-static final class Node {
-    
-    static final Node SHARED = new Node();	// 共享模式
-    
-    static final Node EXCLUSIVE = null;      // 独占模式
-    
-    // 结点状态
-    static final int CANCELLED =  1;
-    static final int SIGNAL    = -1;
-    static final int CONDITION = -2;
-    static final int PROPAGATE = -3;        
-
-    volatile int waitStatus;   	// 结点状态
-    volatile Node prev;   	    // 前驱结点
-    volatile Node next;         // 后继结点
-    volatile Thread thread;     // 持有的线程  
-    Node nextWaiter;		   // 在等待队列中的下一个节点
-    
-    final boolean isShared() {
-        return nextWaiter == SHARED;
-    }
-    
-    // 获取前驱结点，若前驱结点为空，抛出异常
-    final Node predecessor() throws NullPointerException 
-    
-    // 无参构造方法
-    // Used to establish initial head or SHARED marker
-    Node() { }
-    
-    // 构造方法
-    Node(Thread thread, Node mode) {    // Used by addWaiter
-        this.nextWaiter = mode;
-        this.thread = thread;
-    }
-    
-    // 构造方法
-    Node(Thread thread, int waitStatus) { // Used by Condition
-        this.waitStatus = waitStatus;
-        this.thread = thread;
-    }
-}
-~~~
+`AbstractQueuedSynchronizer` 的底层数据结构是使用虚拟的双向队列，也就是说，仅存在结点之间的关联关系，节点的属性如下：
 
 - waitStatus：表明节点的类型
-  - CANCELLED（1）：表示当前线程取消了争抢这个锁
-  - SIGNAL（-1）：表示当前node的后继节点需要被唤醒
-  - CONDITION（-2）：表示当前节点在等待队列中，等待唤醒
-  - PROPAGATE（-3）：共享模式释放锁才会使用
-
+  | 枚举      | 含义                                             |
+  | :-------- | :----------------------------------------------- |
+  | 0         | 当一个 Node 被初始化的时候的默认值               |
+  | CANCELLED | 为 1，表示线程获取锁的请求已经取消了             |
+  | CONDITION | 为-2，表示节点在等待队列中，节点线程等待唤醒     |
+  | PROPAGATE | 为-3，当前线程处在 SHARED 情况下，该字段才会使用 |
+  | SIGNAL    | 为-1，表示线程已经准备好了，就等资源释放了       |
+  
 - nextWaiter： 指向下一个处于 CONDITION 状态的节点。
 - SHARED 表示线程因获取共享资源失败，而被添加到队列中的。
 - EXCLUSIVE 表示线程因获取独占资源失败，而被添加到队列中的。
@@ -278,14 +237,16 @@ AQS定义了两种资源共享方式：
 AQS 使用了模板方法模式，自定义同步器时，需要重写下面几个 AQS 提供的模板方法：
 
 ```java
-isHeldExclusively()		// 该线程是否正在独占资源。只有用到condition才需要去实现它。
+isHeldExclusively()		// 该线程是否正在独占资源。
 tryAcquire(int)			// 独占方式。尝试获取资源，成功则返回true，失败则返回false。
 tryRelease(int)			// 独占方式。尝试释放资源，成功则返回true，失败则返回false。
-tryAcquireShared(int)    // 共享方式。尝试获取资源。负数表示失败；0表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
-tryReleaseShared(int)    // 共享方式。尝试释放资源，成功则返回true，失败则返回false。
+tryAcquireShared(int)    // 共享方式。尝试获取资源。负数表示失败；0 表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
+tryReleaseShared(int)    // 共享方式。尝试释放资源，成功则返回 true，失败则返回false。
 ```
 
 以上钩子方法的默认实现会直接抛出 `UnsupportedOperationException` 异常。
+
+**我之前一直误认为是 AQS 负责线程的调度，实则不然，实际上还是不断死循环 tryAccquire + 休眠。当 tryAccquire 成功时，就退出 acquire 方法，即获取到该锁。**在
 
 ### 独占模式
 
@@ -293,7 +254,7 @@ tryReleaseShared(int)    // 共享方式。尝试释放资源，成功则返回t
 
 ~~~java
 public final void acquire(int arg) {
-    // 如果钩子方法 tryAcquire 尝试获取同步状态失败的话，就。在节点入队之后，就开始自旋抢锁的流程 —— acquireQueued
+    // 在钩子方法 tryAcquire 尝试获取同步状态失败后，节点入队，开始自旋抢锁的流程 —— acquireQueued
     if (!tryAcquire(arg) &&
         acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
         selfInterrupt();
@@ -302,11 +263,11 @@ public final void acquire(int arg) {
 
 这里有三个关键方法：
 
-- tryAcquire：用于获取资源
-- acquireQueued：当获取资源失败时，调用此方法，开始自旋抢锁。
-- addWaiter：当获取资源失败时，调用此方法，首先构造节点（Node.EXCLUSIVE），然后将该节点以 CAS 方法添加到同步队列的队尾。
+- `tryAcquire`：用于获取资源
+- `acquireQueued`：当获取资源失败时，调用此方法，开始自旋抢锁。
+- `addWaiter`：当获取资源失败时，调用此方法，首先构造节点（Node.EXCLUSIVE），然后将该节点以 CAS 方法添加到同步队列的队尾。
 
-我们来看一下 acquireQueued 方法的实现 
+我们来看一下 `acquireQueued` 方法的实现 
 
 ~~~java
 final boolean acquireQueued(final Node node, int arg) {
@@ -327,6 +288,7 @@ final boolean acquireQueued(final Node node, int arg) {
                 return interrupted;
             }
             // 为了不浪费资源，在自旋过程中会阻塞线程
+            // 在 parkAndCheckInterrupt 中将节点挂起
             if (shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt())
                 interrupted = true; 
         }
@@ -337,6 +299,12 @@ final boolean acquireQueued(final Node node, int arg) {
             // 把当前 node 的状态设置为 CANCELLED
             cancelAcquire(node);
     }
+}
+
+private void setHead(Node node) {
+	head = node;
+	node.thread = null;
+	node.prev = null;
 }
 ~~~
 
@@ -401,6 +369,7 @@ private void unparkSuccessor(Node node) {
     }
     
     if (s != null)
+        // 唤醒节点
         LockSupport.unpark(s.thread); 
 }
 ~~~
@@ -428,7 +397,7 @@ class SimpleMockLock implements Lock {
             if (Thread.currentThread() != getExclusiveOwnerThread() || getState() == 0) {
                 throw new  IllegalMonitorStateException();
             }
-            // 完全释放资源后，将独占线程设置为null,这样后面的竞争线程才有可能抢占。
+            // 完全释放资源后，将独占线程设置为 null,这样后面的竞争线程才有可能抢占。
             setExclusiveOwnerThread(null);
             setState(0);
             return true;
@@ -453,7 +422,7 @@ class SimpleMockLock implements Lock {
 
 
 
-下面我们通过 ReentrantLock 来分析如何使用 AQS 来实现非公平锁：
+非公平锁在 acquire 基础上，再封装一层非公平抢锁逻辑：
 
 ~~~java
 public ReentrantLock() {
@@ -507,16 +476,6 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
 }
 ~~~
 
-~~~java
-static final class FairSync extends Sync {
-    // 公平锁抢占
-    final void lock() {
-        acquire(1);
-    }
-    // 省略其他
-}
-~~~
-
 
 
 ### 共享模式
@@ -550,9 +509,12 @@ private void doAcquireSharedInterruptibly(int arg)
                 //  r>=0 说明此时还有锁资源，设置头节点，并且通知后面的节点也获取锁资源。独占锁和共享锁的差异点就在于此，共享锁在前一个节点获取资源后，会通知后续的节点也一起来获取
                 if (r >= 0) { 
                     // 设置当前节点为头结点并且唤醒后继节点
+                    // 假设 A 获取锁之后，它是头节点
+                    // 此时 B 也获取到锁，那么 B 是头节点，而 A 也是头节点，只不过没有任何 node 指向它了
                     setHeadAndPropagate(node, r); 
                     p.next = null; // help GC
                     failed = false;
+                    // 退出就表示获取到该锁了
                     return;
                 }
             }
@@ -588,8 +550,6 @@ private void setHeadAndPropagate(Node node, int propagate) {
 ~~~
 
 如果后继节点被唤醒后成功获取资源，那么它将自己设置为 head，然后唤醒后继的后继，依次传递下去。然后在独占模式下，节点只有在头节点释放资源时，才会被唤醒。而在共享模式下，除了释放资源时，还可以在成功获取资源后唤醒后继节点。
-
-
 
 AQS 提供 releaseShared 来释放资源：
 
@@ -628,10 +588,6 @@ private void doReleaseShared() {
 ~~~
 
 引入了 PROPAGATE 状态是为了解决这个 BUG （JDK-6801020）
-
-
-
-注意，我们在独占模式下，一般要使用 setExclusiveOwnerThread 来标识正在执行的线程，用于之后获取资源的判断。而在共享模式下，我们无需调用该方法，毕竟同时有多个线程正在执行。
 
 ### ConditionObject
 

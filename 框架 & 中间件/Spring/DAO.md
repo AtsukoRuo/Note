@@ -747,7 +747,9 @@ public class MyService {
 
 ### 事务传播
 
-注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常
+**@Transactional 事务默认只能加在 public 的方法上**
+
+**注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常**
 
 下面那我们通过一个示例，来认识事务传播机制
 
@@ -765,7 +767,7 @@ public void B(b){
 
 - **REQUIRED【默认值】**（❌ 表示在正常方法中调用事务方法，✔️ 表示在事务中调用事务方法）
 
-  - ：新建一个事务
+  - ❌：新建一个事务
 
     ~~~java
     public void testMain(){
@@ -783,7 +785,7 @@ public void B(b){
     // 注：事务由于通过 AOP 实现的，这种直接调用是起不到事务的作用。这里为了演示，在写法上做了妥协
     ~~~
 
-    执行 testB 时会自己新建一个事务，testB 抛出异常则只有 testB 中的操作发生了回滚，也就是 b1 的存储会发生回滚，但 a1 数据不会回滚，所以最终 a1 数据存储成功，b1 和 b2 数据没有存储。
+    执行 testB 时会自己新建一个事务，testB 抛出异常则只有 testB 中的操作发生了回滚，也就是 b1 的存储会发生回滚，但 a1 数据不会回滚，毕竟它都不是事务方法。所以最终 a1 数据存储成功，b1 和 b2 数据没有存储。
 
   - ✔️：加入这个事务
 
@@ -803,7 +805,7 @@ public void B(b){
     }
     ```
 
-    在执行 testB 方法时就加入了 testMain 的事务，在执行 testB 方法抛出异常后，事务会发生回滚。又testMain 和 testB 使用的同一个事务，所以不管 testMain 是否捕获异常，testMain 和 testB 中的操作都会回滚，也就使得数据库仍然保持初始状态。
+    在执行 testB 方法时就加入了 testMain 的事务，在执行 testB 方法抛出异常后，事务会发生回滚。又 testMain 和 testB 使用的同一个事务，所以不管 testMain 是否捕获异常，testMain 和 testB 中的操作都会回滚，也就使得数据库仍然保持初始状态。
 
     当`testB()`中抛出异常的时候，`testMain()`方法的事务也会因此被标记为回滚。
 
@@ -820,13 +822,14 @@ public void B(b){
         testB();    		// 调用 testB
         throw Exception;     // 发生异常抛出
     }
+    
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void testB(){
         B(b1);  //调用B入参b1
         B(b2);  //调用B入参b2
     }
     ~~~
-
+    
     这种情形的执行结果就是 a1 没有存储，而 b1 和 b2 存储成功，因为 testB 的事务传播设置为 REQUIRES_NEW ,所以在执行 testB 时会开启一个新的事务，testMain 中发生的异常时在 testMain 所开启的事务中，所以这个异常不会影响testB 的事务提交。
 
 - **NESTED ：嵌套**
@@ -840,7 +843,7 @@ public void B(b){
 
     下面是 NESTED 与 REQUIRED 的对比
 
-    - 在REQUIRED 情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否 catch 其异常，事务都会回滚
+    - 在REQUIRED 情况下，被调用方出现异常时，由于共用一个事务，所以无论调用方是否 catch 其异常，事务都会回滚。这是因为子事务在回滚时会打上一个标记，父事务无论是否抛出异常，都会检测这个标记。
     - 在 NESTED 情况下，被调用方发生异常时，调用方可以 catch 其异常，这样只有子事务回滚，父事务不受影响
 
 - **SUPPORTS ：支持**
@@ -860,7 +863,7 @@ public void B(b){
     }
     ~~~
 
-    这种情况下，执行testMain的最终结果就是，a1，b1存入数据库，b2没有存入数据库。由于testMain没有声明事务，且testB的事务传播行为是SUPPORTS，所以执行testB时就是没有事务的（**如果当前没有事务，就以非事务方法执行**），则在testB抛出异常时也不会发生回滚，所以最终结果就是a1和b1存储成功，b2没有存储。
+    这种情况下，执行testMain的最终结果就是，a1，b1存入数据库，b2没有存入数据库。由于testMain没有声明事务，且 testB 的事务传播行为是 SUPPORTS，所以执行 testB 时就是没有事务的（**如果当前没有事务，就以非事务方法执行**），则在testB 抛出异常时也不会发生回滚，所以最终结果就是 a1 和 b1 存储成功，b2 没有存储。
 
   - ✔️：加入当前事务
 
