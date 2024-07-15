@@ -8,8 +8,6 @@
 
 除了 init 以外，Linux 中的所有用户进程都是通过 `fork()` 来启动的。
 
-
-
 ![image-20240311110118101](assets/image-20240311110118101.png)
 
 虚拟设备对于用户进程而言是物理设备，但其实它们都是在内核上实现的，例如随机数生成器（/dev/random）
@@ -23,7 +21,7 @@ $ ssh root@117.88.47.10
 
 
 
-可以在Windows下访问WSL2的文件系统
+可以在 Windows 下访问 WSL2 的文件系统
 
 ~~~
 \\wsl.localhost\Ubuntu\home\myokuuu
@@ -33,9 +31,7 @@ $ ssh root@117.88.47.10
 
 ## 基础命令
 
-Unix的shell有很多种，它们都是基于 Bourne shell（/bin/sh）。而Linux使用了一个增强版本的 Bourne shell —— Bourne-again shell（BASH）
-
-
+Unix 的 shell 有很多种，它们都是基于 Bourne shell（/bin/sh）。而 Linux 使用了一个增强版本的 Bourne shell —— Bourne-again shell（BASH）
 
 `CTRL-D`：终止当前终端的标准输入
 
@@ -43,16 +39,12 @@ Unix的shell有很多种，它们都是基于 Bourne shell（/bin/sh）。而Lin
 
 `CTRL-Z`：暂停当前进程运行
 
-
-
 命令行
 
 - `CTRL-B` 左移光标
 - `CTRL-F` 右移光标
 - `CTRL-A` 移动光标至行首
 - `CTRL-E` 移动光标至行尾
-
-
 
 
 
@@ -70,8 +62,6 @@ cat file1 file2 ...
 
 - `-l`：显示详细的列表
 - `-F`：显示文件类型信息
-
-
 
 `ll` 显示指定目录，但以列表的形式打印
 
@@ -97,6 +87,8 @@ mv file1 file2
 # 将多个文件移动到某个目录
 mv file1 ... fileN dir
 ~~~
+
+将当前文件重命名或者移动到别的位置，这并不影响文件的写入，因为进程仍持有这些文件的描述符
 
 
 
@@ -124,8 +116,6 @@ echo $PATH
 
 
 
-
-
 `cd` 设置当前工作目录。如果不指定参数，那么返回到个人主目录中（`~`）
 
 
@@ -150,14 +140,13 @@ rm -rf
 
 
 
+-  grep 更适合单纯的查找或匹配文本
+-  sed 更适合编辑匹配到的文本
+-  awk 更适合格式化文本，对文本进行较复杂格式处理
+
 `*`匹配任意个字符，`?`匹配一个字符
 
-
-
 `grep` 显示在文件或输入流中，与参数匹配的行
-
-- `-i`：不区分大小写
-- `-v`：反转匹配，显示所有不匹配的行
 
 ~~~shell
 grep [options] pattern [files]
@@ -176,6 +165,41 @@ grep [options] pattern [files]
 - `-n` : 显示行号。
 - `-c` : 计数匹配的行数。
 - `--color` : 显示匹配的颜色。
+
+
+
+~~~bash
+awk options 'pattern {action}' file
+~~~
+
+- `options`：是一些选项，用于控制 `awk` 的行为。
+  - -F <分隔符> 或 --field-separator=<分隔符>： 指定输入字段的分隔符，默认是空格。
+  - -v <变量名>=<值>： 设置 `awk` 内部的变量值
+  - -f <脚本文件>： 指定一个包含 `awk` 脚本的文件。这样可以在文件中编写较大的 `awk` 脚本，然后通过 `-f` 选项将其加载。
+- `pattern`：是用于匹配输入数据的模式。如果省略，则 `awk` 将对所有行进行操作。
+- `{action}`：是在匹配到模式的行上执行的动作。如果省略，则默认动作是打印整行。
+
+下面通过一个示例来说明，log.txt文本内容如下：
+
+```
+2 this is a test
+3 Do you like awk
+This's a test
+10 There are orange,apple,mongo
+```
+
+~~~bash
+# 每行按空格或TAB分割，输出文本中的1、4项
+$ awk '{print $1,$4}' log.txt
+ 
+2 a
+3 like
+This's
+10 orange,apple,mongo
+    
+# 过滤第一列大于2并且第二列等于'Are'的行
+$ awk '$1>2 && $2=="Are" {print $1,$2,$3}' log.txt
+~~~
 
 
 
@@ -214,6 +238,8 @@ diff file1 file2
 
 `locate` 与 `file` 类似，但是它在系统创建的文件索引中查找文件。这个索引由操作系统周期性地进行更新，查找速度比 `find` 更快。但是 `locate` 对于查找新创建的文件可能会无能为力，因为它们有可能还没有被加入到索引中。
 
+
+
 `whereis` 快速查找指定文件名在哪里
 
 
@@ -232,9 +258,7 @@ head -5 /etc/passwd
 
 
 
-在 Linux 和 Unix 系统中，以`.`开始的文件是隐藏文件。 这些被称为 dot 文件。 Shell 通配符（比如 `*`）默认情况下不会匹配这些点文件，除非明确指定`.*`
-
-`ls -a` 可以显示出 dot 文件。
+在 Linux 和 Unix 系统中，以`.`开始的文件是隐藏文件。 这些被称为 dot 文件。 Shell 通配符（比如 `*`）默认情况下不会匹配这些点文件，除非明确指定`.*``ls -a` 可以显示出 dot 文件。
 
 
 
@@ -317,11 +341,15 @@ command > file
 
 如果文件 file 不存在，shell 会创建一个新文件 file 。如果 file 文件已经存在，shell 会先清空文件的内容。如果不想把原文件覆盖，你可以使用 `>>` 将命令的输出结果加入到文件末尾：
 
+
+
 重定向错误输出流 `2>`
 
 ~~~bash
 ls /fffffffff > f 2> e
 ~~~
+
+
 
 `2>&1` 将标准输出和标准错误输出重定向到同一个地方
 
@@ -329,11 +357,15 @@ ls /fffffffff > f 2> e
 ls /fffffffff > f 2>&1
 ~~~
 
+
+
 标准输入重定向 `<`
 
 ~~~shell
 head < /proc/cpuinfo
 ~~~
+
+
 
 管道字符（`|`）将一个命令的执行结果输出到另一个命令:
 
@@ -342,8 +374,6 @@ head /proc/cpuinfo | tr a-z A-Z
 ~~~
 
 对于重定向到 `/dev/null` 来说，内核会直接忽略输入/输出数据。
-
-
 
 ### 压缩
 
@@ -370,14 +400,6 @@ head /proc/cpuinfo | tr a-z A-Z
 解压文件：
 
 `gunzip filename.gz`
-
-
-
-
-
-## 设备管理
-
-
 
 ## 硬盘和文件系统
 
@@ -418,7 +440,7 @@ head /proc/cpuinfo | tr a-z A-Z
 
 
 
-`chown`是一个在Unix和Linux类型操作系统上用来更改文件或者目录所有者的命令：
+`chown`是一个在 Unix 和 Linux 类型操作系统上，用来更改文件或者目录所有者的命令：
 
 ~~~bash
 chown [OPTION]... [OWNER][:[GROUP]] FILE...
@@ -475,6 +497,24 @@ Linux目录结构基础
 
 /etc/sudoers 它定义了哪些用户或用户组可以对系统执行哪些操作，可以用来设置管理员。`user ALL=(ALL:ALL) ALL`
 
+## 文件描述符
+
+![Linux文件描述符表示意图](./assets/aHR0cDovL2MuYmlhbmNoZW5nLm5ldC91cGxvYWRzL2FsbGltZy8xOTA0MTAvMS0xWjQxMDFINDVTMTMuZ2lm.gif)
+
+系统级的打开文件描述符表：
+
+- 当前文件偏移量（调用 read() 和 write() 时更新，或使用 lseek() 直接修改）
+- 打开文件时的标识（open() 的 flags 参数）
+- 文件访问模式（如调用 open() 时所设置的只读模式、只写模式或读写模式）
+- 与信号驱动相关的设置
+- 对该文件 i-node 对象的引用
+
+文件系统的 i-node 表：
+
+- 文件类型（例如：常规文件、套接字或FIFO）
+- 文件锁
+- 文件的各种属性，例如大小、创建时间、访问权限等
+
 ### 硬链接
 
 硬连接指通过索引节点来进行连接。
@@ -517,8 +557,6 @@ dd if=/dev/zero of=new_file bs=1024 count=1
 - bs=size ：代表数据块大小
 - count=num ：代表复制块的总数
 - skip=num ：代表跳过前面的num个
-
-
 
 ### 文件系统
 
@@ -563,8 +601,6 @@ free 命令可以显示当前交换空间的使用情况
 
 ![image-20240312000939899](assets/image-20240312000939899.png)
 
-
-
 `passwd` 可以更改用户密码，但你还可以使用 `-f` 选项来更改用户名，用 `-s` 选项来更改 shell。
 
 ### 用户组
@@ -578,12 +614,10 @@ free 命令可以显示当前交换空间的使用情况
 
 ![image-20240312001143512](assets/image-20240312001143512.png)
 
+用户 ID 包括
 
-
-用户ID包括
-
-- 实际用户ID（Real User ID）：实际用户ID指定了启动进程的用户是谁。基本上，这就是你登录时的ID。
-- 有效用户ID（Effective User ID）：有效用户ID定义了进程执行期间的权限。系统通过这个ID来确定进程是否有权访问特定的资源。例如运行特权程序（如`sudo`）时，有效用户ID就会变为root。
+- **实际用户ID（Real User ID）**：实际用户ID指定了启动进程的用户是谁。基本上，这就是你登录时的ID。
+- **有效用户ID（Effective User ID）**：有效用户 ID 定义了进程执行期间的权限。系统通过这个 ID 来确定进程是否有权访问特定的资源。例如运行特权程序（如`sudo`）时，有效用户 ID 就会变为root。
 - 保存的设置用户ID（Saved Set-user-ID）：
 
 
@@ -625,14 +659,10 @@ free 命令可以显示当前交换空间的使用情况
 
 `fg` 命令默认将最近一个转移到后台的任务放到前台执行。如果你有多个后台任务，你可以使用 `jobs` 命令来列出它们，然后选择你想要转移到前台的任务，用任务的编号作为 `fg` 命令的参数。
 
-jobs 显示当前终端会话中的后台任务
-
 将正在运行的前台任务放在后台
 
 1.  `Ctrl + Z` 来将它暂停
-2. 通过命令 `bg` 将其转移到后台执行
-
-
+2.  通过命令 `bg` 将其转移到后台执行
 
 
 
@@ -659,10 +689,6 @@ time 命令用于衡量某个命令或程序的运行时间
 - user ：用户时间，指CPU用来运行程序代码的时间，以秒为单位
 - system ：系统时间，指内核用来执行进程任务的时间
 - elapsed ：消耗时间，指进程从开始到结束所用的全部时间，包括CPU执行其他任务的时间
-
-
-
-
 
 
 
@@ -876,10 +902,6 @@ curl 获取指定 URL 的内容
 
 ## Shell脚本
 
-
-
-
-
 在执行 shell 时，会优先找出变量、通配符以及其他代词，并对它们进行替代。然后在执行命令
 
 假设你想查找 /etc/passwd 中符合正则表达式 r.*t  
@@ -1076,12 +1098,12 @@ Session 中的每个进程组被称为一个 job，有一个 job 会成为 sessi
 
 当关闭终端时，内核中会将 SIGHUP 信号发送到整个 session。默认情况下，这会杀死 session 中的所有进程。但是我们可以通过nohup 命令避免这一点。
 
-
-
 Linux后台运行命令有两种方式：
 
 1. cmd & ： 后台运行，关掉终端会停止运行
 2. nohup cmd & ： 后台运行，关掉终端不会停止运行
+
+
 
 **Tmux 就是会话与终端窗口的"解绑"工具，将它们彻底分离。**
 
@@ -1188,4 +1210,122 @@ $ tmux select-pane -R
 - `Ctrl+b z`：当前窗格全屏显示，再使用一次会变回原来大小。
 - `Ctrl+b Ctrl+<arrow key>`：按箭头方向调整窗格大小。
 - `Ctrl+b q`：显示窗格编号。
+
+
+
+## Service
+
+Systemd 的设计目标是，为系统的启动和管理提供一套完整的解决方案。Systemd 取代了`initd`，成为系统的第一个进程（PID 等于 1），其他进程都是它的子进程。Systemd 可以管理所有系统资源。不同的资源统称为 Unit（单位）。Unit 一共分成12种：
+
+- Service unit：系统服务
+- Target unit：多个 Unit 构成的一个组
+- Device Unit：硬件设备
+- Mount Unit：文件系统的挂载点
+- ...
+
+下面是与 Unit 相关的命令
+
+~~~shell
+# 列出正在运行的 Unit
+$ systemctl list-units
+
+# 列出所有Unit，包括没有找到配置文件的或者启动失败的
+$ systemctl list-units --all
+
+# 列出所有正在运行的、类型为 service 的 Unit
+$ systemctl list-units --type=service
+
+# 显示系统状态
+$ systemctl status
+
+# 显示单个 Unit 的状态
+$ sysystemctl status bluetooth.service
+
+# 显示某个 Unit 是否正在运行
+$ systemctl is-active application.service
+
+# 显示某个 Unit 是否处于启动失败状态
+$ systemctl is-failed application.service
+
+# 显示某个 Unit 服务是否建立了启动链接
+$ systemctl is-enabled application.service
+
+# 立即启动一个服务
+$ sudo systemctl start apache.service
+
+# 立即停止一个服务
+$ sudo systemctl stop apache.service
+
+# 重启一个服务
+$ sudo systemctl restart apache.service
+
+# 杀死一个服务的所有子进程
+$ sudo systemctl kill apache.service
+
+# 重新加载一个服务的配置文件
+$ sudo systemctl reload apache.service
+
+# 显示某个 Unit 的指定属性的值
+$ systemctl show -p CPUShares httpd.service
+
+# 设置某个 Unit 的指定属性
+$ sudo systemctl set-property httpd.service CPUShares=500
+~~~
+
+
+
+Unit 之间存在依赖关系：A 依赖于 B，就意味着 Systemd 在启动 A 的时候，同时会去启动 B。`systemctl list-dependencies`命令列出一个 Unit 的所有依赖。
+
+~~~shell
+$ systemctl list-dependencies nginx.service
+~~~
+
+
+
+每一个 Unit 都有一个配置文件，告诉 Systemd 怎么启动这个 Unit 。Systemd 默认从目录`/etc/systemd/system/`读取配置文件。但是，里面存放的大部分文件都是符号链接，指向目录`/usr/lib/systemd/system/`，真正的配置文件存放在那个目录。
+
+`systemctl enable`命令用于在上面两个目录之间，建立符号链接关系：
+
+~~~shell
+$ sudo systemctl enable clamd@scan.service
+# 等同于
+$ sudo ln -s '/usr/lib/systemd/system/clamd@scan.service' '/etc/systemd/system/multi
+~~~
+
+如果配置文件里面设置了开机启动，`systemctl enable`命令相当于激活开机启动。
+
+与之对应的，`systemctl disable`命令用于在两个目录之间，撤销符号链接关系，相当于撤销开机启动。
+
+
+
+配置文件的格式：
+
+~~~shell
+[Unit]
+Description=ATD daemon
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/atd
+
+[Install]
+WantedBy=multi-user.target
+~~~
+
+配置文件分成几个区块，比如`[Unit]`。每个区块内部是一些键值对。
+
+`[Unit]`区块通常是配置文件的第一个区块，用来定义 Unit 的元数据，以及配置与其他 Unit 的关系：
+
+- `Description`：简短描述
+- `Documentation`：文档地址
+- `Requires`：当前 Unit 依赖的其他 Unit，如果它们没有运行，当前 Unit 会启动失败
+- `Wants`：与当前 Unit 配合的其他 Unit，如果它们没有运行，当前 Unit 不会启动失败
+- `BindsTo`：与`Requires`类似，它指定的 Unit 如果退出，会导致当前 Unit 停止运行
+- `Before`：如果该字段指定的 Unit 也要启动，那么必须在当前 Unit 之后启动
+- `After`：如果该字段指定的 Unit 也要启动，那么必须在当前 Unit 之前启动
+- `Conflicts`：这里指定的 Unit 不能与当前 Unit 同时运行
+- `Condition...`：当前 Unit 运行必须满足的条件，否则不会运行
+- `Assert...`：当前 Unit 运行必须满足的条件，否则会报启动失败
+
+`[Install]`通常是配置文件的最后一个区块，用来定义如何启动，以及是否开机启动。它的主要字段如下：
 

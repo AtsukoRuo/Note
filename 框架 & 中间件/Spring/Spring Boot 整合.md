@@ -334,7 +334,9 @@ Maven依赖
 </dependency>
 ~~~
 
-测试类的编写，需要`@SpringBootTest`注解，保证驱动SpringBoot
+
+
+在测试类上添加 @SpringBootTest 注解，SpringBoot 将自动加载整个应用程序上下文。
 
 ~~~java
 @SpringBootTest
@@ -414,36 +416,6 @@ Assertions.assertAll(
 
 
 
-嵌套测试：
-
-~~~java
-public class TestingAStackDemo {
-    Stack<Object> stack;
-    
-    @Test
-    void isInstantiatedWithNew() {
-        new Stack<>();
-    }
-    
-    // 在单元测试类中，可以编写内部测试类，这要求标注 @Nested 注解
-    // 内部的单元测试类可以直接使用外部的成员属性
-    @Nested
-    class WhenNew {
-        @BeforeEach
-        void createNewStack() {
-            stack = new Stack<>();
-        }
-        
-        @Test
-        void isEmpty() {
-            assertTrue(stack.isEmpty());
-        }
-    }
-}
-~~~
-
-
-
 
 
 参数化测试：
@@ -473,6 +445,60 @@ public class TestingAStackDemo {
       return Stream.of(1, 2, 3, 4, 5);
   }
   ~~~
+  
+- 通过 CSV 来提供测试数据
+
+  ~~~Java
+  @ParameterizedTest
+  @CsvFileSource(resources = "/test.csv")
+  void calcInsurance(int age,int score,int money) {
+      assertEquals(money,insurance.calcInsurance(age,score));
+  }
+  ~~~
+
+  
+
+
+
+测试套件意味着捆绑几个单元测试用例并且一起执行他们。在 JUnit 中，`@RunWith`和`@Suite`注释用来运行套件测试。
+
+~~~java
+@RunWith(Suite.class)
+@SuiteClasses({
+        CountTest.class,
+        TestFixture.class,
+        AssertTest.class,
+        TestRunSequence.class,
+})
+public class runAllTest {
+ 
+}
+
+class CountTest {
+    @Test
+    public void foo() {}
+}
+~~~
+
+
+
+`timeout`参数和 `@Test` 注释一起使用可执行时间测试
+
+~~~java
+@Test(timeout=1000)
+~~~
+
+`expected` 参数和 `@Test` 注释一起使用，测试代码是否它抛出了想要得到的异常
+
+~~~java
+@Test(expected = ArithmeticException.class)
+~~~
+
+
+
+`@RepeatedTest` 指定所需的总重复次数
+
+
 
 ## Mybatis
 
@@ -534,9 +560,7 @@ mybatis.type-aliases-package=com.manu.mybatisxml.model
   }
   ~~~
 
-  
-
-注意：注解方式与 xml 配置文件可以搭配使用，一起实现一个 Mapper 接口。
+  注意：注解方式与 xml 配置文件可以搭配使用，一起实现一个 Mapper 接口。
 
 
 
