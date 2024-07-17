@@ -83,11 +83,13 @@ git add Note/ 			#add目录
 
 - `-m`：说明提交信息，如果未添加该选项，那么自动跳转到VIM中来补充提交信息
 
-- `-a`：将工作区中所有已跟踪文件提交，相当于跳过git add。
+- `-a`：将工作区中所有已跟踪文件提交，相当于跳过 git add。
 
 
 
-要删除文件时，不要简单的在工作目录中执行本地删除命令，否则暂存区中的文件得不到删除。使用`git rm`命令，Git会同时在工作区以及暂存区中删除该文件。`git rm --cached`命令将文件仅从暂存区中删除，且不再跟踪该文件文件移动或者重命名也是如此，要使用`git mv`命令，`git mv`指令当于运行了下面三条命令：
+要删除文件时，不要简单的在工作目录中执行本地删除命令，否则暂存区中的文件得不到删除。使用`git rm`命令，Git 会同时在工作区以及暂存区中删除该文件。
+
+`git rm --cached`命令将文件仅从暂存区中删除，且不再跟踪该文件文件移动或者重命名也是如此，要使用`git mv`命令，`git mv`指令当于运行了下面三条命令：
 
 ~~~shel
 $ mv README.md README
@@ -114,7 +116,7 @@ $ git add README
 
 
 
-`git reset`可以进行撤回操作，即HEAD以及它所指向的Branch一起向前移动。git reset有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
+`git reset`可以进行撤回操作，即 HEAD 以及它所指向的 Branch 一起向前移动。git reset有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
 
 -  `--soft`：不会改变工作目录和暂存区的内容。
 
@@ -152,7 +154,7 @@ git gc --prune=now
 
 
 
-Git 可以给仓库历史中的某一：个提交打上标签，Git 支持两种标签：
+Git 可以给仓库历史中的某一个提交打上标签，Git 支持两种标签：
 
 - 轻量标签（lightweight）：只是某个特定提交的引用
 
@@ -191,7 +193,7 @@ git push origin --delete <tagname>
 
 ![分支及其提交历史。](assets/branch-and-history.png)
 
-`HEAD` 是 一个指向 `commit` 或者 `branch` 的引用，并且是唯一的。当它指向某个 `branch` 的时候，会通过这个 `branch` 来间接地指向某个 `commit`；另外，当 `HEAD` 在提交时自动向前移动的时候，它所指向的分支也随之移动。`HEAD^`  `HEAD~1`指向上一个提交， `HEAD^^`  `HEAD~2`上上个提交，以此类推。如果`HEAD~N`遇到分叉，那么它会沿着「第一父提交」的路线去找。
+`HEAD` 是 一个指向 `commit` 或者 `branch` 的引用，并且是唯一的。当它指向某个 `branch` 的时候，会通过这个 `branch` 来间接地指向某个 `commit`；另外，当 `HEAD` 在提交后自动向前移动的时候，它所指向的分支也随之移动。`HEAD^`  `HEAD~1`指向上一个提交， `HEAD^^`  `HEAD~2`上上个提交，以此类推。如果`HEAD~N`遇到分叉，那么它会沿着「第一父提交」的路线去找。
 
 注意：`branch` 包含了从初始 `commit` 到它所指向的`commit`的所有路径，而不是仅仅一条路径。
 
@@ -199,7 +201,7 @@ git push origin --delete <tagname>
 
 - **创建分支**
 
-  - `git branch <name>`在HEAD位置上创建一个分支，但不会切换过去。这里的切换是指HEAD的移动
+  - `git branch <name>`在HEAD位置上创建一个分支，但不会切换过去。这里的切换是指 HEAD 指向该新分支
 
   - `git checkout -b <name>`创建并切换，它是以下两条命令的缩写：
 
@@ -208,12 +210,11 @@ git push origin --delete <tagname>
     $git checkout iss53
     ~~~
 
-- **移动HEAD**：`git checkout <name>`。
+- **移动 HEAD**：`git checkout <name>`。
 
-  - `<name>`是分支名、SHA-1
-  - 移动HEAD时，工作目录以及暂存区都替换为当时的版本快照。
-  - HEAD所指向的分支并不会一起移动
-
+  - `<name>`是分支名、SHA-1。如果 name 是分支名，那么就指向该分支。如果是 Commit 的 SHA-1，那么就指向 Commit，但是 HEAD 所指向的分支并不会一起移动
+  - 移动 HEAD 时，工作目录以及暂存区都替换为当时的版本快照。
+  
 - **移动分支**：`git branch -f <branch-name> <commit>`
 
   - `<commit>`可以是HEAD、分支名、SHA-1
@@ -236,7 +237,7 @@ git push origin --delete <tagname>
 
 
 
-`git merge <name>`，将当前分支与指定分支合并，然后做一次提交，当前分支指向这次提交。
+`git merge <name>`，将当前分支（HEAD所指向的）与指定分支合并，然后做一次提交，当前分支指向这次提交。
 
 ~~~shell
 git checkout master
@@ -268,9 +269,9 @@ git merge iss53
 
 Git 仓库服务提供方提供了 `Pull Request` 功能
 
-1. 首先 Fork 他人的仓库（不是Clone）
-2. 本地修改，提交，Push到自己的仓库上
-3. 发送Pull Request
+1. 首先 Fork 他人的仓库（不是 Clone）
+2. 本地修改，提交，Push 到自己的仓库上
+3. 发送 Pull Request
 4. 开始讨论
 5. 作者觉得可以，合并到主分支上，并关闭这个Pull Request
 
@@ -279,6 +280,13 @@ Git 仓库服务提供方提供了 `Pull Request` 功能
 
 
 `git rebase`变基：将当前分支变基到指定分支上。
+
+~~~shell
+git checkout experiment
+git rebase master
+~~~
+
+
 
 <img src="assets/basic-rebase-1.png" alt="分叉的提交历史。" style="zoom:67%;" />
 
@@ -289,15 +297,15 @@ Git 仓库服务提供方提供了 `Pull Request` 功能
 1. 找到这两个分支（即当前分支 `experiment`、变基操作的目标基底分支 `master`）的最近共同祖先 `C2`
 2. 对比当前分支相对于该祖先的历次提交，并提取出来临时保存
 3. 将当前分支指向目标基底 `C3`
-4. 将之前提取出来的commit依次提交
+4. 将之前提取出来的 commit 依次提交
 
-`git rebase`合并冲突的解决方式和`git merge`相同，不过在手动解决完冲突后，需调用 `git rebase --continue`，以便 Git 继续处理变基的其余部分。通过`git rebase --abort`停止 `rebase` 操作，并重置回 `rebase` 开始前的状态。
+`git rebase`合并冲突的解决方式和`git merge`相同。由于有多个 Commit 要重新提交，可能在整个过程中有多次冲突，需在解决一次冲突后，调用 `git rebase --continue`，以便 Git 继续处理变基的其余部分。通过`git rebase --abort`停止 rebase 操作，并重置回 rebase 开始前的状态。
 
-一个更复杂的案例：
+![image-20240310230046777](./assets/image-20240310230046777-1721036889423-1.png)
 
-![image-20240310230046777](assets/image-20240310230046777.png)
+![image-20240310230145537](./assets/image-20240310230145537-1721036898130-4.png)
 
-![image-20240310230145537](assets/image-20240310230145537.png)
+这里 A、B 没有在 Rebase 后出现，是因为无冲突产生。
 
 
 
@@ -322,9 +330,9 @@ git cherry-pick 6
 - 重命名：`git remote rename <old_name> <new_name>`。
 - 删除：`git remote remove <name>`
 
-注意：远程仓库的HEAD一直指向默认的分支上
 
 
+远程分支在本地上是不可移动的，只有在 Push 以及 Pull 的时候才会更新
 
 推/拉数据
 
@@ -340,15 +348,19 @@ git cherry-pick 6
 
   将远程主机 `origin` 的 `master` 分支拉取过来，与本地的 `brantest` 分支合并。
 
-- ~~~shell
+- `git fetch`：拉取服务端的 Commi
+
+- `git push`：向远程仓库推送数据
+
+  ~~~shell
   git push <远程主机名> <本地分支名>:<远程分支名>
   ~~~
-  
+
   - 删除主机的分支可以使用 `--delete` 参数，以下命令表示删除 `origin` 主机的 `master` 分支：`git push origin --delete master`
   - 如果在远程仓库中没有指定的远程分支名，那么就会创建一个远程分支。
+
   
-  
-  
+
   
 
 当执行`git push`，如果本地仓库中分支上没有远程仓库对应分支上的某些提交时，那么`git push`被拒绝执行。这是因为`push` 会用本地仓库的提交记录去覆盖远端仓库的提交记录，如果此时强行提交，那么会远程仓库会丢失掉一些提交，这是Git不允许的行为。
