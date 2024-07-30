@@ -2,7 +2,7 @@
 
 [TOC]
 
-## CAS
+## CAS（Compare-And-Swap）
 
  CAS 实现原子型背后的一个假设是共享变量的当前值与当前线程所提供的旧值相同，我们就认为这个变量没有被其他线程修改过（乐观锁的思想）。在执行 CAS 指令时，CPU会履行 Coherence 协以确保 CAS 操作的可见性。
 
@@ -82,7 +82,7 @@ public final boolean unSafeCompareAndSet(
 
  原子变量类（Atomics）是基于 CAS 实现的工具类。能够保证 read-modify-write 操作的原子性和可见性。在执行 CAS 指令时，CPU会履行 Coherence 协以确保 CAS 操作的可见性
 
-Java为我们提供的CAS类：
+Java 为我们提供的CAS类：
 
 - 基础数据型：AtomicInteger、AtomicLong、AtomicBoolean
 - 数组型：AtomicIntegerArray、AtomicLongArray、AtomicReferenceArray
@@ -127,7 +127,7 @@ AtomicStampReference 常用的几个方法如下：
 
 - `V getRerference()`
 - `int getStamp()`
-- `boolean compareAndSet(V expectedReference, V newReference, int expectedStamp,int newStamp)`
+- `boolean compareAndSet(V expectedReference, V newReference, int expectedStamp, int newStamp)`
 
 ### 空旋
 
@@ -138,11 +138,11 @@ AtomicStampReference 常用的几个方法如下：
 
 
 
-LongAdder 将 value 值分散到一个数组中（见下图），不同线程会命中到数组的不同槽（元素）中，各个线程只对自己槽中的那个值进行 CAS 操作。这样热点就被分散了，冲突的概率就小很多。如果要获得完整的值，只要将各个槽中的变量值累加即可。
+LongAdder 将 value 值分散到一个数组中（见下图），不同线程会命中到数组的不同槽（元素）中，各个线程只对自己槽中的那个值进行 CAS 操作。这样热点就被分散了，冲突的概率就小很多。
 
 ![img](./assets/c0e4skl89v.png)
 
-LongAdder 的 API 相对比较简陋，只有对数值的加减，而 LongAccumulator 提供了自定义计算操作：
+LongAdder 的 API 相对比较简陋，只有对数值的加减。而 LongAccumulator 提供了自定义计算操作：
 
 ~~~java
 // accumulatorFunction：二元函数（接收 2 个 long 作为形参，并返回 1 个long）；identity：初始值
@@ -157,9 +157,9 @@ LongAccumulator accumulator = new LongAccumulator(Long::max, Long.MIN_VALUE);
 
 
 
-## AQS
+## AQS（ AbstractQueuedSynchronizer）
 
-为了避免由于无效争夺资源而导致的性能恶化，通常都会使用队列来进行排队与削峰。我们先来介绍 CLH 队列：
+为了避免由于无效争夺资源而导致的性能恶化，通常都会使用队列来进行排队与削峰。我们先来介绍 CLH （Craig-Landin-Hagersten）队列：
 
 - 申请锁的线程通过 CAS 操作在单向链表的尾部增加一个节点
 - 该线程只需要在其前驱节点上进行普通自旋，等待前驱节点释放锁即可（类似于使用 ZooKeeper 来实现锁实现）。这一点可以通过信号唤醒机制来优化，但增加了实现复杂度。可以考虑 Thread.yield();
@@ -239,14 +239,14 @@ AQS 使用了模板方法模式，自定义同步器时，需要重写下面几�
 ```java
 isHeldExclusively()		// 该线程是否正在独占资源。
 tryAcquire(int)			// 独占方式。尝试获取资源，成功则返回true，失败则返回false。
-tryRelease(int)			// 独占方式。尝试释放资源，成功则返回true，失败则返回false。
+tryRelease(int)			// 独占方式。尝试释放资源，成功则返回 true，失败则返回false。
 tryAcquireShared(int)    // 共享方式。尝试获取资源。负数表示失败；0 表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
 tryReleaseShared(int)    // 共享方式。尝试释放资源，成功则返回 true，失败则返回false。
 ```
 
 以上钩子方法的默认实现会直接抛出 `UnsupportedOperationException` 异常。
 
-**我之前一直误认为是 AQS 负责线程的调度，实则不然，实际上还是不断死循环 tryAccquire + 休眠。当 tryAccquire 成功时，就退出 acquire 方法，即获取到该锁。**在
+**我之前一直误认为是 AQS 负责线程的调度，实则不然，实际上还是不断死循环 tryAccquire + 休眠。当 tryAccquire 成功时，就退出 acquire 方法，即获取到该锁。**
 
 ### 独占模式
 
