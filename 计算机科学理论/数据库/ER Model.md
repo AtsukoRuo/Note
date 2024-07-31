@@ -16,7 +16,13 @@ The participation of an entity set *E* in a relationship set *R* is said to be *
 
 ![image-20240222004002882](assets/image-20240222004002882.png)
 
+关系上带属性怎么办？
+
 Let *R* be a relationship set involving entity sets $E_1,...,E_n$. If the relationship set R has attributes $a_1, ... a_m$ associated with it, then the set of attributes $primaryKey(E_1) \cup ... \cup primaryKey(E_n) \cup \{a_1, a_2,...a_m\}$
+
+
+
+关系上的主键如何选取？
 
 The choice of the primary key for a binary relationship set depends on the mapping cardinality of the relationship set
 

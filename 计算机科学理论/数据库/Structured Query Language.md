@@ -34,10 +34,10 @@ The SQL standard supports a variety of built-in types, including:
 - **float**(*n*): A floating-point number with precision of at least *n* digits.
 - `TEXT`可用于存储可以从`1`字节到`4GB`长度的文本字符串
 
-  - TINYTEXT – 255个字节（255个字符）
-  - TEXT – 64KB（65,535个字符）
-  - MEDIUMTEXT – 16MB（16,777,215个字符）
-  - LONGTEXT – 4GB（4,294,967,295个字符）
+  - TINYTEXT – 255个字节
+  - TEXT – 64KB
+  - MEDIUMTEXT – 16MB
+  - LONGTEXT – 4GB
 
   如果 TEXT 字段太大，对内存有压力，那么可以使用 SUBSTRING 来分段获取 TEXT
 
@@ -72,13 +72,13 @@ datetime 与 timestamp 之间的区别:
 
 - 存储空间：
 
-  - DATETIME存储8个字节，实际格式，与时区无关
-  - TIMESTAMP存储4个字节，UTC格式，时区转化
+  - DATETIME存储 8 个字节，实际格式，与时区无关
+  - TIMESTAMP存储 4 个字节，UTC 格式，时区转化
 
 - 存储方式 ，
 
-  - 对于TIMESTAMP，它把客户端插入的时间从当前时区转化为UTC（世界标准时间）进行存储。查询时，将其又转化为客户端当前时区进行返回。
-  - 对于DATETIME，不做任何改变，基本上是原样输入和输出。
+  - 对于 TIMESTAMP，它把客户端插入的时间从当前时区转化为UTC（世界标准时间）进行存储。查询时，将其又转化为客户端当前时区进行返回。
+  - 对于 DATETIME，不做任何改变，基本上是原样输入和输出。
 
 很多时候，我们也会使用 int 或者 bigint 类型的数值也就是数值时间戳来表示时间。但它不方便处理时间格式
 
@@ -173,13 +173,9 @@ https://www.cnblogs.com/skying555/p/8647617.html。
 
 使用自增 ID 还是 UUID？在性能上，自增 ID 要明显优于 UUID。
 
-- 自增ID主键+步长，适合中等规模的分布式场景
+- 自增 ID 主键+步长，适合中等规模的分布式场景
 - UUID，适合小规模的分布式环境
 - 雪花算法自造全局自增ID，适合大数据环境的分布式场景
-
-
-
-
 
 ### Table
 
@@ -187,7 +183,7 @@ https://www.cnblogs.com/skying555/p/8647617.html。
 
 ~~~sql
 create table r(
-	A1 D1,
+    A1 D1,
     A2 D2,
     ...
     An Dn,
@@ -210,6 +206,7 @@ SQL supports a number of different integrity constraints：
       ...
   );
   
+  # 动态修改
   ALTER TABLE table_name
   ADD PRIMARY KEY (column1);
   
@@ -293,7 +290,7 @@ from instructor;
  SQL allows us to use the keyword **all** to specify **explicitly** that duplicates are not removed
 
 ~~~sql
-select  DISTINCT dept_name,  ID, name
+select DISTINCT dept_name,  ID, name
 select dept_name, DISTINCT ID		# 错误
 ~~~
 
@@ -455,7 +452,11 @@ where semester = 'Spring' and year= 2018);
 
 The **intersect** operation automatically eliminates duplicates. If we want to retain all duplicates, we must write **intersect all** in place of **intersect**. The number of duplicate tuples that appear in the result is equal to the minimum number of duplicates in both *c1* and *c2*
 
-> MySQL does not implement the **intersect** operation
+MySQL 5.7 does not implement the **intersect** operation。可以使用 IN 操作符来模拟
+
+
+
+
 
 
 
@@ -463,9 +464,9 @@ The **intersect** operation automatically eliminates duplicates. If we want to r
 
 The **except** operation outputs all tuples from its first input that do not occur in the second input. The operation automatically eliminates duplicates in the inputs before performing set difference. If we want to retain duplicates, we must write **except all** in place of **except**
 
-> MySQL does not implement it at all
-
 The number of duplicate copies of a tuple in the result is equal to the number of duplicate copies in *c1* minus the number of duplicate copies in *c2*, provided that the difference is not negtive.
+
+MYSQL 5.7 并不支持，可以使用 NOT IN 来模拟
 
 
 
@@ -473,7 +474,7 @@ The number of duplicate copies of a tuple in the result is equal to the number o
 
 The result of an arithmetic expression (involving, for example, +, −, ∗, or ∕) is null if any of the input values is null.
 
-SQL therefore treats as **unknown** the result of any comparison involving a null value, other than predicates **is null** and **is not null**
+SQL therefore treats as **unknown** the result of any comparison involving a null value, other than predicates **is null** and **is not null**。一定不能这样比较 NULL：`null = null`，而是这样比较 `null is null`
 
 the definitions of the Boolean operations are extended to deal with the value **unknown**.
 
@@ -521,8 +522,6 @@ from teaches
 where semester = 'Spring' and year = 2018;
 ~~~
 
-COUNT有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略 null 的行。`COUNT(*)`、`COUNT(1)`会统计为null的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是SQL92中的标准语法
-
 SQL does not allow the use of **distinct** with **count** (*)
 
 ~~~mysql
@@ -530,6 +529,8 @@ select count (*)
 from course;
 where 
 ~~~
+
+COUNT 有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略 null 的行。`COUNT(*)`、`COUNT(1)`会统计为 null 的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是SQL92中的标准语法
 
 if there are no matching rows
 
@@ -540,9 +541,9 @@ if there are no matching rows
 - MIN() returns NULL.
 - SUM() returns NULL.
 
-AVG、MAX、MIN、SUM都会忽略null
+AVG、MAX、MIN、SUM 都会忽略 null
 
-
+### GROUP BY
 
  The attribute or attributes given in the **group by** clause are used to form groups. Tuples with the same value on all attributes in the **group by** clause are placed in one group.
 
@@ -574,13 +575,17 @@ having avg(salary) > 42000;
 
 As was the case for the **select** clause, any attribute that is present in the **having** clause without being aggregated must appear in the **group by** clause,
 
+
+
+SQL 中的分组操作将所有的 NULL 值分到同一个组，包括 DISTINCT、GROUP BY 以及窗口函数中的 PARTITION BY
+
 ### Nested Subqueries
 
 A subquery is a **select**-**from**-**where** expression that is nested within another query. A common use of subqueries is to perform tests for set membership($\in$、$\not \in$),  make set comparisons (some、every), and determine set cardinality  by nesting subqueries in the **where** clause
 
 
 
-The **in** connective tests for setmembership, where the set is a collection of values produced by a **select** clause. The **not in** connective tests for the absence of set membership.
+The **in** connective tests for set membership, where the set is a collection of values produced by a **select** clause. The **not in** connective tests for the absence of set membership.
 
 ~~~mysql
 select distinct course_id
@@ -608,6 +613,10 @@ where (course id, sec id, semester, year) in (
 	from teaches
 	where teaches.ID= '10101');
 ~~~
+
+在使用 IN、NOT IN 时，首先在父查询中过滤掉所有的 NULL 元组。如果 IN 的子查询中出现了 NULL，那么直接忽略掉该 NULL。但是如果 NOT IN 的子查询返回了 NULL，该 NOT IN 谓词直接返回 false
+
+
 
 
 
@@ -645,30 +654,6 @@ We can test for the nonexistence of tuples in a subquery by using the **not exis
 
 
 
-the UNIQUE predicate evaluates to True only if no two rows returned by the subquery are identical
-
-~~~mysql
-select T.course_id
-from course as T
-where unique (
-    select R.course_id
-	from section as R
-	where T.course_id = R.course_id and R.year = 2017);
-	
-# is equal to 
-
-select T.course_id
-from course as T
-where 1 >= (
-    select count(R.course_id)
-	from section as R
-	where T.course_id = R.course_id and R.year = 2017)
-~~~
-
- the **unique** predicate would evaluate to true on the empty set.
-
-
-
 Correlation Name 对于性能的影响
 
 ~~~mysql
@@ -684,7 +669,7 @@ where not exists (
 	where S.ID = T.ID));
 ~~~
 
-对于第二个子查询来说，由于它使用了Correlation Name，所以每当外部查询迭代一个Tuple时，都要重新计算这个子查询。对于第一个来说，只需计算一次即可。
+对于第二个子查询来说，由于它使用了 Correlation Name，所以每当外部查询迭代一个Tuple 时，都要重新计算这个子查询。对于第一个来说，只需计算一次即可。
 
 
 
@@ -751,7 +736,7 @@ SELECT dept_name,
 FROM department;
 ~~~
 
-这个语句是先执行FROM语句，获取一张表。然后依次遍历表中的元组，对每个元组执行SELECT语句。
+这个语句是先执行 FROM 语句，获取一张表。然后依次遍历表中的元组，对每个元组执行 SELECT 语句。
 
 the type of a scalar subquery result is still a relation. However, when a scalar subquery is used in an expression where a value is expected, SQL implicitly extracts the value from the single attribute of the single tuple in the relation and returns that value.
 
@@ -850,7 +835,7 @@ end
 
 ### Join Expressions
 
-之前出现的FROM子句，都是执行笛卡尔积运算。这里，我们介绍更多的连接操作（自然连接、外连接等等）
+之前出现的 FROM 子句，都是执行笛卡尔积运算。这里，我们介绍更多的连接操作（自然连接、外连接等等）
 
 
 
@@ -861,13 +846,13 @@ end
 natural join considers only those pairs of tuples with the same value on those attributes that appear in the schemas of both relations
 
 ~~~sql
-select name, course id
+select name, course_id
 from student, takes
 where student.ID = takes.ID;
 
 -- is equal to
 
-select name, course id
+select name, course_id
 from student natural join takes;
 ~~~
 
@@ -890,7 +875,7 @@ SQL provides a form of the natural join construct that allows you to specify exa
 
 ~~~sql
 select name, title
-from (student natural join takes) join course using (course_id);
+from student join course using (course_id);
 ~~~
 
 The on condition allows a general predicate over the relations being joined. 
@@ -942,7 +927,7 @@ on and where behave differently for outer join.
 3. outer join
 4. where
 
-可见被on过滤掉的元组，会在outer join中添加回来，但是被where过滤掉的，却无能为力了
+可见被 on 过滤掉的元组，会在 outer join 中添加回来，但是被 where 过滤掉的，却无能为力了
 
 ### Views
 
