@@ -12,6 +12,8 @@ Spring Boot 围绕着「运维」和「配置」提供了大量的功能，其�
 
 - **Spring Boot Actuator**：提供一系列在生产环境运行时所需的特性，帮助我们监控并管理应用程序。通过 HTTP 端点或者 JMX，Spring Boot Actuator 可以实现健康检查、度量收集、审计、配置管理等功能。
 
+
+
 Spring Boot 工程的目录结构如下：
 
 ~~~
@@ -121,6 +123,50 @@ Spring Boot 的起步依赖之后，此类问题就能得到缓解，同一版�
 <img src="assets/16dc39cfebc2bea1tplv-t2oaga2asx-jj-mark3024000q75.webp" alt="img" style="zoom: 25%;" />
 
 在`<dependencyManagement>`标签中定义了各种`<dependency>`，这些依赖引用了`properties`中的版本号。其中`<dependencyManagement>`表示声明依赖，但不加载它们。只有在子项目中配置了一个没有版本号的依赖时，才会进行加载。这样我们就无需在我们自己的pom文件中说明依赖的版本号，springboot已经帮我们配置好了。
+
+
+
+`spring.config.import` 导入其他配置文件。这可以用于将配置逻辑分解为多个模块，使得配置更加清晰和易于管理。
+
+~~~java
+spring:
+  config:
+    import:
+      - optional:classpath:/my1.yml
+      - classpath:/my2.yml
+~~~
+
+- **导入顺序**：导入的配置文件将按照在配置中声明的顺序进行加载。
+- **覆盖行为**：导入配置文件中配置项可以覆盖主配置文件中相同的配置项。
+
+
+
+配置项加密步骤
+
+1. 增加配置项 
+
+   ~~~yaml
+   # 加密算法配置
+   jasypt.encryptor.algorithm=PBEWithMD5AndDES
+       
+   # 加密密钥
+   jasypt.encryptor.password=my-secret-key
+   
+   # 通过环境变量语法来获取密钥
+   jasypt.encryptor.password=${ENCRYPT}
+   ~~~
+
+2. 所有明文密码替换为 ENC（加密字符串），例如 `ENC(XW2daxuaTftQ+F2iYPQu0g==)`；
+
+3. 引入一个 MAVEN 依赖；
+
+   ~~~xml
+   <dependency>
+       <groupId>com.github.ulisesbocchio</groupId>
+       <artifactId>jasypt-spring-boot-starter</artifactId>
+       <version>3.0.3</version>
+   </dependency>
+   ~~~
 
 ## 自动配置
 

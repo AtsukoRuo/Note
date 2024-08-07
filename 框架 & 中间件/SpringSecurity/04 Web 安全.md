@@ -165,7 +165,7 @@ XSS 攻击有两大要素：
 
 - 在后端进行处理时，**如果**我们并不确定内容要输出到哪里，那么这种方式是不可行的
 
-  - 可能同时提供给前端和客户端，而一旦经过了 `escapeHTML()`，客户端显示的内容就变成了乱码( `5 &lt; 7` )。
+  - 可能同时提供给 Web 前端和移动端，而一旦经过了 `escapeHTML()`，客户端显示的内容就变成了乱码( `5 &lt; 7` )。
   - 在前端中，不同的位置所需的编码也不同。
     - 当 `5 &lt; 7` 作为 HTML 拼接页面时，可以正常显示 `5 < 7`
     - 当 `5 &lt; 7` 通过 Ajax 返回，然后赋值给 JavaScript 的变量时，前端得到的字符串就是转义后的字符。
@@ -195,10 +195,10 @@ DOM 型 XSS 攻击，实际上就是网站前端 JavaScript 代码本身不够�
 - a.com 接收到请求后，对请求进行验证，并确认是受害者的凭证，误以为是受害者自己发送的请求。
 - a.com 以受害者的名义执行了 act=xx。
 
-显然，CSRF攻击具有两个特点：
+显然，CSRF 攻击具有两个特点：
 
 - CSRF（通常）发生在第三方域名
-- CSRF攻击者不能读取到 Cookie 等信息，但是可以跨域发送
+- CSRF 攻击者不能读取到 Cookie 等信息，但是可以跨域发送
 
 
 
@@ -213,7 +213,7 @@ DOM 型 XSS 攻击，实际上就是网站前端 JavaScript 代码本身不够�
   - CSRF Token：
 
     1. 用户打开页面的时候，服务器需要给这个用户生成一个Token，该Token 通过加密算法对数据进行加密，一般`Token`都包括 UserID 和时间戳的组合
-    2. 用户在每次请求时都携带这个 Token
+    2. 用户在每次请求时，**在请求头上或者表单上**都携带这个 Token
     3. 服务器将从`Token`解析出的`UserID`和时间戳来被验证有效性。时间戳可以防止重放攻击
 
 
@@ -428,7 +428,21 @@ public String test() {
 }
 ~~~
 
-也可以通过 CorsConfiguration 来处理：
+
+
+
+
+在 Spring MVC 中，可以使用`@CrossOrigin` 注解来处理跨域问题。`@CrossOrigin` 注解不止可以标注在类上，也可以标注在方法上。默认情况下 `@CrossOrigin` 的允许跨域范围是 * ，也就是任意，我们可以自行声明可以跨域的域名与端口
+
+~~~java
+@Controller
+@RequestMapping("/user")
+// 从 localhost:8080 的请求才允许跨域访问
+@CrossOrigin(origins = "http://localhost:8080")
+public class UserController76 { ... }
+~~~
+
+也可以在 SpringSecurity 中通过 CorsConfiguration 来处理：
 
 ~~~java
 http.cors(c -> {
@@ -446,27 +460,9 @@ http.cors(c -> {
 
 
 
-在 Spring MVC 中，可以使用`@CrossOrigin` 注解来处理跨域问题。`@CrossOrigin` 注解不止可以标注在类上，也可以标注在方法上。默认情况下 `@CrossOrigin` 的允许跨域范围是 * ，也就是任意，我们可以自行声明可以跨域的域名与端口
-
-~~~java
-@Controller
-@RequestMapping("/user")
-// 从 localhost:8080 的请求才允许跨域访问
-@CrossOrigin(origins = "http://localhost:8080")
-public class UserController76 { ... }
-~~~
-
-`@CrossOrigin` 干的事，其实就相当于我们用 `HttpServletResponse` 执行了这么一句代码：
-
-~~~java
-response.addHeader("Access-Control-Allow-Origin", "*");
-~~~
-
-
-
 ## 会话固定攻击
 
-会话固定攻击（session fixation attack）是利用应用系统在服务器的会话ID固定不变机制，借助他人用相同的会话ID获取认证和授权，然后利用该会话ID劫持他人的会话以成功冒充他人，造成会话固定攻击。
+会话固定攻击（session fixation attack）是利用应用系统在服务器的会话 ID 固定不变机制，借助他人用相同的会话ID获取认证和授权，然后利用该会话ID劫持他人的会话以成功冒充他人，造成会话固定攻击。
 
 ![img](./assets/1666101-20200429213756960-746186292.png)
 

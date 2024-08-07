@@ -33,16 +33,18 @@ public interface UserFacade {
    @GetMapping("/user/info/{id}")  
    public UserInfo getUser(@PathVariable("id") Long id);
 
+    // 传递JSON数据
    @PutMapping("/user/info")
    public UserInfo putUser(@RequestBody UserInfo userInfo);
 }
 ~~~
 
 ~~~java
-@SpringBootApplication( // 扫描装配Bean
-   scanBasePackages = "com.spring.cloud.fund")
-@EnableFeignClients( // 扫描装配 OpenFeign 接口到 IoC 容器中
-   basePackages="com.spring.cloud.fund")
+// 扫描装配Bean
+@SpringBootApplication(scanBasePackages = "com.spring.cloud.fund")
+
+// 扫描装配 OpenFeign 接口到 IoC 容器中
+@EnableFeignClients(basePackages="com.spring.cloud.fund")
 public class FundApplication {
    public static void main(String[] args) {
       SpringApplication.run(FundApplication.class, args);
@@ -82,6 +84,11 @@ public ResultMessage deleteUser(
 public ResultMessage uploadFile(
    // @RequestPart 代表传递文件流
    @RequestPart("file") MultipartFile file);
+
+
+// POJO 表单传参
+@PostMapping("/openfeign/provider/order1")
+Order createOrder1(@SpringQueryMap Order order);
 ~~~
 
 
@@ -100,7 +107,9 @@ public interface UserFacade  {
 public interface UserClient extends UserFacade {}
 ~~~
 
-## OpenFeign客户端的配置
+当 HTTP 请求失败时，会抛出 FeignException  异常。
+
+## OpenFeign 客户端的配置
 
 ### 注解
 
@@ -154,24 +163,98 @@ public interface UserFacade {
 
 如果想让这个配置设置为默认全局的 OpenFeign 客户端配置，可以在注解 @EnableFeignClients 的配置项 defaultConfiguration 中配置，并将各个类的作用域声明为单例。
 
+
+
+
+
+Fallback 的使用示例：
+
+~~~java
+@FeignClient(name = "user",url = "${user.url}",fallback = UserFeignFallback.class
+/*fallbackFactory = UserFeignFactory.class*/)
+public interface UserFeign {
+    @PostMapping
+    void save(User user);
+
+    @GetMapping("/{id}")
+    User getUserByID(@PathVariable("id") String id);
+
+    @GetMapping
+    List<User> findAll();
+}
+
+
+@Component
+public class UserFeignFallback implements UserFeign {
+
+    @Override
+    public void save(User user) {}
+
+    @Override
+    public User getUserByID(String id) {
+        User user = new User();
+        user.setId("100");
+        user.setName("fallback 回调用户");
+        return user;
+    }
+
+    @Override
+    public List<User> findAll() {
+        return null;
+    }
+}
+
+
+// 通过 Factory 可以获取异常信息
+@Component
+public class UserFeignFactory implements FallbackFactory<UserFeign> {
+
+    private final UserFeignFallback userFeignFallback;
+
+    // 这里的 userFeignFallback 会自动注入的。
+    public UserFeignFactory(UserFeignFallback userFeignFallback) {
+        this.userFeignFallback = userFeignFallback;
+    }
+
+    @Override
+    public UserFeign create(Throwable cause) {
+        //打印下异常
+        cause.printStackTrace();
+        // 返回一个 Fallback 示例
+        return userFeignFallback;
+    }
+}
+~~~
+
+
+
 ### YAML
 
 OpenFeign 还允许我们使用 YAML 文件进行配置
 
 ~~~yaml
 feign:
+ ## 开启压缩
+  compression:
+    request:
+      enabled: true
+      ## 开启压缩的阈值，单位字节，默认2048，即是2k，这里为了演示效果设置成10字节
+      min-request-size: 10
+      mime-types: text/xml,application/xml,application/json
+    response:
+      enabled: true
   Client:
     # 指定一个默认配置
     default-config: default 
     # 是否启用默认的属性配置机制
     default-to-properties: true
     config: 
-      # default 配置 
+      # 名为 default 的 @FeignClient
       default:  
         # 当发生HTTP的404（无对应的资源）错误时，
         # 是否解码而非抛出 FeignExceptions 异常
         decode404: false
-        # 读取请求超时时间（单位毫秒）
+        # 读取请求超时时间（单位毫秒），如果openFeign没有设置对应得超时时间，那么将会采用Ribbon的默认超时时间
         read-timeout: 5000
         # 连接远程服务器超时时间（单位毫秒）
         connect-timeout: 5000
@@ -194,15 +277,15 @@ feign:
         request-interceptors: xxx,xxx,xxx
         # OpenFeign错误解码器全限定名（要求是feign.codec.ErrorDecoder接口的实现类）
         error-decoder: xxx
-      # user 配置
-      user: // ④  
+      # 名为 name 的 @FeignClient
+      user: 
         # 连接远程服务器超时时间（单位毫秒）
         connectTimeout: 5000
         # 执行请求超时时间（单位毫秒）
         readTimeout: 5000
 ~~~
 
-
+通过 @FeignClient 中的 name 属性来指定要使用的 FeignClient
 
 这里介绍下 `request-interceptors` ，它定义了一个拦截器（实现 `RequestInterceptor` 接口），这样可以根据自己的需要定制 RestTemplate 和请求参数、请求体等。
 
@@ -244,3 +327,89 @@ feign:
     # 当HTTP返回码为3xx（重定向）时，是否执行重定向操作，默认为true
     follow-redirects: false
 ~~~
+
+## 与 R4j 整合
+
+![621](./assets/4c8e8ba-feign-decorators.png)
+
+~~~java
+// 这里不能添加 @FeignClient 注解。
+public interface MyService {
+    @RequestLine("GET /greeting")
+    String getGreeting();
+            
+    @RequestLine("POST /greeting")
+    String createGreeting();
+}
+
+// For decorating a feign interface
+CircuitBreaker circuitBreaker = CircuitBreaker.ofDefaults("backendName");
+RateLimiter rateLimiter = RateLimiter.ofDefaults("backendName");
+
+
+// withRateLimiter 与 withCircuitBreaker 的顺序对行为有着影响。
+FeignDecorators decorators = FeignDecorators
+    .builder()            
+    .withRateLimiter(rateLimiter)      
+    .withCircuitBreaker(circuitBreaker)
+    .build();
+
+// 创建由 R4j 代理的 Feign 对象
+MyService myService = Resilience4jFeign
+    .builder(decorators)
+    .target(MyService.class, "http://localhost:8080/");
+~~~
+
+
+
+~~~java
+// For decorating a feign interface with fallback
+MyService requestFailedFallback = () -> "fallback greeting";
+MyService circuitBreakerFallback = () -> "CircuitBreaker is open!";
+CircuitBreaker circuitBreaker = CircuitBreaker.ofDefaults("backendName");
+
+FeignDecorators decorators = FeignDecorators
+    .builder()
+    //  the requestFailedFallback is called when a FeignException is thrown (usually when the HTTP request fails), 
+    .withFallback(requestFailedFallback, 
+                  FeignException.class)
+    .withFallback(circuitBreakerFallback,
+                  CircuitBreakerOpenException.class)
+    .build();
+
+MyService myService = Resilience4jFeign.builder(decorators).target(MyService.class, "http://localhost:8080/", fallback);
+~~~
+
+
+
+
+
+A fallback can consume a thrown Exception if needed. 
+
+~~~java
+public interface MyService {
+    @RequestLine("GET /greeting")
+    String greeting();
+}
+
+public class MyFallback implements MyService {
+    private Exception cause;
+
+    public MyFallback(Exception cause) {
+        this.cause = cause;
+    }
+
+    public String greeting() {
+        if (cause instanceOf FeignException) {
+            return "Feign Exception";
+        } else {
+            return "Other exception";
+        }
+    }
+}
+
+FeignDecorators decorators = FeignDecorators.builder()
+                                 .withFallbackFactory(MyFallback::new)
+                                 .build();
+~~~
+

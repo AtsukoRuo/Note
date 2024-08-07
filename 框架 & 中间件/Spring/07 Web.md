@@ -634,7 +634,7 @@ public void download(
 @ControllerAdvice
 public class RuntimeExceptionHandler {
     
-    // 当抛出RuntimeException异常时，就会调用该方法
+    // 当抛出 RuntimeException 异常时，就会调用该方法
     @ExceptionHandler(RuntimeException.class)
     public String handleRuntimeException(
         HttpServletRequest request, 
