@@ -4,7 +4,7 @@
 
 ## 概述
 
-Netty 是一个异步事件驱动的网络应用框架，用于快速开发可维护的高性能服务器和客户端。它封装了难用的 JDK  NIO，而且解决了它的空轮询 Bug。这个Bug是这样的，即使当前没有就绪的事件，但 NIO 还不断 wake up 本应该阻塞的Selector.select() / Selector.select(timeout) ，从而导致 CPU 飙到100%问题。官方给出的复现 Bug 的方法：
+Netty 是一个异步事件驱动的网络应用框架，用于快速开发可维护的高性能服务器和客户端。它封装了难用的 JDK  NIO，而且解决了它的空轮询 Bug。这个Bug是这样的，即使当前没有就绪的事件，但 NIO 还不断 wake up 本应该阻塞的 Selector.select() / Selector.select(timeout) ，从而导致 CPU 飙到 100% 问题。官方给出的复现 Bug 的方法：
 
 1. client connects and write message
 2. server accepts and register OP_READ
@@ -27,7 +27,7 @@ Netty 是一个异步事件驱动的网络应用框架，用于快速开发可�
 >| EPOLLET      | 将 EPOLL设为边缘触发(Edge Triggered)模式（默认为水平触发），这是相对水平触发(Level Triggered)来说的。 |
 >| EPOLLONESHOT | 只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socke的话，需要再次把这个socket加入到EPOLL队列里 |
 
-Netty 的解决方案是通过记录空轮询次数，来判断是否发生了空轮询 Bug（Netty 默认是 512次），若发生空轮询Bug则重建 Selector。
+Netty 的解决方案是通过记录空轮询次数，来判断是否发生了空轮询 Bug（Netty 默认是 512次），若发生空轮询 Bug 则重建 Selector。
 
 
 
@@ -135,7 +135,7 @@ bootstrap.connect("juejin.cn", 80).addListener(future -> {
 
 - 作为 IO 线程，执行与 Channel 相关的 IO 操作，包括调用 select 等待就绪的 IO 事件、读写数据与数据的处理等；
 
-- 作为任务队列, 执行 `taskQueue` 中的任务。 例如，用户调用 `eventLoop.schedule` 提交的定时任务，正是这个线程执行的。
+- 作为任务队列，执行 `taskQueue` 中的任务。 例如，用户调用 `eventLoop.schedule` 提交的定时任务，正是这个线程执行的。
 
   ~~~java
   EventLoopGroup group = new NioEventLoopGroup();
@@ -184,16 +184,13 @@ class NettyDiscardHandler extends ChannelInboundHandlerAdapter {
 
 - 在我们向 `pipeline` 添加 `ChannelHandler` 的时候可以通过`ChannelPipeline#addLast(EventExecutorGroup, ChannelHandler)` 方法指定执行该 `ChannelHandler` 的 `executor`。
 
-
-`DefaultEventExecutorGroup` 线程池持有的是 `DefaultEventExecutor` 线程。为 `ChannelHandler` 指定了 `EventExecutorGroup` 之后，那么在创建 `ChannelHandlerContext` 上下文时，会从 `EventExecutorGroup` 中选择一个 `EventExecutor` 绑定到该 `ChannelHandler` 实例上。降低了锁竞争
+为 `ChannelHandler` 指定了 `EventExecutorGroup` 之后，那么在创建 `ChannelHandlerContext` 上下文时，会从 `EventExecutorGroup` 中选择一个 `EventExecutor` 绑定到该 `ChannelHandler` 实例上。降低了锁竞争
 
 ![image-20240519125411988](./assets/image-20240519125411988.png)
 
 而 JDK 自带的线程池，内部使用了一个阻塞队列，因此当 Client 较多时，就会形成激烈的锁竞争。
 
 ![image-20240519125546393](./assets/image-20240519125546393.png)
-
-
 
 
 
@@ -407,8 +404,8 @@ $$
 
 Netty 提供的 ByteBuf 有多种实现类，每种都有不同的特性和使用场景，主要分为三种类型：
 
-1. Pooled 和 Unpooled：Pooled 就是从预先分配好的内存中取出来，使用完成后又放回 ByteBuf 内存中，等待下一次分配。而 Unpooled 是直接调用系统 API 来申请内存的，使用完成后需要立刻销毁的。
-2. Heap 和 Direct：Heap 就是在 JVM 堆内分配的，其生命周期受 JVM 管理，我们不需要主动回收他们。而 Direct 则由操作系统管理，使用完成后需要主动释放这部分内存，否则容易造成内存溢出
+1. Pooled 和 Unpooled：Pooled 就是从预先分配好的内存中取出来，使用完成后又放回 ByteBuf 内存中，等待下一次分配。而 Unpooled 是直接申请内存的，使用完成后需要立刻销毁的。
+2. Heap 和 Direct：Heap 就是在 JVM 堆内分配的，其生命周期受 JVM 管理，我们不需要主动回收他们。而 Direct 则由操作系统管理，使用完成后需要主动释放这部分内存，否则容易造成内存溢出。
 3. Safe 和 Unsafe：Unsafe 表示每次调用 JDK 的 Unsafe 对象操作物理内存的，而 Safe 则不需要依赖 JDK 的 Unsafe 对象，直接通过数组下标的方式来操作。
 
 ![img](./assets/v2-34ebeb2b1d5802fa62788da18e30ae7a_720w.webp)
@@ -453,7 +450,7 @@ Netty 还提供了一组用于增加和减少引用计数的静态方法
   }
   ~~~
 
-Netty 在 HeadContext 以及 TailContext 这两个处理器中自动释放一次 ByteBuf（如果传入的类型为 ByteBuf ）。但是如果截断了传播，即没有调用 super.channelRead 。那么必须手动释放 ByteBuf
+Netty 在 HeadContext 以及 TailContext 这两个处理器中自动释放一次 ByteBuf（如果传入的类型为 `ReferenceCounted` ）。但是如果截断了传播，即没有调用 super.channelRead 。那么必须手动释放 ByteBuf
 
 ~~~java
 public class DemoHandler extends ChannelInboundHandlerAdapter {
@@ -497,7 +494,7 @@ public abstract class SimpleChannelInboundHandler<I> extends ChannelInboundHandl
 }
 ~~~
 
-实际上，SimpleChannelInboundHandler 的泛型参数 I 指定了它可以处理的类型。如果从上一个 Handler 中传递的数据类型不为 I，那么直接将该数据传递到下一个 Handler，并且不是方 ByteBuf。
+实际上，SimpleChannelInboundHandler 的泛型参数 I 指定了它可以处理的类型。如果从上一个 Handler 中传递的数据类型不为 I，那么直接将该数据传递到下一个 Handler，并且不释放 ByteBuf
 
 
 
@@ -702,7 +699,7 @@ ChannelInboundHandler 的生命周期：
 
 
 
-In Netty, the write methods are basically asynchronous.，so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes. The write operation is ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called
+In Netty, the write methods are basically asynchronous. so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes. The write operation is ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called
 
 ~~~java
 public class OutBoundHandlerA extends ChannelOutboundHandlerAdapter {
@@ -738,17 +735,12 @@ A `ChannelHandler` can modify the layout of a `ChannelPipeline` in real time by 
 
 
 
-`@ChannelHandler.Sharable`注解一个 Handler 实例可以被多个通道安全地共享（这个Handler必须是无状态的），即多个通道的流水线可以加入同一个 Handler 实例。这种共享操作，Netty 默认是不允许的，违反则抛出异常。
+`@ChannelHandler.Sharable`注解一个 Handler 实例可以被多个 Channel 安全地共享（这个Handler 必须是无状态的），即多个通道的流水线可以加入同一个 Handler 实例。这种共享操作，Netty 默认是不允许的，违反则抛出异常。
 
 ~~~java
 @ChannelHandler.Sharable
 public class NettyEchoServerHandler extends ChannelInboundHandlerAdapter {
-    // 必须持有一个 ChannelHandlerContext，否则进行流水线上的事件传播
-    private ChannelHandlerContext ctx;	
-    @Override
-    public void handlerAdded(ChannelHandlerContext ctx) {
-        this.ctx = ctx;
-    }
+   
 }
 ~~~
 
@@ -758,7 +750,7 @@ public class NettyEchoServerHandler extends ChannelInboundHandlerAdapter {
 ChannelInboundHandlerAdapter handler = new NettyDiscardHandler();
 b.childHandler(new ChannelInitializer<SocketChannel>() {
     protected void initChannel(SocketChannel ch) {
-    	if (handler.isSharable()) {}
+    	if (handler.isSharable()) {
     		ch.pipeline().addLast(handler);
     	}	
     }
@@ -776,7 +768,9 @@ The ChannelPipeline API exposes additional methods for invoking inbound and outb
 
 ![img](./assets/15.png)
 
-这些方法会真正与底层连接进行交互。
+
+
+以下这些方法会真正与底层连接进行交互。
 
 ![img](./assets/16.png)
 
@@ -793,9 +787,7 @@ The following table summarizes the `ChannelHandlerContext` API.
 
 **这里的 next 应当理解为当前处理器的下一个 Handler**
 
-这里的  write 仅仅是将写事件传递给下一个 Handler，进行一些拦截操作。而 Channel 里的 write 操作，会涉及到底层连接。
-
-这里的 ChannelHandlerContext#close 方法同样也会关闭连接，但是从当前处理器开始，调用下一个的 close 方法，而不是传出方向的首个 Handler。
+在 Channel 或者 ChannelPipeline 上调用 write() ，都会把事件在整个管道传播（假设传播未被中断）；而在 ChannelHandler 级别上，事件会从该实例的下一个 Handler 开始传播。这些 write() 都向对端发送数据。
 
 ### 事件传播
 
@@ -834,27 +826,9 @@ public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws E
     System.out.println(cause.getMessage());
     
     // 从当前节点继续传播异常
-    ctx.fireChannelRead(cause);
+    // ctx.fireChannelRead(cause);
 }
 ~~~
 
-从 ChannelInboundHandlerAdapter 的 exceptionCaught 方法可知，如果用户没有重写`exceptionCaught`方法，则默认会传播到下一个Handler。
-
-~~~java
-public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-    ctx.fireExceptionCaught(cause);
-}
-~~~
-
-在异常事件播的过程中是不区分`inbound`还是`outbound`的，相关代码如下：
-
-~~~java
-public ChannelHandlerContext fireExceptionCaught(final Throwable cause) {
-    // 传播异常事件的时候, 直接拿了当前节点的下一个节点
-    invokeExceptionCaught(next, cause);
-    return this;
-}
-~~~
-
- outbound 类异步事件发生异常时，**则不会触发 exceptionCaught 事件传播**。一般只是通知相关 ChannelFuture。但如果 flush 事件在传播过程中发生异常，则会触发当前发生异常的 ChannelHandler 中的 exceptionCaught 事件回调。
+异常的传播方向与 handler 的添加方向一致，并且不区分是 inboundHandler 还是 outboundHandler。默认情况下，如果不重写`exceptionCaught`方法，那么会把该异常继续向后传播，最终会传播到 tail 节点，tail 节点会打印一条日志表明该异常未被处理
 

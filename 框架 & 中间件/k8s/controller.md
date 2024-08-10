@@ -135,20 +135,11 @@ $ kubectl rollout undo deployment hello-deploy --to-revision=1
 
 ## Service
 
-Pod 的 IP 地址是不可靠的：
+Pod 的 IP 地址是不可靠的：当 Pod 被替换或者水平扩容/缩容后，Pod 的 IP 地址会发生变化。
 
-- 在某个 Pod 失效之后，它会被一个拥有新的 IP 的 Pod 代替
-- Deployment 扩容也会引入拥有新 IP 的 Pod；而缩容则会删除 Pod。
+Service 为一组 Pod 提供了可靠且稳定的网络，以及 TCP 以及 UDP 负载均衡能力。每一个 Service 都拥有固定的 IP 地址、固定的 DNS 名称，以及固定的端口。此外，Service 还可以利用 Label ，来动态选择（负载均很）将流量转发至哪些 Pod。Service 只会将流量路由到健康的 Pod，这意味着如果 Pod 的健康检查失败，那么 Pod 就不会接收到任何流量
 
-每一个 Service 都拥有固定的 IP 地址、固定的 DNS 名称，以及固定的端口。此外，Service 还可以利用 Label ，来动态选择将流量转发至哪些 Pod。
-
-Service 与 Pod 之间是通过 Label 和 Label 筛选器（selector）松耦合在一起的。Deployment 与 Pod 也是这样绑定在一起的，但 Deployment 只会考虑由自己创建的 Pod。所有匹配的 Pod 必须拥有 Service Label 筛选器中定义的所有 Label。下面我们通过三个例子来认识这一点
-
-![image-20240616122554688](./assets/image-20240616122554688.png)
-
-![image-20240616122622652](./assets/image-20240616122622652.png)
-
-![image-20240616122629294](./assets/image-20240616122629294.png)
+Service 与 Pod 之间是通过 Label 和 Label 筛选器（selector）松耦合在一起的。匹配的 Pod 必须拥有所有在Service Label 筛选器中定义的 Label。
 
 
 
@@ -203,8 +194,6 @@ Kubernetes 通过以下方式来实现**服务发现**（Service discovery）
 基于 DNS 的服务发现需要 DNS 集群插件（cluster-add-on），几乎所有的 Service 都使用到了它。Kubelet 为每一个容器都注入了该 DNS（通过/etc/resolv.conf），这也就意味着任何 Pod 都可以通过连接到 `kube-dns` 服务来进行 DNS 解析。这个 DNS 插件（kube-dns）会持续监测 API Server。一旦发现有新创建的 Service 对象，就会创建相应的 DNS 记录。因此，应用和 Service 无须主动执行服务注册。
 
 关于环境变量方式的最大问题在于，环境变量只有在 Pod 最初创建的时候才会被注入。这就意味着，Pod 在创建之后是并不知道新 Service 的。
-
-
 
 Kubernetes 支持多个虚拟集群，它们底层依赖于同一个物理集群。 这些虚拟集群被称为**命名空间**，它们在逻辑上彼此隔离。这可以作为在多个团队之间访问控制和资源限额的一种手段。不过，它不能作为流量隔离的手段来使用。这里仅仅介绍如果创建
 
