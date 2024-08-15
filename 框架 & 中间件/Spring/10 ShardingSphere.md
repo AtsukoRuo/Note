@@ -113,10 +113,6 @@ rules:
                     sharding-algorithm-name: table-inline
 ~~~
 
-
-
-
-
 ## 主从同步
 
 > 这里主要介绍单主复制。
@@ -126,10 +122,10 @@ rules:
 MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来进行数据同步」。具体步骤如下：
 
 1. master 将数据改变记录到二进制日志（binary log）中。
-2. 当 slave 上执行 `start slave` 命令之后，slave会创建一个 IO 线程用来连接 master，请求 master 中的 binlog。
-3. 当 slave 连接 master 时，master 会创建一个 `log dump` 线程，用于发送 binlog 的内容。在读取 binlog 的内容的操作中，会对主节点上的 binlog 加锁，当读取完成并发送给从服务器后解锁。
-4. IO 线程接收主节点 binlog dump 进程发来的更新之后，保存到 中继日志（relay log） 中
-5. slave的 SQL 线程，读取 relay log 日志，并解析成具体操作，从而实现主从操作一致，最终数据一致。
+2. 当 slave 上执行 `start slave` 命令之后，slave 会创建一个 IO 线程用来连接 master，请求 master 中的 binlog。
+3. 当 slave 连接 master 时，master 会创建一个 `log dump` 线程，用于发送 binlog 的内容。slave 在读取 binlog 时，会对主节点上的 binlog 加锁，当读取完成并发送给从服务器后解锁。
+4. IO 线程接收主节点 binlog dump 进程发来的更新之后，保存到中继日志（relay log） 中
+5. slave 的 SQL 线程，读取 relay log 日志，并解析成具体操作，从而实现主从操作一致，最终数据一致。
 
 
 
@@ -188,10 +184,8 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    
    -- 刷新权限
    FLUSH PRIVILEGES;
-   
-   
    ~~~
-
+   
 4. 主机中查询 master 状态：
 
    ~~~sql
@@ -199,7 +193,7 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    SHOW MASTER STATUS;
    ~~~
 
-   记下`File`和`Position`的值。执行完此步骤后不要再操作主服务器MYSQL，防止主服务器状态值变化。
+   记下`File`和`Position`的值。执行完此步骤后不要再操作主服务器 MYSQL，防止主服务器状态值变化。
 
    [![image-20220804191852164](./assets/image-20220804191852164.png)](https://image-tuchuang.oss-cn-chengdu.aliyuncs.com/image-20220804191852164.png)
 
@@ -213,7 +207,7 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    # relay-log=relay-bin
    ~~~
 
-6. 使用命令行登录MySQL从服务器：
+6. 使用命令行登录 MySQL 从服务器：
 
    ~~~shell
    #进入容器：
@@ -241,13 +235,13 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    SHOW SLAVE STATUS
    ~~~
 
-   面两个参数都是Yes，则说明主从配置成功！
+   当下面两个参数都是 Yes 时，则说明主从配置成功！
 
    [![img](./assets/image-20220715000533951.png)](https://image-tuchuang.oss-cn-chengdu.aliyuncs.com/image-20220715000533951.png)
 
 
 
-需要停止/重置时，可以使用如下SQL语句
+需要停止/重置时，可以使用如下 SQL 语句
 
 ```sql
 -- 停止 I/O 线程和 SQL 线程的操作。
@@ -269,12 +263,15 @@ rules:
   dataSourceGroups:
   	# 定义读写分离逻辑数据源名称
     <data_source_name> (+): 
-    	# 所引用的写数据源的名称，默认使用 Groovy 的行表达式 SPI 实现来解析
+       # 所引用的写数据源的名称，默认使用 Groovy 的行表达式 SPI 实现来解析
        write_data_source_name: 
+       
        # 所引用的读数据源的名称，多个从数据源用逗号分隔，默认使用 Groovy 的行表达式 SPI 实现来解析
        read_data_source_names: 
+       
         # 事务内读请求的路由策略，可选值：PRIMARY（路由至主库）、FIXED（同一事务内路由至固定数据源）、DYNAMIC（同一事务内路由至非固定数据源）。默认值：DYNAMIC
        transactionalReadQueryStrategy (?):
+       
        # 负载均衡算法名称
        loadBalancerName: 
   

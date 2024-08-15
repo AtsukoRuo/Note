@@ -5,7 +5,19 @@ Mapping is a process of defining and developing a schema definition representing
 Mapping 定义了数据模式（scheme，结构化数据），这有助于 ES 分析、搜索、排序、过滤、聚合数据。具体来说它定义了：
 
 1. 索引中的文档有哪些字段及其类型
-2. 各个字段的相关设置
+2. 各个字段的相关设置（是否被索引、用什么分词器、空值是否可以被搜索到）
+
+
+
+- `type`：指定字段的数据类型
+- `index`：指定字段是否索引，可以是 analyzed、not_analyzed、no 或 false
+- `store`：指定字段是否存储，可以是 true 或 false
+- `analyzer`：指定要使用的字段分析器的名称，可以是内置分析器或自定义分析器
+- `search_analyzer`：指定查询时使用的分析器名称，可以是内置分析器或自定义分析器
+- `normalizer`：指定要使用的字段规范化器的名称，用于在查询和聚合时规范化字段值
+- `copy_to`：指定一个或多个字段，将该字段的内容复制到指定的字段中，以便在查询和聚合时使用
+- `fields`：为字段定义多个属性，例如不同的分析器、不同的索引设置等
+- `format`：指定日期类型的格式化方式
 
 ![image-20240630122841670](./assets/image-20240630122841670.png)
 
@@ -224,7 +236,7 @@ Mapping 支持的数据类型有：
   }
   ~~~
 
-- 数组，在索引查询时，会依次考察数组中的每个元素，而不是合并在一起在考察
+- 数组
 
   ~~~bash
   PUT books/_doc/3
@@ -379,15 +391,16 @@ Mapping 参数可以用来控制某个字段的特性，例如这个字段是否
   
 - `doc_values`：除 `text` 类型外，其他类型 Doc values 默认是开启的，保存 Doc values 结构需要很大的空间开销，如果某个字段不需要排序、聚合、使用脚本访问，那么应该禁用此字段的 Doc values 来节省磁盘空间。
 
-  
+
+
 
 ## 嵌套类型
 
-在 ES 中，要描述一对多关系，可以通过 nested 、 join（Parent/Child） 这两种方式。
-
 ### nested 
 
-nested 类型允许数组中的对象整体可以被单独索引，而不是对象的属性被单独索引，下面我们来看一个例子来认识这一点：
+nested 类型允许数组中的元素作为整体被索引，而不是经扁平化处理后，每个元素的分量被索引到。
+
+下面我们来看一个例子来认识这一点：
 
 ~~~bash
 # 创建 Mapping
@@ -543,4 +556,4 @@ GET doctors/_search
 }
 ~~~
 
-返回 ID 为 1 的 doctor 父文档，以及所有的 patient 子文档。
+返回 ID 为 1 的 doctor 父文档，以及它的所有 patient 子文档。

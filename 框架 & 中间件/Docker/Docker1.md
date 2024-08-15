@@ -134,19 +134,21 @@ Ubuntu下的安装
 
 ~~~shell
 sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
-$
+
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 
-sudo add-apt-repository 
-"deb[arch=amd64]https://download.docker.com/linux/ubuntu$(lsb_release -cs) stable"
+# 添加 Docker 的下载源
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
 sudo apt-get update
 
-sudo apt-get install docker-ce
+sudo apt install docker-ce docker-ce-cli containerd.io
 
 sudo systemctl enable docker
 sudo systemctl start docker
 ~~~
+
+
 
 
 
@@ -330,7 +332,9 @@ $ sudo docker run -d --name webapp --link mysql:database webapp:latest
 
 
 
-当我们启动 Docker 服务时，它会为我们创建一个默认的 bridge 网络。在没有明确为容器指定网络时，容器都会连接到这个网络中。在一个 bridge 网络中，每个容器都分配一个虚拟网卡 eth0。当在 bridge 网络内进行通信时，仅需使用内网地址即可。但是要与外部通信时，要经过 NAT 转换，这在性能上比较差，但是提供了内网的安全性。一个容器可以加入到不同的 bridge 网络中，这样它就有多张虚拟网卡了。Docker 保证每个 bridge 网络的网段是不一样的。
+当我们启动 Docker 服务时，它会为我们创建一个默认的 bridge 网络。在没有明确为容器指定网络时，容器都会连接到这个网络中。在一个 bridge 网络中，每个容器都分配一个虚拟网卡 eth0。当在 bridge 网络内进行通信时，仅需使用内网地址即可。**但是要与外部通信时，要经过 NAT 转换**，这在性能上比较差，但是提供了内网的安全性。一个容器可以加入到不同的 bridge 网络中，这样它就有多张虚拟网卡了。Docker 保证每个 bridge 网络的网段是不一样的。
+
+Docker 服务默认会创建一个 `docker0` 网桥，让主机和容器之间可以通过网桥相互通信
 
 我们可以通过 `docker inspect` 命令，在 Network 部分看到与容器网络相关的信息。
 
@@ -657,17 +661,9 @@ cogset/cron         latest              c01d5ac6fc8a        15 months ago       
 
 ~~~shell
 $ sudo docker rmi ubuntu:latest
-Untagged: ubuntu:latest
-Untagged: ubuntu@sha256:de774a3145f7ca4f0bd144c7d4ffb2931e06634f11529653b23eba85aef8e378
-Deleted: sha256:cd6d8154f1e16e38493c3c2798977c5e142be5e5d41403ca89883840c6d51762
-Deleted: sha256:2416e906f135eea2d08b4a8a8ae539328482eacb6cf39100f7c8f99e98a78d84
-Deleted: sha256:7f8291c73f3ecc4dc9317076ad01a567dd44510e789242368cd061c709e0e36d
-Deleted: sha256:4b3d88bd6e729deea28b2390d1ddfdbfa3db603160a1129f06f85f26e7bcf4a2
-Deleted: sha256:f51700a4e396a235cee37249ffc260cdbeb33268225eb8f7345970f5ae309312
-Deleted: sha256:a30b835850bfd4c7e9495edf7085cedfad918219227c7157ff71e8afe2661f63
 ~~~
 
-删除镜像的过程其实是删除镜像内的镜像层。当镜像层的引用数为0时，才真正删除，否则仅仅减少引用数。
+删除镜像的过程其实是删除镜像内的镜像层。当镜像层的引用数为 0 时，才真正删除，否则仅仅减少引用数。
 
 ### 保护和共享镜像
 

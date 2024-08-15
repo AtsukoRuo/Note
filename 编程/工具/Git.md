@@ -4,7 +4,7 @@
 
 ## 概述
 
-Git是**分布式版本控制系统（Distributed Version Control System - DVCS）**。在分布式架构下，每一位开发人员在本地维护一份代码仓库，当需要同步数据（拉/推）时，就与中央仓库交互，期间可能要解决数据冲突的问题。显然这种设计保证了数据的最终一致性。由于每个机器都有完整的本地仓库，所以存储需求要比中央式 VCS 要高。因此DVCS只适合管理文件资产，对于多媒体资产，中央仓库是一种更好的选择。
+Git是**分布式版本控制系统（Distributed Version Control System - DVCS）**。在分布式架构下，每一位开发人员在本地维护一份代码仓库，当需要同步数据（拉/推）时，就与中央仓库交互，期间可能要解决数据冲突的问题。显然这种设计保证了数据的最终一致性。由于每个机器都有完整的本地仓库，所以存储需求要比中央式 VCS 要高。因此 DVCS 只适合管理文件资产，对于多媒体资产，中央仓库是一种更好的选择。
 
 Git 保存的不是文件的变化或者差异，而是一系列不同时刻的 **快照** 。Git的四大部分：
 
@@ -199,9 +199,11 @@ git push origin --delete <tagname>
 
 
 
+**移动 HEAD 时，工作目录以及暂存区都替换为当时的版本快照。**
+
 - **创建分支**
 
-  - `git branch <name>`在HEAD位置上创建一个分支，但不会切换过去。这里的切换是指 HEAD 指向该新分支
+  - `git branch <name>`在 HEAD 位置上创建一个分支，但不会切换过去。这里的切换是指 HEAD 指向该新分支
 
   - `git checkout -b <name>`创建并切换，它是以下两条命令的缩写：
 
@@ -213,7 +215,6 @@ git push origin --delete <tagname>
 - **移动 HEAD**：`git checkout <name>`。
 
   - `<name>`是分支名、SHA-1。如果 name 是分支名，那么就指向该分支。如果是 Commit 的 SHA-1，那么就指向 Commit，但是 HEAD 所指向的分支并不会一起移动
-  - 移动 HEAD 时，工作目录以及暂存区都替换为当时的版本快照。
   
 - **移动分支**：`git branch -f <branch-name> <commit>`
 
@@ -400,13 +401,15 @@ git cherry-pick 6
 
 ## 子模块
 
-`git submodule add <submodule_url> <name>` 命令可以在项目中创建一个子模块。然后运行`update`命令，下载子模块的内容。
+`git submodule add <submodule_url> <name>` 命令可以在项目中添加一个子模块。父模块在`.gitmodules` 文件中维护子模块的相关信息（例如，使用子模块的哪个 Commit）。
+
+执行`update`命令，更新子模块的内容。
 
 ```bash
 git submodule update --init --recursive
 ```
 
-**子模块内部的版本控制体系是独立于父模块的**，但是子模块的添加与删除还是要在父模块中记录的。
+**子模块内部的版本控制体系是独立于父模块的**，因此，当我们进入子模块的目录时，git 操作都是相对于子模块的了。而父模块的 Git 命令会忽略子模块的内容。
 
 
 
