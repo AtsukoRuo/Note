@@ -1,8 +1,137 @@
-## Maven & Nexus3
+# Maven & Nexus3
 
-Maven 是开源的 Java 项目管理工具，所有项目的配置信息都在 pom.xml 文件中定义，Maven 根据 pom.xml 来管理项目的生命周期。
+[TOC]
 
-Nexus3 是 Maven 的 Jar 包私有仓库。
+## 概念
+
+Maven 是开源的 Java 项目管理工具，所有项目的配置信息都在 pom.xml 文件中定义，Maven 根据 pom.xml 来管理项目的生命周期。**Maven 仅仅定义了抽象的生命周期，而具体的操作则是由 Maven 插件来完成的**。
+
+通过依赖坐标引入我们项目需要的 Jar 包，它包括：
+
+~~~xml
+<dependency>
+    <groupId>net.lazyegg.maven</groupId>
+    <artifactId>Hello</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <scope>compile</scope>            
+</dependency>
+~~~
+
+- groupid：组织域名的倒序 
+
+- artifactId：模块名称
+
+- version：模块版本
+
+- scope：依赖的范围
+
+  | compile  | test | provided |      |
+  | -------- | ---- | -------- | ---- |
+  | 主程序   | √    | ×        | √    |
+  | 测试程序 | √    | √        | √    |
+  | 参与部署 | √    | ×        | ×    |
+
+通过 exclusions 来排除依赖：
+
+~~~xml
+<dependency>
+    <groupId>net.lazyegg.maven</groupId>
+    <artifactId>Hello</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <scope>compile</scope>
+    <!--当引入 net.lazyegg.maven 时，就排除 commons-logging 依赖-->
+    <exclusions>
+        <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            </exclusion>
+    </exclusions>
+</dependency>
+~~~
+
+
+
+Maven 的主要环节：
+
+- 清理（clean）：删除以前的编译结果
+- 编译（compile）：将Java 源程序编译为字节码文件
+- 测试（test）
+- 打包（package）：在 pom.xml 里，项目的打包方式有 pom，war，jar 三种。
+  - pom 用在父级工程或聚合工程中，做所有子模块的公共配置：
+  - Jar 包，它并**没有**把所依赖的 Jar 包一并打入，需要运行时指定 lib 目录。Jar 包的不同版本：
+    1. Snapshot 版本表示不稳定，尚在开发中的版本
+    2. Release 版本表示稳定的
+  - war 包，可以直接在 Web 容器中部署运行。
+- 安装（install）：会将打包后的 Jar 包放到 maven 本地仓库当中，然后其他项目就可以通过坐标来引用它。
+- 部署（deploy）：将打包的结果部署到远程仓库，或将 war 包部署到服务器上运行。
+
+给 SpringBoot 项目打包时，推荐安装如下插件：
+
+~~~xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+~~~
+
+这样在以 Jar 包方式打包本项目时，一并打包它所依赖的包，以及会集成一个 Tomcat 服务器进去（以 Jar 包形式提供）。这样便可以直接通过 java 命令来运行。
+
+
+
+当依赖继承时，父项目要打包成 pom，定义父子项目的示例：
+
+~~~xml
+<parent>
+    <groupId>com.starfish.maven</groupId>
+    <artifactId>Parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <!-- 父工程 pom.xml 文件的相对路径 -->
+    <relativePath>../Parent/pom.xml</relativePath>
+</parent>
+~~~
+
+~~~xml
+<properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <spring.version>4.2.6</spring.version>
+</properties>
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+    </dependencies>
+</dependencyManagement> 
+~~~
+
+
+
+将多个工程拆分为模块后，需要手动逐个打包。使用了聚合之后（一般在父项目中使用）就可以批量进行 Maven 工程的安装、清理工作。
+
+~~~xml
+<!-- 配置聚合 -->
+<modules>
+    <!-- 指定各个子工程的相对路径 -->
+    <module>starfish-learn-grpc</module>
+    <module>starfish-learn-kafka</module>
+    <module>starfish-web-demo</module>
+</modules>
+~~~
+
+在 Maven 构建时请注意：
+
+- 有关 Maven 的 Build 配置请在子项目中编写，即使它们的 Build 配置是相同的，也不要在父项目中编写。父项目仅仅起到提供默认依赖 dependency 的作用
+-  优先 install 父项目以及公共模块，然后再 package 其他微服务项目
+
+
+
+## 安装
 
 安装 Maven
 
@@ -11,7 +140,32 @@ sudo apt install maven
 mvn -version
 ~~~
 
-安装 Nexus3
+在 ${Maven}/conf/settings 中，更换下载源：
+
+~~~xml
+<mirrors>
+
+    <mirror>
+        <id>alimaven</id>
+        <name>aliyun maven</name>
+        <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+        <mirrorOf>central</mirrorOf>
+    </mirror>
+    <!--阿里源中有些包可能没有，需要到中心仓库中下载-->
+    <mirror>
+        <id>repo1</id>
+        <mirrorOf>central</mirrorOf>
+        <name>central repo</name>
+        <url>http://repo1.maven.org/maven2/</url>
+    </mirror>
+</mirrors>
+~~~
+
+
+
+
+
+Nexus3 是 Maven 的 Jar 包私有仓库。安装 Nexus3
 
 ~~~shell
 mkdir -p /usr/local/work/nexus-data && chown -R 200 /usr/local/work/nexus-data
@@ -31,15 +185,15 @@ echo `docker exec nexus cat /nexus-data/admin.password`
 
 Nexus3 的仓库类型有：
 
-![img](./../../../../AppData/Roaming/Typora/draftsRecover/assets/2174081-20210902162958227-1673162218.png)
-
 - proxy：远程仓库，如果在本地仓库找不到 Jar 包的话，就从远程仓库中加载
 - Hosted：本地仓库
 - Group：仓库组（Nexus3 特有的概念），将多个仓库聚合在一起，这样用户在 pom.xml 文件中就不需要配置多个仓库地址了，仅需配置仓库组的地址即可
 
 创建 Hosted 仓库时，要把 Deployment Policy 设置为 allow redeploy，否则只有 depolyment 用户才能上传 Jar 包，其他用户上传会返回 403 错误。
 
-Maven Jar 包的不同版本：
 
-1. Snapshot 版本表示不稳定，尚在开发中的版本
-2. Release 版本表示稳定的
+
+
+
+
+

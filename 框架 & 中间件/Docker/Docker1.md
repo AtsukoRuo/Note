@@ -44,9 +44,11 @@
 
 ## 容器
 
-**容器**应该属于操作系统虚拟化的范畴，即由操作系统提供虚拟化的支持。它并没有做指令转换的工作，这也就是为什么容器能够造就近乎完美的运行效率。相反它要求应用程序自身必须适配真实的操作系统，即必须遵循硬件平台的指令规则以及 OS 的 System Call 接口，也就是说它也没有解决程序跨平台兼容的问题，因此很多人并不认同容器技术属于虚拟化技术的范畴。
+**容器**应该属于操作系统虚拟化的范畴，即由操作系统提供虚拟化的支持。它并没有做指令转换的工作，这也就是为什么容器能够造就近乎完美的运行效率。相反它要求应用程序自身必须遵循硬件平台的指令规则以及 OS 的 System Call 接口，也就是说它也没有解决程序跨平台兼容的问题，因此很多人并不认同容器技术属于虚拟化技术的范畴。
 
 ![image-20240610011837499](./assets/image-20240610011837499.png)
+
+容器的最大意义在于为程序提供了统一的运行时环境。
 
 ## Docker
 
@@ -83,9 +85,7 @@ Docker 项目是一个由 Go 语言实现的容器引擎。Docker 推崇一种�
 
 在 Docker 体系里，有四个对象 ( Object ) ：
 
-- **镜像 ( Image )**：只读的文件模板，其中包含了文件系统的最原始内容。它提供容器运行时所需的程序、库、资源、配置等文件。
-
-  它以 AUFS 作为底层文件系统实现，通过这种方式，Docker 实现了一种增量式的镜像结构。一个镜像时候多个镜像层构成的，而镜像层可以被多个镜像共享，这样可以使得镜像分发更快速，以及减少镜像的存储空间。
+- **镜像 ( Image )**：提供了程序所需的库、资源、配置等文件。它以 AUFS 作为底层文件系统实现，通过这种方式，Docker 实现了一种增量式的镜像结构。一个镜像时候多个镜像层构成的，而镜像层可以被多个镜像共享，这样可以使得镜像分发更快速，以及减少镜像的存储空间。
 
   ![img](assets/165d0692fe7a478btplv-t2oaga2asx-jj-mark1512000q75.webp)
 
@@ -135,9 +135,12 @@ Ubuntu下的安装
 ~~~shell
 sudo apt-get install apt-transport-https ca-certificates curl software-properties-common
 
+
+# curl -fsSL https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 
 # 添加 Docker 的下载源
+# echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
 sudo apt-get update
@@ -148,7 +151,35 @@ sudo systemctl enable docker
 sudo systemctl start docker
 ~~~
 
+修改镜像的下载源：
 
+~~~shell
+# 修改daemon.json文件，
+$ vim /etc/docker/daemon.json
+
+# daemon.json内容如下：
+{
+    "registry-mirrors": [
+        "https://dockerproxy.com",
+        "https://docker.m.daocloud.io",
+        "https://cr.console.aliyun.com",
+        "https://ccr.ccs.tencentyun.com",
+        "https://hub-mirror.c.163.com",
+        "https://mirror.baidubce.com",
+        "https://docker.nju.edu.cn",
+        "https://docker.mirrors.sjtug.sjtu.edu.cn",
+        "https://github.com/ustclug/mirrorrequest",
+        "https://registry.docker-cn.com"
+    ]
+}
+
+# 重载配置文件，并重启 docker
+$ sudo systemctl daemon-reload
+$ sudo systemctl restart docker
+
+# 查看 Registry Mirrors 配置是否成功
+$ sudo docker info 
+~~~
 
 
 
@@ -173,7 +204,7 @@ Docker 容器中能够通过数据卷的方式，来挂载宿主操作系统中�
 - **Created**：容器已经被创建，容器所需的相关资源已经准备就绪，但容器中的程序还未处于运行状态。
 - **Running**：容器正在运行，也就是容器中的应用正在运行。
 - **Paused**：容器已暂停，表示容器中的所有程序都处于暂停状态。发送`SIGSTOP`信号至容器内的所有进程，进程都被操作系统挂起，不会获得 CPU 时间以执行操作。可以随时使用 docker unpause 命令来恢复容器的运行
-- **Stopped**：容器处于停止状态，占用的资源和沙盒环境都依然存在，只是容器中的应用程序均已停止。容器内的主进程会收到一个 SIGTERM 信号，然后会收到一个 SIGKILL 信号来确保它完全停止运行。你需要使用 docker start 命令来重新启动该容器。
+- **Stopped**：容器处于结束状态，占用的资源和沙盒环境都依然存在，只是容器中的应用程序均已停止。容器内的主进程会收到一个 SIGTERM 信号，然后会收到一个 SIGKILL 信号来确保它完全停止运行。你需要使用 docker start 命令来重新启动该容器。
 - **Deleted**：容器已删除，相关占用的资源及存储在 Docker 中的管理信息也都已释放和移除。
 
 
@@ -332,9 +363,9 @@ $ sudo docker run -d --name webapp --link mysql:database webapp:latest
 
 
 
-当我们启动 Docker 服务时，它会为我们创建一个默认的 bridge 网络。在没有明确为容器指定网络时，容器都会连接到这个网络中。在一个 bridge 网络中，每个容器都分配一个虚拟网卡 eth0。当在 bridge 网络内进行通信时，仅需使用内网地址即可。**但是要与外部通信时，要经过 NAT 转换**，这在性能上比较差，但是提供了内网的安全性。一个容器可以加入到不同的 bridge 网络中，这样它就有多张虚拟网卡了。Docker 保证每个 bridge 网络的网段是不一样的。
+当我们启动 Docker 服务时，它会为我们创建一个默认的 bridge 网络 docker0，在该网络中有本地宿主机。在没有明确为容器指定网络时，容器都会连接到这个网络中。在一个 bridge 网络中，每个容器都分配一个虚拟网卡 eth0。当在 bridge 网络内进行通信时，仅需使用内网地址即可。**但是要与外部通信时，要经过 NAT 转换**，这在性能上比较差，但是提供了内网的安全性。一个容器可以加入到不同的 bridge 网络中，这样它就有多张虚拟网卡了。Docker 保证每个 bridge 网络的网段是不一样的。
 
-Docker 服务默认会创建一个 `docker0` 网桥，让主机和容器之间可以通过网桥相互通信
+
 
 我们可以通过 `docker inspect` 命令，在 Network 部分看到与容器网络相关的信息。
 
@@ -424,7 +455,7 @@ $ sudo docker run -d --name nginx -p 80:80 -p 443:443 nginx:1.12
 ![img](assets/1660eff4b182c891tplv-t2oaga2asx-jj-mark1512000q75.webp)
 
 - **Bind Mount** 能够直接将宿主操作系统中的目录和文件，挂载到容器内的文件系统中，形成形成挂载映射关系，在容器内外对文件的读写，都是相互可见的。
-- **Volume**：我们只需要指定容器内的目录，不需要关心具体挂载到了宿主操作系统中的哪里。数据卷的本质其实依然是宿主操作系统上的一个目录，只不过这个目录存放在 Docker 内部，由 Docker 进行管理。
+- **Volume**：由 Docker 在内部创建的目录挂载到容器内部，具体创建哪个目录我们是不知道的，由 Docker 来进行管理
 - **Tmpfs Mount** ：支持挂载系统内存中的一部分到容器的文件系统里。对于读写速度要求较高，数据变化量大，但不需要持久保存的数据，可以使用Tmpfs Mount挂载
 
 

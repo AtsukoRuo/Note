@@ -29,6 +29,35 @@ $ ssh root@117.88.47.10
 
 ![image-20240115154105747](assets/image-20240115154105747.png)
 
+
+
+用户将自己的公钥储存在远程主机上。登录的时候，远程主机会向用户发送一段随机字符串，用户用自己的私钥加密后，再发回来。远程主机用事先储存的公钥进行解密并对比，如果比对成功，就证明用户是可信的，直接允许登录 shell，不再要求密码。通过 ssh-keygen 来生成密钥。
+
+下面介绍如何配置多个 SSH 密钥：
+
+~~~shell
+$ ssh-keygen -t rsa  -f ~/.ssh/github_id_rsa
+$ ssh-keygen -t rsa  -f ~/.ssh/gitlab_id_rsa
+$ touch ~/.ssh/config
+~~~
+
+~~~shell
+$ vim config
+# github
+Host github.com
+HostName github.com
+PreferredAuthentications publickey
+IdentityFile ~/.ssh/github_id_rsa
+
+# gitlab
+Host gitlab.com
+HostName gitlab.com
+PreferredAuthentications publickey
+IdentityFile ~/.ssh/gitlab_id_rsa
+~~~
+
+~/.ssh/authorized_keys 存储对端的公玥的。
+
 ## 基础命令
 
 Unix 的 shell 有很多种，它们都是基于 Bourne shell（/bin/sh）。而 Linux 使用了一个增强版本的 Bourne shell —— Bourne-again shell（BASH）
@@ -48,7 +77,7 @@ Unix 的 shell 有很多种，它们都是基于 Bourne shell（/bin/sh）。而
 
 
 
-
+### 文件
 
 `ls` 显示指定目录，缺省为当前目录：
 
@@ -126,7 +155,9 @@ mkdir dir
 
 `*`匹配任意个字符，`?`匹配一个字符
 
-`grep` 显示在文件或输入流中，与参数匹配的行
+
+
+`grep` 显示在文件或输入流中与参数匹配的**行**
 
 ~~~shell
 grep [options] pattern [files]
@@ -139,27 +170,45 @@ grep [options] pattern [files]
 下面是一些常用的 `grep` 命令选项：
 
 - `-i` : 忽略大小写。
+
 - `-v` : 反转匹配，也就是只输出不匹配该模式的行。
-- `-r` or `-R` : 递归搜索。
+
 - `-l` : 只列出文件名（匹配某个模式的文件）。
+
 - `-n` : 显示行号。
+
 - `-c` : 计数匹配的行数。
-- `--color` : 显示匹配的颜色。
+
+- `-r`：递归查找当前目录的文件
 
 
+
+
+
+
+**awk** 是一种编程语言，用于对文本和数据进行处理。
 
 ~~~bash
-awk options 'pattern {action}' file
+awk options 'BEGIN{ print "start" } pattern{ commands } END{ print "end" }' file
 ~~~
 
 - `options`：是一些选项，用于控制 `awk` 的行为。
+  
   - -F <分隔符> 或 --field-separator=<分隔符>： 指定输入字段的分隔符，默认是空格。
   - -v <变量名>=<值>： 设置 `awk` 内部的变量值
   - -f <脚本文件>： 指定一个包含 `awk` 脚本的文件。这样可以在文件中编写较大的 `awk` 脚本，然后通过 `-f` 选项将其加载。
-- `pattern`：是用于匹配输入数据的模式。如果省略，则 `awk` 将对所有行进行操作。
-- `{action}`：是在匹配到模式的行上执行的动作。如果省略，则默认动作是打印整行。
+  
+  
 
-下面通过一个示例来说明，log.txt文本内容如下：
+ awk 的工作原理
+
+- 执行`BEGIN{ commands }`语句块中的语句（可选）
+- 从文件或标准输入读取一行，然后执行`pattern {commands}`语句块，它逐行扫描文件。如果省略 `pattern`，就认为成功匹配每一行。
+- 当读至输入流末尾时，执行`END{ commands }`语句块（可选）
+
+
+
+下面通过一个示例来说明，log.txt 文本内容如下：
 
 ```
 2 this is a test
@@ -182,6 +231,60 @@ $ awk '$1>2 && $2=="Are" {print $1,$2,$3}' log.txt
 ~~~
 
 
+
+sed 命令基于模式匹配过虑及修改文件，逐行处理：
+
+- **d：**删除指定的字符
+- **p：**显示指定的行
+- **s：**替换指定的字符
+- **i：** 在指定的行之前插入文本
+- **a：**在指定的行之后追加文本
+- **c：**替换指定的行
+- **r：**读取文件
+- **w：**保存到文件
+- **i** ：直接修改源文件，默认只是在内存中临时修改文件，对源文件并无影响
+- **n**：仅显示处理后的结果，默认会将原始文本一并输出
+
+下面我们看几个示例：
+
+~~~shell
+sed -n '4,7p' a.txt          # 输出第4~7行
+sed	-n '4,+10p' a.txt        # 输出第4行及其后的10行内容
+sed -n '/^bin/p' a.txt       # 输出以bin开头的行
+
+sed 's/xml/XML/g' a.txt     # 将所有的xml都替换为XML
+sed 's/xml/XML/'  a.txt        # 将每行中第一个xml替换为XML
+sed 's/xml/XML/3' a.txt     # 将每行中的第3个xml替换为XML
+
+sed  '3,5d' a.txt             # 删除第3~5行
+sed  '/xml/d' a.txt            # 删除所有包含xml的行
+sed  '/^$/d' a.txt             # 删除所有空行
+
+sed  '2a XX'   a.txt            # 在第二行后面，追加XX
+sed  'a  xxxx'    nssw.txt   #在所有行后追加xxxx
+
+sed  '2c XX'   a.txt            #将第二行替换为XX
+sed  'c  xxxx'    nssw.txt   #在所有行前插入xxxx
+sed  '1,3c  xxxx'    nssw.txt  #对1到3行替换成xxx
+
+sed '2r a.txt'  n.txt   # 在第2行插入a.txt
+sed '/^ee/r n.txt'  a.txt  # 在以ee开头的行下方插入n.txt
+
+sed -n '/^ii/w d.txt' a.txt  # 把ii开头的行保存为d.txt
+~~~
+
+
+
+
+
+ tee 命令用于读取标准输入的数据，并将其内容输出成文件。
+
+~~~shell
+# 把错误输出也同时打印到屏幕和文件
+ls -l not_find_runoob 2>&1 | tee -a lsls.log
+~~~
+
+- -a，追加，默认为覆盖。
 
 
 
@@ -220,21 +323,18 @@ cat file1 file2 ...
 
 
 
-`diff` 查看两个文件之间的不同
-
-~~~bash
-diff file1 file2
-~~~
-
 
 
 `file` 显示文件的格式信息
 
+`find [路径] [匹配条件]` 查找文件
 
-
-`find dir -name file -print` 查找文件
-
-- 使用模式匹配参数（如`*`），但是必须加引号（`'*'`），以免 shell 自动将它们展开
+- `-name pattern`：按文件名查找，支持使用通配符 `*` 和 `?``
+- ``-type type`：按文件类型查找，可以是 `f`（普通文件）、`d`（目录）、`l`（符号链接）等
+- `-size [+-]size[cwbkMG]`：按文件大小查找，支持使用 `+` 或 `-` 表示大于或小于指定大小，单位可以是 `c`（字节）、`w`（字数）、`b`（块数）、`k`（KB）、`M`（MB）或 `G`（GB）。
+- `-mtime days`：按修改时间查找，支持使用 `+` 或 `-` 表示在指定天数前或后，days 是一个整数表示天数。
+- `-user username`：按文件所有者查找。
+- `-group groupname`：按文件所属组查找。
 
 `locate` 与 `file` 类似，但是它在系统创建的文件索引中查找文件。这个索引由操作系统周期性地进行更新，查找速度比 `find` 更快。但是 `locate` 对于查找新创建的文件可能会无能为力，因为它们有可能还没有被加入到索引中。
 
@@ -248,10 +348,7 @@ diff file1 file2
 
 
 
-
-
-- 硬限制（Hard Limit）是用户或进程在任何时候都不能超过的资源限制。由 root 用户设置
-- 软限制（Soft Limit）可以被用户或进程提高或降低，但不能超过硬限制。系统会按照软限制的值限制资源。
+硬限制（Hard Limit）是用户或进程在任何时候都不能超过的资源限制。由 root 用户设置。软限制（Soft Limit）可以被用户或进程提高或降低，但不能超过硬限制。系统会按照软限制的值限制资源。
 
 `ulimit -n 1000` 表示设置进程的文件描述符数量的上限为1000，默认值为1024。不过这个命令仅对当前会话有效。可以在`/etc/rc.local`中添加`ulimit -SHn 1000000`即可永久修改该配置。其中，选项`-S`表示软性极限值，`-H`表示硬性极限值。
 
@@ -284,13 +381,9 @@ export VAR_NAME="value"
 
 如果你想创建持久的环境变量（也就是在你每次登陆或重启后仍然存在的环境变量），你需要把 export 语句添加到你的 shell 配置文件中，如 `~/.bashrc`，`~/.bash_profile`，或 `~/.profile`。然后通过 `source` 命令开启新的 shell 会话来使改动生效。
 
-
-
 PATH 是一个特殊的环境变量，它定义了命令路径。shell 在执行一个命令的时候，会**从前往后**去这些目录中查找这个命令，直到在某个目录下**首次匹配**到这个命令。
 
-当 shell 变量和环境变量同名时，大部分 shell 会优先考虑 shell 变量，忽略同名的环境变量。使用 unset 命令时，会同时删除同名的 shell 变量以及环境变量
-
-
+当 shell 变量和环境变量同名时，大部分 shell 会优先考虑 shell 变量，忽略同名的环境变量。在脚本中使用 unset 命令时，会同时删除同名的 shell 变量以及环境变量
 
 ### man手册
 
@@ -399,7 +492,7 @@ head /proc/cpuinfo | tr a-z A-Z
 - 其他权限
 
 有些可执行文件的执行位是 `s` （setuid）而不是 `x` ，表示你必须以文件拥有者
-的身份运行该文件
+的身份运行该文件。各个权限对应的数字为：`r:4`、`w:2`、`x:1`
 
 
 
@@ -418,7 +511,6 @@ head /proc/cpuinfo | tr a-z A-Z
   chmod g-w 文件名
   
   chmod guo+rw bgDemo
-  
   ~~~
   
 
@@ -483,7 +575,7 @@ Linux目录结构基础
 
 /etc/sudoers 它定义了哪些用户或用户组可以对系统执行哪些操作，可以用来设置管理员。`user ALL=(ALL:ALL) ALL`
 
-## 文件描述符
+### 文件描述符
 
 ![Linux文件描述符表示意图](./assets/aHR0cDovL2MuYmlhbmNoZW5nLm5ldC91cGxvYWRzL2FsbGltZy8xOTA0MTAvMS0xWjQxMDFINDVTMTMuZ2lm.gif)
 
@@ -795,7 +887,7 @@ ip addr del 192.168.1.2/24 dev eth0
 
 
 
-`ping` 
+`ping` ：向目标发送 ICMP 报文。
 
 `traceroute` 用于显示数据包从你的主机（源）到目的地主机（目标）的完整路由过程
 
@@ -890,25 +982,75 @@ curl 获取指定 URL 的内容
 
 
 
+
+
+## 下载源
+
+通过 /etc/apt/sources.list 来更换为国内的下载源
+
+清华源的地址：https://mirrors.tuna.tsinghua.edu.cn/help/ubuntu/
+
+~~~shell
+# 默认注释了源码镜像以提高 apt update 速度，如有需要可自行取消注释
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-updates main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-updates main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-backports main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-security main restricted universe multiverse
+
+# 预发布软件源，不建议启用
+# deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-proposed main restricted universe multiverse
+# deb-src https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy-proposed main restricted universe multiverse
+~~~
+
+~~~shell
+sudo apt update
+sudo apt upgrade
+~~~
+
+
+
+
+
+在第三方下载仓库中安装软件的步骤：
+
+1. GPG 密钥
+
+2. 将下载仓库添加到包源列表中，即 /etc/apt/sources.list.d/*.list。如果是国外的下载仓库，那么可以替换为国内镜像下载仓库，例如 Gitlab 的清华源镜像：
+
+   ~~~shell
+   # /etc/apt/source.list.d/gitlab_gitlab-ce.list
+   deb https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/apt/packages.gitlab.com/gitlab/gitlab-ce/ubuntu/ bionic main
+   deb-src https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/apt/packages.gitlab.com/gitlab/gitlab-ce/ubuntu/ bionic main
+   ~~~
+
+3. ~~~shell
+   apt update
+   apt upgrade
+   ~~~
+
+   如果报错 Err:5 https://mirrors.tuna.tsinghua.edu.cn/gitlab-ce/apt/packages.gitlab.com/gitlab/gitlab-ce/ubuntu jammy InRelease The following signatures couldn't be verified because the public key is not available: NO_PUBKEY 3F01618A51312F3F。那么执行下面命令
+
+   ~~~shell
+   sudo sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3F01618A51312F3F # 就是 NO_PUBKEY 后面的公玥
+   ~~~
+
+   
+
 ## Shell脚本
 
-在执行 shell 时，会优先找出变量、通配符以及其他代词，并对它们进行替代。然后在执行命令
-
-假设你想查找 /etc/passwd 中符合正则表达式 r.*t  
+在执行 shell 时，会优先找出变量、通配符以及其他代词，并对它们进行替代。然后再执行命令。假设你想查找 /etc/passwd 中符合正则表达式 r.*t  
 
 ~~~shell
 grep r.*t /etc/passwd
 ~~~
 
-如果当前目录包含名字如 r.input 和 r.output 的文件，那么 shell 就会将 r.*t  扩展为 r.input  和 r.output ，命令就会变成：`$ grep r.input r.output /etc/passwd`
+如果当前目录包含名字如 r.input 和 r.output 的文件，那么 shell 就会将 r.*t  扩展为 r.input  和 r.output ，命令就会变成：`$ grep r.input r.output /etc/passwd`。我们可以使用单引号来避免这个问题，shell 并不会单引号中的内容做替换。双引号 (`"`) 比单引号 (`'`) 宽松，只是 shell 会对双引号中的所有变量都进行扩展，对通配符不做替换。
 
-我们可以使用单引号来避免这个问题，shell 并不会单引号中的内容做替换。
-
-双引号 (`"`) 比单引号 (`'`) 宽松，只是 shell 会对双引号中的所有变量都进行扩展，对通配符不做替换。
-
-
-
-在单引号中使用单引号：
+在单引号中使用单引号的两种方式：
 
 - 将所有`'`（单引号）改成 `'\''`
 
@@ -921,11 +1063,9 @@ grep r.*t /etc/passwd
 
   
 
+Shell 中的特殊变量
 
-
-Shell中的特殊变量
-
-- `$1` ， `$2`，可获取命令中的单个参数
+- `$1` ， `$2`，可获取命令中的参数
 
   ~~~bash
   #!/bin/sh
@@ -970,7 +1110,7 @@ else
 fi
 ~~~
 
-上例的条件判断还有个小问题，即$1 可能会是空的，因为用户可能没有输入参数。没有参数的话，该脚本就会变成[ = hi ]，从而报错。可用以下方法来修复：
+上例的条件判断还有个小问题，即 $1 可能会是空的，因为用户可能没有输入参数。没有参数的话，该脚本就会变成[ = hi ]，从而报错。可用以下方法来修复：
 
 ~~~bash
 if [ "$1" = hi ]; then
@@ -1005,15 +1145,9 @@ if [ $a -eq $b ]; then
 
 
 
-
-
-
-
 `command1 && command2` 这里，shel l 会执行 command1 ，如果其退出码是 0 ，就会接着执行 command2 。|| 结构也类似。如果 || 之前的命令返回了非 0 的退出码，|| 之后的命令就会被执行。
 
-
-
-for循环：
+for 循环：
 
 ~~~shell
 
@@ -1081,6 +1215,39 @@ funWithParam(){
 
 funWithParam 1 2 3 4 5 6 7 8 9 34 73
 ~~~
+
+
+
+## 用户管理
+
+- 添加用户：useradd
+
+- 设置密码 ：passwd
+
+- 删除用户：userdel
+
+- 创建用户组：groupadd
+
+  ~~~shell
+  groupadd –g 888 users # 创建一个组 users，其 GID 为 888
+  ~~~
+
+- 更改组成员： gpasswd
+
+  ~~~shell
+  gpasswd –a user1 users # 把 user1 加入 users 组
+  gpasswd –d user1 users # 把 user1 退出 users 组
+  ~~~
+
+- 删除组：groupdel
+
+
+
+su：切换到 root 账户
+
+su - username：切换到 username 账户，并赋予 root 权限
+
+su username：切换到 username 账户
 
 
 
@@ -1208,6 +1375,53 @@ $ tmux select-pane -R
 - `Ctrl+b z`：当前窗格全屏显示，再使用一次会变回原来大小。
 - `Ctrl+b Ctrl+<arrow key>`：按箭头方向调整窗格大小。
 - `Ctrl+b q`：显示窗格编号。
+
+## 安装
+
+ Linux 系统基本上分两大类：
+
+- RedHat 系列：Redhat、Centos、Fedora 等
+- Debian 系列：Debian、Ubuntu 等
+
+RedHat 系列的安装包格式为 rpm 包，而 Debian 系列的安装包格式为 deb 包。而 yum 与 apt 是软件包管理。
+
+
+
+下面介绍如何快速切换 Java 版本：
+
+~~~shell
+$ apt list *jdk
+default-jdk/jammy 2:1.11-72build2 amd64
+openjdk-11-jdk/jammy-updates,jammy-security 11.0.24+8-1ubuntu3~22.04 amd64
+openjdk-17-jdk/jammy-updates,jammy-security 17.0.12+7-1ubuntu2~22.04 amd64
+openjdk-18-jdk/jammy-updates,jammy-security 18.0.2+9-2~22.04 amd64
+openjdk-19-jdk/jammy-updates,jammy-security 19.0.2+7-0ubuntu3~22.04 amd64
+openjdk-21-jdk/jammy-updates,jammy-security 21.0.4+7-1ubuntu2~22.04 amd64
+openjdk-8-jdk/jammy-updates,jammy-security 8u422-b05-1~22.04 amd64
+~~~
+
+`update-alternatives`命令可以更改符号链接
+
+~~~shell
+$ sudo update-alternatives --config java
+There are 2 choices for the alternative java (providing /usr/bin/java).
+
+  Selection    Path                                         Priority   Status
+------------------------------------------------------------
+* 0            /usr/lib/jvm/java-17-openjdk-amd64/bin/java   1711      auto mode
+  1            /usr/lib/jvm/java-11-openjdk-amd64/bin/java   1111      manual mode
+  2            /usr/lib/jvm/java-17-openjdk-amd64/bin/java   1711      manual mode
+
+Press <enter> to keep the current choice[*], or type selection number:
+~~~
+
+通过 `--install <软链接> <切换名称> <路径>` 来添加切换源，下面给出一个例子。
+
+~~~shell
+sudo update-alternatives --install /usr/bin/java java /usr/share/oracle-jdk8/bin/java 1 
+~~~
+
+
 
 
 

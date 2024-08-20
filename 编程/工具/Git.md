@@ -374,25 +374,16 @@ git cherry-pick 6
 
 ![image-20240310204418801](assets/image-20240310204418801.png)
 
-
+`--allow-unrelated-histories` 参数允许将两个不相干的仓库拉取后合并在一起。
 
 
 
 「上游分支」 是指与本地分支绑定的远程分支。它通常作为`pull/push`命令中缺省的目标分支。
 
-- 创建绑定关系
-
-  - `git checkout -b <branch> <remote>/<branch>`。创建一个跟踪分支
-
-
-  - `git branch -u <remove>/<branch>`或者`git branch --set-upstream-to <remove>/<branch>`，令当前分支跟踪某个远程分支
-
-  - `git push -u origin <branch>` 
-
-
-  - 当克隆一个仓库时，它通常会自动地创建一个跟踪 `origin/defualt` 的 `defualt` 分支
-
-
+- 创建绑定关系：`git checkout -b <branch> <remote>/<branch>`。创建一个跟踪分支
+- `git branch -u <remove>/<branch>`或者`git branch --set-upstream-to <remove>/<branch>`，令当前分支跟踪某个远程分支
+- `git push -u origin <branch>` 
+- 当克隆一个仓库时，它通常会自动地创建一个跟踪 `origin/defualt` 的 `defualt` 分支
 - 查看所有跟踪分支：`git branch -vv`
 - 解除绑定关系：·`git branch --unset-upstream branch_name`
 - 删除远程分支：`git push origin --delete branch_name`
