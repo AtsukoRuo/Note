@@ -31,8 +31,8 @@ Maven 依赖如下：
 
 ~~~java
 String endpoint = "https://oss-cn-qingdao.aliyuncs.com";
-String accessKeyId = "LTAI5tACEh51Me9yrBmqMRCc";
-String accessKeySecret = "dei2LpygJgOiaDoX3J9P49zLKMadaY";
+String accessKeyId = "XXXXXX";
+String accessKeySecret = "XXXXXX";
 
 OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
 InputStream inputStream = null;
