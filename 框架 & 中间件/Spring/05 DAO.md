@@ -229,28 +229,11 @@ public MenuItem findByName(String name) {...}
 public class Config {}
 ~~~
 
-也可以在 XML 配置文件中使用 `<cache:annotation-driven/>` 标签，例如：
-
-~~~xml
-<beans xmlns="http://www.springframework.org/schema/beans"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xmlns:cache="http://www.springframework.org/schema/cache"
-        xsi:schemaLocation="
-        http://www.springframework.org/schema/beans
-        https://www.springframework.org/schema/beans/spring-beans.xsd
-        http://www.springframework.org/schema/cache
-        https://www.springframework.org/schema/cache/spring-cache.xsd">
-
-    <cache:annotation-driven/>
-</beans>
-~~~
-
 使用示例：
 
 ~~~java
 @Service
 @CacheConfig(cacheNames = "menu")
-// 类上添加的 @CacheConfig 注解配置了公共的 cacheNames
 public class MenuService {
     @Autowired
     private MenuRepository menuRepository;
@@ -315,7 +298,7 @@ public User find(String id) {
 | `CaffeineCacheManager`      | Caffeine            | 适用于 Caffeine                                           |
 | `JCacheCacheManager`        | JCache              | 适用于遵循 JSR-107 规范的缓存                             |
 
-此外还有Redis、Hazelcast、Infinispan
+此外还有 Redis、Hazelcast、Infinispan
 
 
 
@@ -328,7 +311,9 @@ SpEL基本表达式：
 - 三目运算符
 - 正则表达式匹配符matcher。例如` #{'123' matches '\\d{3}' }` 返回true。
 - 变量引用符：SpEL提供了一个上下文变量的引用符“#”， 可在表达式中使用“#variableName”引用上下文变量。
-- 类型访问运算符：SpEL提供了一个类型访问运算符 T(Type)。其中，“Type”表示某个Java类型，实际上对应于Java类的 java.lang.Class实例。Type必须是类的全限定名（包括包名），但是 核心包“java.lang”中的类除外。例如：\#{T(String).valueOf(1)}表示将整数1转换成 字符串。
+- 类型访问运算符：SpEL 提供了一个类型访问运算符 T(Type)。其中，“Type”表示某个Java类型，实际上对应于Java类的 java.lang.Class实例。Type必须是类的全限定名（包括包名），但是 核心包“java.lang”中的类除外。例如：\#{T(String).valueOf(1)}表示将整数1转换成 字符串。
+
+
 
 
 

@@ -185,9 +185,9 @@ DOM 型 XSS 攻击，实际上就是网站前端 JavaScript 代码本身不够�
 
 ## CSRF
 
-**CSRF（Cross-site request forgery）跨站请求伪造**：攻击者诱导受害者进入第三方网站，在第三方网站中，向被攻击网站发送跨站请求。利用受害者在被攻击网站已经获取的注册凭证，绕过后台的用户验证，达到冒充用户对被攻击的网站执行某项操作的目的。
+**CSRF（Cross-site request forgery）跨站请求伪造**：攻击者诱导受害者进入第三方网站，在第三方网站中，向被攻击网站发送跨站请求，此时浏览器会默认携带攻击网站的 Cookie。Cookie 中包含了用户的凭证信息，从而攻击请求以用户的名义被执行。
 
-一个典型的CSRF攻击有着如下的流程：
+一个典型的 CSRF 攻击有着如下的流程：
 
 - 受害者登录 a.com，并保留了登录凭证（Cookie）。
 - 攻击者引诱受害者访问了 b.com。
@@ -212,71 +212,19 @@ DOM 型 XSS 攻击，实际上就是网站前端 JavaScript 代码本身不够�
 
   - CSRF Token：
 
-    1. 用户打开页面的时候，服务器需要给这个用户生成一个Token，该Token 通过加密算法对数据进行加密，一般`Token`都包括 UserID 和时间戳的组合
+    1. 用户打开页面的时候，服务器需要给这个用户生成一个 Token，该 Token 通过加密算法对数据进行加密，一般`Token`都包括 UserID 和时间戳的组合
     2. 用户在每次请求时，**在请求头上或者表单上**都携带这个 Token
     3. 服务器将从`Token`解析出的`UserID`和时间戳来被验证有效性。时间戳可以防止重放攻击
 
 
 
- Spring Security 是通过 CSRF Token 来防范 CSRF 攻击的。具体来说是 CsrfFilter 过滤器在防范攻击，它直接放行对于 GET、HEAD、TRACE 等请求。而对于其他请求，它期望接收一个包含 Token 的请求头，或者表单数据中有 _csrf 属性。如果不存在或者不正确，那么它拒绝请求，并将响应状态设置为 HTTP 403 Forbidden。
+Spring Security 是通过 CSRF Token 来防范 CSRF 攻击的。具体来说是 CsrfFilter 过滤器在防范攻击，它直接放行对于 GET、HEAD、TRACE 等请求。而对于其他请求，它期望接收一个包含 Token 的请求头，或者表单数据中有 _csrf 属性。如果不存在或者不匹配，那么它拒绝请求，并将响应状态设置为 HTTP 403 Forbidden。
 
-~~~shell
-curl -XPOST http://localhost:8080/hello
-# 响应体
-{
-    "status":403,
-    "error":"Forbidden",
-    "message":"Forbidden",
-    "path":"/hello"
-}
-~~~
-
-~~~shell
-curl -X POST http://localhost:8080/hello
--H 'Cookie: JSESSIONID=21ADA55E10D70BA81C338FFBB06B0206'
--H 'X-CSRF-TOKEN: 1127bfda-57b1-43f0-bce5-bacd7d94694e'
-
-# 响应体
-Hello！
-~~~
-
-![image-20240628142339329](./assets/image-20240628142339329.png)
-
-`CsrfFilter` 使用 `CsrfTokenRepository` 组件来管理令牌。并且在令牌认证成功后，会在 HTTP 请求中添加 _csrf 属性来保存令牌值，之后的过滤器可以通过 `request.getAttribute("_csrf")` 来获取令牌值。
-
-在 Spring Security 中，只有在后端渲染时添加 `${_csrf.parameterName} & ${_csrf.token}`，前端才能获取到 csrf，默认的登录页面 /login 就是这么做的。
-
-~~~html
-<form action="/product/add" method="post">
-    <span>姓名：</span>
-    <span><input type="text" name="name" /></span>
-    <span><button type="submit">添加</button></span>
-    <input type="hidden"
-           th:name="${_csrf.parameterName}"
-           th:value="${_csrf.token}" />
-</form>
-~~~
-
-这对于前后端分离的项目来说是一个麻烦，我们在 JWT 中将给出解决方案。
-
-我们也可以指定某个端点禁用 CSRF
-
-~~~java
-// 方法1
-http.csrf(c -> {
-	c.ignoringAntMatchers("/ciao");
-});
-
-// 方法2
-String pattern = ".*[0-9].*";
-String httpMethod = HttpMethod.POST.name();
-RegexRequestMatcher r = new RegexRequestMatcher(pattern, httpMethod);
-c.ignoringRequestMatchers(r);
-~~~
+CsrfAuthenticationStrategy 实现了 SessionAuthenticationStrategy 接口，在用户登陆成功后触发执行，删除旧的CsrfToken 并生成新的 CsrfToken。
 
 
 
-默认实现的 CsrfTokenRepository 在 Session 中保存令牌，这对于分布式架构来说并不理想，我们可以自定义实现一个以满足需求，我们先来看它的接口定义：
+`CsrfFilter` 使用 `CsrfTokenRepository` 组件来管理令牌。它的接口定义如下：
 
 ~~~java
 public interface CsrfTokenRepository {
@@ -288,19 +236,47 @@ public interface CsrfTokenRepository {
 }
 ~~~
 
-其中，CsrfToken 接口的定义如下：
+而 CsrfFilter 的验证流程如下：
 
 ~~~java
-public interface CsrfToken extends Serializable {
-    String getHeaderName();
-    String getParameterName();
-    String getToken();
+// 从 CsrfTokenRepository 中获取 CsrfToken
+CsrfToken csrfToken = this.tokenRepository.loadToken(request);
+
+ final boolean missingToken = csrfToken == null;
+ 
+// 如果找不到 CsrfToken 就生成一个并保存到 CsrfTokenRepository 中
+if (missingToken) {
+    csrfToken = this.tokenRepository.generateToken(request);
+    this.tokenRepository.saveToken(csrfToken, request, response);
 }
+
+// 在请求中添加 CsrfToken，之后的过滤器可以通过 request.getAttribute("_csrf") 来获取令牌值。 这样在后端渲染时添加 ${_csrf.parameterName} & ${_csrf.token}，前端才会能获取到 csrf。但这对于前后端分离的项目来说是一个麻烦
+request.setAttribute(CsrfToken.class.getName(), csrfToken);
+request.setAttribute(csrfToken.getParameterName(), csrfToken);
+
+// 从请求中获取 CsrfToken
+String actualToken = request.getHeader(csrfToken.getHeaderName());
+if (actualToken == null) {
+    actualToken = request.getParameter(csrfToken.getParameterName());
+}
+
+// 如果请求所携带的 CsrfToken 与从 Repository 中获取的不同，则抛出异常
+if (!csrfToken.getToken().equals(actualToken)) {
+    if (missingToken) {
+        this.accessDeniedHandler.handle(request, response, new MissingCsrfTokenException(actualToken));
+    }
+    else {
+        this.accessDeniedHandler.handle(request, response, new InvalidCsrfTokenException(csrfToken, actualToken));
+    }
+    return;
+}
+
+filterChain.doFilter(request, response);
 ~~~
 
-下面我们来实现在 MySQL 数据库中存储 Token 的 CsrfTokenRepository ：
+默认实现的 CsrfTokenRepository 在 Session 中保存令牌（HttpSessionCsrfTokenRepository），这对于分布式架构来说并不理想，我们可以自定义实现一个以满足需求，下面我们来实现在 MySQL 数据库中存储 Token 的 CsrfTokenRepository ：
 
-~~~java
+```java
 public class CustomCsrfTokenRepository implements CsrfTokenRepository {
     @Autowired
     private JpaTokenRepository jpaTokenRepository;
@@ -345,19 +321,35 @@ public class CustomCsrfTokenRepository implements CsrfTokenRepository {
         return null;
     }
 }
-~~~
+```
 
 然后注册这个 `CsrfTokenRepository` ：
 
-~~~java
+```
 http.csrf(c -> {
     c.csrfTokenRepository(customTokenRepository());
     c.ignoringAntMatchers("/ciao");
 });
-~~~
+```
 
 
 
+
+
+我们也可以指定某个端点禁用 CSRF
+
+```java
+// 方法1
+http.csrf(c -> {
+	c.ignoringAntMatchers("/ciao");
+});
+
+// 方法2
+String pattern = ".*[0-9].*";
+String httpMethod = HttpMethod.POST.name();
+RegexRequestMatcher r = new RegexRequestMatcher(pattern, httpMethod);
+c.ignoringRequestMatchers(r);
+```
 
 ## CORS
 
@@ -402,7 +394,7 @@ http.csrf(c -> {
 Access-Control-Expose-Headers: Content-Length,API-Key
 ```
 
-对于非安全请求，HTTP客户端会先发送一个初步的、所谓的**“预检（preflight）”**请求，来请求许可。预检请求使用 `OPTIONS` 方法，它没有 Body，但是有三个 Header：
+对于非安全请求，HTTP客户端会先发送一个初步的、所谓的**“预检（preflight）”**请求，来请求许可。预检请求使用 `OPTIONS` 方法，它没有 Body，但是有量个 Header：
 
 - `Access-Control-Request-Method` header 带有非安全请求的方法。
 - `Access-Control-Request-Headers` header 提供一个以逗号分隔的非安全 HTTP-header 列表。

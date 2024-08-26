@@ -58,6 +58,8 @@ IdentityFile ~/.ssh/gitlab_id_rsa
 
 ~/.ssh/authorized_keys 存储对端的公玥的。
 
+
+
 ## 基础命令
 
 Unix 的 shell 有很多种，它们都是基于 Bourne shell（/bin/sh）。而 Linux 使用了一个增强版本的 Bourne shell —— Bourne-again shell（BASH）
@@ -146,6 +148,10 @@ echo $PATH
 ~~~bash
 mkdir dir
 ~~~
+
+- -p：若路径中的某些目录尚不存在，则自动创建
+
+
 
 
 
@@ -893,6 +899,12 @@ ip addr del 192.168.1.2/24 dev eth0
 
 
 
+通过 hostnamectl 来修改本机的主机名：
+
+~~~shell
+sudo hostnamectl set-hostname <主机名>
+~~~
+
 
 
 linux 服务器配置DNS解析的三种方法：
@@ -914,7 +926,7 @@ linux 服务器配置DNS解析的三种方法：
    nameserver 8.8.8.8
    ~~~
 
-3. 假设网卡名为eth0，编辑网卡配置文件，增加DNS规则：
+3. 假设网卡名为 eth0，编辑网卡配置文件，增加DNS规则：
 
    ~~~bash
    vim /etc/sysconfig/network-scripts/ifcfg-eth0 
@@ -929,14 +941,10 @@ linux 服务器配置DNS解析的三种方法：
 
 
 
-
-
 curl 获取指定 URL 的内容
 
 - `-I` 获取响应头
 - `-e`： 指定一个 Referers
-
-
 
 
 
@@ -979,10 +987,6 @@ curl 获取指定 URL 的内容
    firewall-cmd --permanent --remove-rich-rule="rule family="ipv4" source
    address="192.168.44.101" port port="8080" protocol="tcp" accept"
    ~~~
-
-
-
-
 
 ## 下载源
 
@@ -1040,7 +1044,7 @@ sudo apt upgrade
 
    
 
-## Shell脚本
+## Shell 脚本
 
 在执行 shell 时，会优先找出变量、通配符以及其他代词，并对它们进行替代。然后再执行命令。假设你想查找 /etc/passwd 中符合正则表达式 r.*t  
 
@@ -1094,7 +1098,11 @@ Shell 中的特殊变量
 
 
 
-命令替换是指 Shell 可以先执行`$()`，然后用标准输出替换`$()`
+命令替换是指 Shell 可以先执行`$()`，然后用标准输出替换`$()`，可以对变量赋值：
+
+~~~shell
+http_code=$(curl -k --connect-timeout 3 $addr/healthz -w "%{http_code}" -s -o /dev/null) 
+~~~
 
 
 
@@ -1220,11 +1228,11 @@ funWithParam 1 2 3 4 5 6 7 8 9 34 73
 
 ## 用户管理
 
-- 添加用户：useradd
+- 添加用户：useradd。添加用户时，默认创建一个与用户同名的组。
 
-- 设置密码 ：passwd
+- 设置密码 ：passwd。新创建的用户必须设置密码，否则将无法登录
 
-- 删除用户：userdel
+- 删除用户：userdel，`-r` 参数表示删除其宿主目录以及在系统中的相关内容
 
 - 创建用户组：groupadd
 
@@ -1251,6 +1259,12 @@ su username：切换到 username 账户
 
 
 
+Adduser 不是标准 Linux 命令，它本质上是一个在后台使用 useradd 命令的 Perl 脚本，但操作简单推荐使用。实际上 adduser 等价于：
+
+~~~shell
+sudo useradd -d /home/test -m -s/bin/bash \ -c FullName,Phone,OtherInfo test && passwd test
+~~~
+
 
 
 ## 会话
@@ -1261,12 +1275,16 @@ su username：切换到 username 账户
 
 Session 中的每个进程组被称为一个 job，有一个 job 会成为 session 的 **前台 job(foreground)**，其它的 job 则是 **后台 job(background)**。每个 session 连接一个控制终端（control terminal），控制终端中的输入被发送给前台 job，从前台 job 产生的输出也被发送到控制终端上。
 
-当关闭终端时，内核中会将 SIGHUP 信号发送到整个 session。默认情况下，这会杀死 session 中的所有进程。但是我们可以通过nohup 命令避免这一点。
+当关闭终端时，内核中会将 SIGHUP 信号发送到整个 session。默认情况下，这会杀死 session 中的所有进程。但是我们可以通过 nohup 命令避免这一点。
 
-Linux后台运行命令有两种方式：
+- &：放到后台执行，关掉终端会停止运行
+- nohup cmd & ： 后台运行，关掉终端不会停止运行
+- ctrl + z：一个正在前台执行的命令放到后台，并暂停该进程的执行
+- jobs：查看当前有多少在后台运行的命令
+- fg：将后台任务调至前台继续运行。如果后台中有多个命令，可以用 `fg %jobnumber` 将选中的命令调出
+- bg：恢复一个在后台暂停的任务，它仍在后台执行
 
-1. cmd & ： 后台运行，关掉终端会停止运行
-2. nohup cmd & ： 后台运行，关掉终端不会停止运行
+
 
 
 
@@ -1427,6 +1445,8 @@ sudo update-alternatives --install /usr/bin/java java /usr/share/oracle-jdk8/bin
 
 ## Service
 
+service 命令本身是一个 shell 脚本，它在`/etc/init.d/`目录查找指定的服务脚本，然后调用该服务脚本来完成任务。systemd 对应的进程管理命令是 systemctl。 systemctl 命令兼容了service
+
 Systemd 的设计目标是，为系统的启动和管理提供一套完整的解决方案。Systemd 取代了`initd`，成为系统的第一个进程（PID 等于 1），其他进程都是它的子进程。Systemd 可以管理所有系统资源。不同的资源统称为 Unit（单位）。Unit 一共分成12种：
 
 - Service unit：系统服务
@@ -1435,32 +1455,14 @@ Systemd 的设计目标是，为系统的启动和管理提供一套完整的解
 - Mount Unit：文件系统的挂载点
 - ...
 
+systemd 的 Unit 放在目录 `/usr/lib/systemd/system(Centos)` 或 `/etc/systemd/system(Ubuntu)` 
+
 下面是与 Unit 相关的命令
 
 ~~~shell
-# 列出正在运行的 Unit
-$ systemctl list-units
-
-# 列出所有Unit，包括没有找到配置文件的或者启动失败的
-$ systemctl list-units --all
-
-# 列出所有正在运行的、类型为 service 的 Unit
-$ systemctl list-units --type=service
-
-# 显示系统状态
-$ systemctl status
 
 # 显示单个 Unit 的状态
 $ sysystemctl status bluetooth.service
-
-# 显示某个 Unit 是否正在运行
-$ systemctl is-active application.service
-
-# 显示某个 Unit 是否处于启动失败状态
-$ systemctl is-failed application.service
-
-# 显示某个 Unit 服务是否建立了启动链接
-$ systemctl is-enabled application.service
 
 # 立即启动一个服务
 $ sudo systemctl start apache.service
@@ -1476,20 +1478,6 @@ $ sudo systemctl kill apache.service
 
 # 重新加载一个服务的配置文件
 $ sudo systemctl reload apache.service
-
-# 显示某个 Unit 的指定属性的值
-$ systemctl show -p CPUShares httpd.service
-
-# 设置某个 Unit 的指定属性
-$ sudo systemctl set-property httpd.service CPUShares=500
-~~~
-
-
-
-Unit 之间存在依赖关系：A 依赖于 B，就意味着 Systemd 在启动 A 的时候，同时会去启动 B。`systemctl list-dependencies`命令列出一个 Unit 的所有依赖。
-
-~~~shell
-$ systemctl list-dependencies nginx.service
 ~~~
 
 
@@ -1504,9 +1492,7 @@ $ sudo systemctl enable clamd@scan.service
 $ sudo ln -s '/usr/lib/systemd/system/clamd@scan.service' '/etc/systemd/system/multi
 ~~~
 
-如果配置文件里面设置了开机启动，`systemctl enable`命令相当于激活开机启动。
-
-与之对应的，`systemctl disable`命令用于在两个目录之间，撤销符号链接关系，相当于撤销开机启动。
+如果配置文件里面设置了开机启动，`systemctl enable`命令相当于激活开机启动。与之对应的，`systemctl disable`命令用于在两个目录之间，撤销符号链接关系，相当于撤销开机启动。
 
 
 
@@ -1530,3 +1516,4 @@ WantedBy=multi-user.target
 
 `[Install]`通常是配置文件的最后一个区块，用来定义如何启动，以及是否开机启动。
 
+Unit 之间存在依赖关系：A 依赖于 B，就意味着 Systemd 在启动 A 的时候，同时会去启动 B

@@ -195,6 +195,23 @@ JavaBeans 是 Java 中一种特殊的类，它满足：
 | application | 一个 Web 应用创建一个（仅Web应用可用）       |
 | websocket   | 一个 WebSocket 会话创建一个（仅Web应用可用） |
 
+~~~java
+// Bean 的作用域示例
+
+// 默认作用域
+@RequestScope
+@Component
+public class LoginAction {
+    // ...
+}
+
+
+@SessionScope
+@ApplicationScope
+~~~
+
+
+
 Bean 的实例化时机：
 
 - 对于 Singleton Bean、FactoryBean 以及 FactoryBean 创建的 Bean（isEagerInit=true），都是伴随容器初始化而创建

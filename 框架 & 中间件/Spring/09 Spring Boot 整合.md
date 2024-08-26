@@ -1092,226 +1092,267 @@ public void testTemplate() throws Exception {
 }
 ~~~
 
-## Cache
+## Caffine
 
- Java 中的缓存模型规范：**JSR-107** 规范
+常见的缓存淘汰算法有：
 
-- CachingProvider：它可以生产多个 `CacheManager`
+1. FIFO：先进先出
+2. LRU：最近最少使用算法，每次访问数据都会将其放在我们的队尾，如果需要淘汰数据，就只需要淘汰队首即可。LRU 通过历史数据来预测未来是局限的，它会认为最后到来的数据是最可能被再次访问的，从而给与它最高的优先级。
+3. LFU：最近最少频率使用，利用额外的空间记录每个数据的使用频率。只要数据访问模式的概率分布随时间保持不变时，其命中率就能变得非常高。如果数据的访问模式遵循先热后冷，那么 LFU 算法表现并不好。
 
-- CacheManager：创建和管理 `Cache` 对象
+一种现代缓存 W-TinyLFU 综合了 LRU、LFU 两者的长处。而 Caffine 正是采用了这种算法，它的 Maven 依赖如下：
+
+~~~xml
+<dependency>
+    <groupId>com.github.ben-manes.caffeine</groupId>
+    <artifactId>caffeine</artifactId>
+    <version>2.6.2</version>
+</dependency>
+~~~
+
+Caffeine Cache 提供了三种缓存填充策略：手动、同步加载和异步加载。
+
+~~~java
+public Object manulOperator(String key) {
+    Cache<String, Object> cache = Caffeine.newBuilder()
+        .expireAfterWrite(1, TimeUnit.SECONDS)
+        .expireAfterAccess(1, TimeUnit.SECONDS)
+        .maximumSize(10)
+        .build();
+    // 如果一个 key 不存在，那么会使用指定的函数来生成 value
+    Object value = cache.get(key, t -> setValue(key).apply(key));
+    cache.put("hello",value);
+
+    // 判断是否存在，如果不存在返回 null
+    Object ifPresent = cache.getIfPresent(key);
+    // 移除一个 key
+    cache.invalidate(key);
+    return value;
+}
+
+public Function<String, Object> setValue(String key){
+    return t -> key + "value";
+}
+~~~
+
+~~~java
+public Object syncOperator(String key) {
+    // 在构造时，传入一个 CacheLoader 实现类，来在 key 不存在的情况下生成 value
+    LoadingCache<String, Object> cache = Caffeine.newBuilder()
+        .maximumSize(100)
+        .expireAfterWrite(1, TimeUnit.MINUTES)
+        .build(k -> setValue(key).apply(key));
+    return cache.get(key);
+}
+
+public Function<String, Object> setValue(String key){
+    return t -> key + "value";
+}
+~~~
+
+~~~java
+public Object asyncOperator(String key){
+    // 异步加载
+    AsyncLoadingCache<String, Object> cache = Caffeine.newBuilder()
+        .maximumSize(100)
+        .expireAfterWrite(1, TimeUnit.MINUTES)
+        .buildAsync(k -> setAsyncValue(key).get());
+
+    return cache.get(key);
+}
+
+public CompletableFuture<Object> setAsyncValue(String key){
+    return CompletableFuture.supplyAsync(() -> {
+        return key + "value";
+    });
+}
+~~~
+
+Caffeine 提供了 4 种回收策略：
+
+- 基于个数回收
 
   ~~~java
-  public interface CacheManager {
-      // 获取特定的 Cache
-      Cache getCache(String name);
-      // 获取所有的 Cache 名
-      Collection<String> getCacheNames();
-  }
+  // 根据缓存的计数进行驱逐
+  LoadingCache<String, Object> cache = Caffeine.newBuilder()
+      .maximumSize(10000)
+      .build(key -> function(key));
   ~~~
 
-- Cache 是具体的缓存器，它的设计非常类似于 `Map` 
+- 基于权重回收
 
   ~~~java
-  public interface Cache {
-  	String getName();
-  	@Nullable
-  	ValueWrapper get(Object key);
-  	@Nullable
-  	<T> T get(Object key, @Nullable Class<T> type);
-  	@Nullable
-  	<T> T get(Object key, Callable<T> valueLoader);
-  	void put(Object key, @Nullable Object value);
-  }
+  // 根据缓存的权重来进行驱逐，必须得提供一个函数来设定每个条目的权重值是多少
+  // 要么限制缓存条目的数量，要么限制缓存条目的权重值
+  LoadingCache<String, Object> cache1 = Caffeine.newBuilder()
+      .maximumWeight(10000)
+      .weigher(key -> function1(key))
+      .build(key -> function(key));
   ~~~
 
-- Entry
+- 基于时间回收
 
-- Expiry
+  ~~~java
+  // 基于固定的到期策略进行驱逐
+  // expireAfterAccess(long, TimeUnit): 在最后一次访问或者写入后开始计时，在指定的时间后过期。每次访问或写入都会重新开始计时
+  // expireAfterWrite(long, TimeUnit): 在最后一次写入缓存后开始计时，在指定的时间后过期。
+  LoadingCache<String, Object> cache = Caffeine.newBuilder()
+      .expireAfterAccess(5, TimeUnit.MINUTES)
+      .build(key -> function(key));
+  LoadingCache<String, Object> cache1 = Caffeine.newBuilder()
+      .expireAfterWrite(10, TimeUnit.MINUTES)
+      .build(key -> function(key));
+  
+  // 基于不同的到期策略进行驱逐
+  LoadingCache<String, Object> cache2 = Caffeine.newBuilder()
+      .expireAfter(new Expiry<String, Object>() {
+          @Override
+          public long expireAfterCreate(String key, Object value, long currentTime) {
+              return TimeUnit.SECONDS.toNanos(seconds);
+          }
+  
+          @Override
+          public long expireAfterUpdate(@Nonnull String s, @Nonnull Object o, long l, long l1) {
+              return 0;
+          }
+  
+          @Override
+          public long expireAfterRead(@Nonnull String s, @Nonnull Object o, long l, long l1) {
+              return 0;
+          }
+      }).build(key -> function(key));
+  ~~~
 
-Maven依赖：
+- 基于引用回收：
+
+  ~~~java
+  // 当 key 和 value 都没有引用时驱逐
+  LoadingCache<String, Object> cache = Caffeine.newBuilder()
+      .weakKeys()
+      .weakValues()
+      .build(key -> function(key));
+  
+  // 当垃圾收集器需要释放内存时驱逐
+  LoadingCache<String, Object> cache1 = Caffeine.newBuilder()
+      .softValues()
+      .build(key -> function(key));
+  ~~~
+
+  注意：AsyncLoadingCache 不支持弱引用和软引用。
+
+
+
+设置驱逐事件的回调函数：
+
+~~~java
+Cache<String, Object> cache = Caffeine.newBuilder()
+    .removalListener((String key, Object value, RemovalCause cause) ->
+                     System.out.printf("Key %s was removed (%s)%n", key, cause)).build();
+~~~
+
+
+
+CacheWriter 方法可以将缓存中所有的数据写入到第三方：
+
+~~~java
+LoadingCache<String, Object> cache2 = Caffeine.newBuilder()
+    .writer(new CacheWriter<String, Object>() {
+        @Override public void write(String key, Object value) {
+            // 写入到外部存储
+        }
+        @Override public void delete(String key, Object value, RemovalCause cause) {
+            // 删除外部存储
+        }
+    })
+    .build(key -> function(key));
+~~~
+
+
+
+在 SpringBoot  中集成  Cache-Caffine Cache，首先引入依赖：
 
 ~~~xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-cache</artifactId>
 </dependency>
+<dependency>
+    <groupId>com.github.ben-manes.caffeine</groupId>
+    <artifactId>caffeine</artifactId>
+    <version>2.6.2</version>
+</dependency>
 ~~~
 
-
-
-使用示例：
+添加 @EnableCaching 注解：
 
 ~~~java
- @Autowired
-private CacheManager cacheManager;
-
- public User get(Integer id) {
-     // 1. 通过 CacheManager 拿到名为 user 的缓存对象 Cache
-     Cache cache = cacheManager.getCache("user");
-     
-     // 2. 从 Cache 中尝试获取一个指定 id 的 User 类型的对象
-     User user = cache.get(id, User.class);
-     
-     // 3. 如果对象数据存在，则直接返回
-     if (user != null) {
-         return user;
-     }
-     
-     // 4. 如果数据不存在，则需要查询数据库，并将查询的结果放入Cache中
-     User userFromDatabase = userMapper.get(id);
-     cache.put(id, userFromDatabase);
-     return userFromDatabase;
- }
-~~~
-
-要在主启动类上标注 `@EnableCaching` 注解
-
-~~~java
-@EnableCaching
 @SpringBootApplication
-public class SpringBootCacheApplication
-~~~
-
-
-
-可以在 Bean 初始化时就获取 `Cache` 对象，减少一部分重复代码。
-
-~~~java
-@Service
-public class CachedUserService implements InitializingBean {;
-    @Autowired
-    private CacheManager cacheManager;
-    private Cache cache;
-    
-    @Override
-    public void afterPropertiesSet() throws Exception {
-        this.cache = cacheManager.getCache("user");
-    }
-
-~~~
-
-
-
-我们可以通过 @Cacheable 来简单快速地使用缓存：
-
-~~~Java
-@Service
-public class AnnotationUserService {
-    @Cacheable("user.get")
-    // value代表缓存的名字，这个参数必填
-    public User get(Integer id) {
-        // 这里缓存映射关系是 id → User
-        return ...;
+@EnableCaching
+public class SingleDatabaseApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(SingleDatabaseApplication.class, args);
     }
 }
 ~~~
 
 ~~~java
-@Autowired
-private AnnotationUserService annotationUserService;
+@Configuration
+public class CacheConfig {
+    /**
+     * 创建基于Caffeine的Cache Manager
+     */
+    @Bean
+    @Primary
+    public CacheManager caffeineCacheManager() {
+        SimpleCacheManager cacheManager = new SimpleCacheManager();
+        ArrayList<CaffeineCache> caches = Lists.newArrayList();
+        List<CacheBean> list = setCacheBean();
+        for(CacheBean cacheBean : list){
+            caches.add(new CaffeineCache(cacheBean.getKey(), Caffeine
+                                         .newBuilder()
+                                         .recordStats()
+                                         .expireAfterWrite(cacheBean.getTtl(), TimeUnit.SECONDS)
+                                         .maximumSize(cacheBean.getMaximumSize())
+                                         .build()));
+        }
+        cacheManager.setCaches(caches);
+        return cacheManager;
+    }
 
-@Test
-public void test3() throws Exception {
-    User user1 = annotationUserService.get(1);
-    User user2 = annotationUserService.get(1);
-    System.out.println(user1 == user2);			// true
+
+    // 这里的 CacheBean 为各个 LoadingCache 的配置参数
+    private List<CacheBean> setCacheBean(){
+        List<CacheBean> list = Lists.newArrayList();
+        CacheBean userCache = new CacheBean();
+        userCache.setKey("userCache");
+        userCache.setTtl(60);
+        userCache.setMaximumSize(10000);
+
+        CacheBean deptCache = new CacheBean();
+        deptCache.setKey("userCache");
+        deptCache.setTtl(60);
+        deptCache.setMaximumSize(10000);
+
+        list.add(userCache);
+        list.add(deptCache);
+        return list;
+    }
+
+    class CacheBean {
+        private String key;
+        private long ttl;
+        private long maximumSize;
+		// getter、setter
+    }
+
 }
 ~~~
 
-这里有两点需要着重说明一下：
+我们可以使用 spring 提供的 `@Cacheable`、`@CachePut`、`@CacheEvict`等注解，来方便的使用 caffeine 缓存。
 
-- 这套缓存抽象背后是通过 AOP 来实现的，所以如果执行缓存操作，那么必须访问代理后的对象（依赖注入帮我们处理好了）
-- 只有那些**可幂等操作**的方法才适用于这套抽象，因为必须要保证相同的参数拥有一样的返回值。
+## xxl-job
 
-| Spring 注解    | 说明                                                         |
-| -------------- | ------------------------------------------------------------ |
-| `@Cacheable`   | 从缓存中获取对应的缓存值，没有的话就执行方法并缓存，然后返回。其中 `sync` 如果为 `true`，在调用方法时会锁住缓存，相同的参数只有一个线程会计算，其他线程等待结果 |
-| `@CachePut`    | 直接更新缓存                                                 |
-| `@CacheEvict`  | 清除缓存，其中的 `allEntries` 如果设置为 `true`，则清除指定缓存 |
-| `@Caching`     | 可以用来组合多个缓存抽象的注解，比如两个 `@CacheEvict`       |
-| `@CacheConfig` | 添加在类上，为这个类里的缓存抽象注解提供公共配置，例如统一的 `cacheNames` 和 `cacheManager` |
-
-这些注解中有很多一样的属性（除了 `@Caching`），具体如下
-
-- `cacheNames`，标识一个缓存
-- `key`，计算缓存Key名的 SpEL 表达式
-- `keyGenerator`，自定义的 `KeyGenerator` Bean 名称，用来生成缓存键名，与 `key` 属性互斥。
-- `cacheManager`，缓存管理器的 Bean 名称，负责管理实际的缓存
-- `cacheResolver`，缓存解析器的 Bean 名称，与 `cacheManager` 属性互斥
-- `condition`，在调用方法**之前**判断条件，决定是否缓存
-- `unless`：在调用方法**之后**判断条件，决定是否**不**缓存。
-
-
-
-key 属性值的说明
-
-- `#root.methodName` 和 `#root.method.name` ：以方法名作为 key。
-
-- `#root.targetClass`：以类名作为 key。
-
-- `#root.args[0]`：以第一个参数名作为 key。如果只有一个参数，那么 `#id` 与 `#root.args[0]`作用一样
-
-- `#root.caches[1]`：以 value[] 中的第一个参数作为 key
-
-- 自定义 key 的生成：
-
-  ~~~java
-  @Component
-  public class UserKeyGenerator implements KeyGenerator {
-      @Override
-      public Object generate(Object target, Method method, Object... params) {
-          return method.getName() + params[0];
-      }
-  }
-  ~~~
-
-~~~java
-// 此处将方法名、name 参数与 size 参数用“-”拼接在一起作为缓存的键名。
-@Cacheable(key = "#root.methodName + '-' + #name + '-' + #size")
-public Optional<MenuItem> getByNameAndSize(String name, Size size) {
-    return menuRepository.findByNameAndSize(name, size);
-}
-~~~
-
-
-
-删除缓存：
-
-```java
-@CacheEvict(cacheNames = "hello", key = "#id") 
-public String delete(String id) {
-    // 删除key为id的缓存
-    return "删除成功";
-}
-```
-
-修改缓存：
-
-```java
-@CachePut(cacheNames = "hello", key = "#id") 
-public String update(String id) {
-    return "修改后的缓存数据";
-}
-```
-
-
-
-Spring 缓存抽象的默认实现为`ConcurrentHashMap`，其实 Spring 的缓存抽象能够支持多种不同的后端缓存实现，通过ChacheMananger来指定：
-
-| 实现类                      | 底层实现            | 说明                                                      |
-| --------------------------- | ------------------- | --------------------------------------------------------- |
-| `ConcurrentMapCacheManager` | `ConcurrentHashMap` | 建议仅用于测试目的                                        |
-| `NoOpCacheManager`          | 无                  | 不做任何缓存操作，可以视为关闭缓存                        |
-| `CompositeCacheManager`     | 无                  | 用于组合多个不同的 `CacheManager`，会在其中遍历要找的缓存 |
-| `EhCacheCacheManager`       | EhCache             | 适用于 EhCache                                            |
-| `CaffeineCacheManager`      | Caffeine            | 适用于 Caffeine                                           |
-| `JCacheCacheManager`        | JCache              | 适用于遵循 JSR-107 规范的缓存                             |
-
-此外还有 Redis、Hazelcast、Infinispan。
-
-## Quartz
-
-Quartz 是定时调度框架。通过 Cron 表达式来描述任务的定期执行策略
+通过 Cron 表达式来描述任务的定期执行策略
 
 ~~~bash
 【seconds minutes hours day-of-month month day-of-week year】
@@ -1346,134 +1387,107 @@ Cron 使用示例：
 - `0 15 10 ? * 6L 2022-2023` ：2022 年至 2023 年的每月的最后一个星期五上午 10:15 触发
 - `0 15 10 ? * 6#3` ：每月的第三个星期五上午 10:15 触发
 
-Maven依赖
+
+
+xxl-job 是分布式任务调度平台。要从 [Github](https://codeload.github.com/xuxueli/xxl-job/zip/refs/tags/2.3.1) 中下载项目的 ZIP 包，直接解压即可：
+
+![34. 解压后用IDEA打开.png](./assets/7e23b2b1ef874aa5bb8f312dcd5cf584tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
+
+然后执行[ SQL脚本 ](https://github.com/xuxueli/xxl-job/blob/master/doc/db/tables_xxl_job.sql)完成数据库初始化。最后我们就启动 `xxl-job-admin`项目即可，通过 [http://localhost:18899/xxl-job-admin/](https://link.juejin.cn/?target=http%3A%2F%2Flocalhost%3A18899%2Fxxl-job-admin%2F)  访问管理页面。默认的用户名密码为 `admin / 123456`。
+
+
+
+在我们自己的项目中导入以下依赖：
 
 ~~~xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-quartz</artifactId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>com.xuxueli</groupId>
+    <artifactId>xxl-job-core</artifactId>
+    <version>2.3.1</version>
 </dependency>
 ~~~
 
-使用示例：
+相关配置如下：
+
+~~~properties
+xxl.job.admin.addresses=http://127.0.0.1:18899/xxl-job-admin
+xxl.job.executor.appname=demo-xxl-job-executor
+# 在 xxl-job-admin 的配置文件中有 xxl.job.accessToken 的定义
+xxl.job.accessToken=default_token 	
+~~~
+
+创建如下配置：
+
+~~~java
+@Configuration(proxyBeanMethods = false)
+public class XxlJobConfiguration {
+    
+    @Value("${xxl.job.admin.addresses}")
+    private String adminAddresses;
+    @Value("${xxl.job.accessToken:}")
+    private String accessToken;
+    @Value("${xxl.job.executor.appname}")
+    private String appname;
+    @Value("${xxl.job.executor.address:}")
+    private String address;
+    @Value("${xxl.job.executor.ip:}")
+    private String ip;
+    @Value("${xxl.job.executor.port:9999}")
+    private int port;
+    @Value("${xxl.job.executor.logpath:}")
+    private String logPath;
+    @Value("${xxl.job.executor.logretentiondays:30}")
+    private int logRetentionDays;
+    
+    @Bean
+    public XxlJobSpringExecutor xxlJobExecutor() {
+        XxlJobSpringExecutor xxlJobSpringExecutor = new XxlJobSpringExecutor();
+        xxlJobSpringExecutor.setAdminAddresses(adminAddresses);
+        xxlJobSpringExecutor.setAppname(appname);
+        xxlJobSpringExecutor.setAddress(address);
+        xxlJobSpringExecutor.setIp(ip);
+        xxlJobSpringExecutor.setPort(port);
+        xxlJobSpringExecutor.setAccessToken(accessToken);
+        xxlJobSpringExecutor.setLogPath(logPath);
+        xxlJobSpringExecutor.setLogRetentionDays(logRetentionDays);
+        return xxlJobSpringExecutor;
+    }
+}
+~~~
+
+最后在方法上添加 @XxlJob 即可：
 
 ~~~java
 @Service
-public class ScheduleService {
-    @Scheduled(cron = 0/5 * * * * *)
+public class DemoService {
+    
+    @XxlJob("demoTest")
     public void test() {
-        LOGGER.info("ScheduleService test invoke ......");
+        System.out.println("触发定时任务 。。。");
     }
 }
 ~~~
 
-这种方式只能把 Cron 表达式硬编码在代码中，无法做到动态定时任务管理。下面我们来实现这一点。首先 Quartz 是由 3 个核心 API 构成的，它们分别是：
+回到 `xxl-job-admin` 任务调度中心上，在「执行器管理」页面添加执行器 demo xxl-job：
 
-- `Job` ：任务模型
-- `Trigger` ：任务触发器
-- `Scheduler` ：任务调度器
+![34. 配置xxl-job-executor.png](./assets/82e640ced5b1475e81f90ff685a1511ftplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
-下面我们通过 RESTful API 来动态添加任务管理器
+来到「任务管理」页面创建执行任务即可：
 
-~~~java
-@RestController
-public class DynamicScheduleController {
-    Autowired
-    private Scheduler scheduler;
-    
-    @GetMapping("/addSchedule")
-    public String addSchedule() throws SchedulerException {
-		int random = ThreadLocalRandom.current().nextInt(1000);
-        // 1. 创建 JobDetail
-        JobDetail jobDetail = JobBuilder
-            .newJob(SimpleJob.class) 
-            .withIdentity("test-schedule" + random, "test-group")
-            .build();
-        
-        // 2. 创建 Trigger，并指定每3秒执行一次
-        CronScheduleBuilder cron = CronScheduleBuilder
-            .cronSchedule("0/3 * * * * ?");
-        
-        Trigger trigger = TriggerBuilder
-            .newTrigger()
-            .withIdentity("test-trigger" + random, "test-trigger-group")
-            .withSchedule(cron).build();
-        
-        // 3. 调度任务
-        scheduler.scheduleJob(jobDetail, trigger);
-    }
-}
+![34. 新增一个定时任务.png](./assets/f5f03b51bb8d42e59ae3408954c32ebbtplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
-public class SimpleJob implements Job {
-    private Logger logger = LoggerFactory.getLogger(this.getClass());
-    
-    @Override
-    public void execute(JobExecutionContext context) {
-        logger.info("简单任务执行 ......");
-    }
-}
-~~~
+然后启动任务就大功告成了
 
-默认将定时任务的信息保存在内容中，可以在 application.yaml 中配置相关参数，将信息保存在数据库中：
+![34. 任务的操作菜单.png](./assets/f8af11264f9f474785deff92ed5c9616tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
-~~~yaml
-# 设置将定时任务的信息保存到数据库
-spring.quartz.job-store-type=jdbc
-    
-# 每次应用启动的时候都初始化数据库表结构
-spring.quartz.jdbc.initialize-schema=always
-~~~
 
-![33. 自动初始化了数据库.png](./assets/e9df038fea954eea8e94483e95a30299tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
-暂停与恢复定时任务：
 
-~~~java
-@GetMapping("/pauseSchedule")
-public String pauseSchedule(String jobName, String jobGroup) throws SchedulerException {
-    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
-    // 获取定时任务
-    JobDetail jobDetail = scheduler.getJobDetail(jobKey);
-    if (jobDetail == null) {
-        return "error";
-    }
-    scheduler.pauseJob(jobKey);
-    return "success";
-}
-
-@GetMapping("/remuseSchedule")
-public String remuseSchedule(String jobName, String jobGroup) throws SchedulerException {
-    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
-    // 获取定时任务
-    JobDetail jobDetail = scheduler.getJobDetail(jobKey);
-    if (jobDetail == null) {
-        return "error";
-    }
-    scheduler.pauseJob(jobKey);
-    return "success";
-}
-~~~
-
-移除定时任务：
-
-~~~java
-@GetMapping("/removeSchedule")
-public String removeSchedule(String jobName, String jobGroup, String triggerName, String triggerGroup) throws SchedulerException {
-    TriggerKey triggerKey = TriggerKey.triggerKey(triggerName, triggerGroup);
-    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
-    Trigger trigger = scheduler.getTrigger(triggerKey);
-    if (trigger == null) {
-        return "error";
-    }
-    // 停止触发器
-    scheduler.pauseTrigger(triggerKey);
-    // 移除触发器
-    scheduler.unscheduleJob(triggerKey);
-    // 删除任务
-    scheduler.deleteJob(jobKey);
-    return "success";
-}
-~~~
 
 ## Swagger
 

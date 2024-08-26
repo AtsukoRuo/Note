@@ -624,6 +624,131 @@ public void download(
 
 
 
+## 分块&断点传输
+
+注意，MultipartFile 会将文件内容全部加载到内存中，这可能导致内存溢出。与它相关的配置：
+
+~~~yaml
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB       # 单个最大文件大小，默认是1MB
+      max-request-size: 100MB   # 总请求文件大小
+~~~
+
+~~~java
+multipartFile.getContentType()
+multipartFile.getName()
+multipartFile.getOriginalFilename()
+multipartFile.getSize() 
+multipartFile.getInputStream()
+multipartFile.getBytes()
+multipartFile.transferTo(new File("D:/"));
+~~~
+
+将HTTP请求体作为一个`InputStream`接收。这样，数据就可以作为流被读取，而不是一次性载入内存。当需要发送大量数据时，可以使用`HttpServletResponse`的输出流。
+
+分块上传的大致思路：
+
+1. 前端做分块逻辑，然后分批上传到服务端
+
+2. 后端以分块的 MD5 作为文件名来创建临时文件
+
+3. 通过 FileChannel 来合并文件：
+
+   ~~~java
+   FileChannel outChannel = new FileOutputStream(outputFile).getChannel();
+   
+   FileChannel inChannel;
+   for(File file : files){
+       inChannel = new FileInputStream(file).getChannel();
+       inChannel.transferTo(0, inChannel.size(), outChannel);
+       inChannel.close();
+   }
+   outChannel.close();
+   ~~~
+
+4. 合并后做一次 MD5 校验。校验通过，就删除临时文件，否则要求客户端重新传校验不合格的文件。
+
+
+
+通过 Range 响应头来实现断点续传：
+
+~~~shell
+Range : bytes=50-       # 从第 50 个字节开始
+Range : bytes=-70       # 从最后的 70 个字节开始
+Range : bytes=50-100    # 下载第 50 字节到 100 字节
+~~~
+
+## WebSocket 
+
+Maven 依赖如下：
+
+~~~xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-websocket</artifactId>
+</dependency>
+~~~
+
+注入一个 ServerEndPointExporter：
+
+~~~java
+@Component
+public class WebSocketConfig {
+    @Bean
+    public ServerEndPointExporter serverEndPointExporter() {
+        return new ServerEndPointExporter();
+    }
+}
+~~~
+
+定义 WebSocket 端点：
+
+~~~java
+@ServerEndpoint(value = "/websocket") // 接受 websocket 请求路径
+@Component  //注册到spring容器中
+public class MyWebSocket {
+    //保存所有在线 socket 连接
+    private static Map<String, Session> onlineSessionClientMap = new ConcurrentHashMap<>();
+
+    private static AtomicInteger onlineSessionClientCount = new AtomicInteger(0);
+
+    private String uid;
+    private Session session;
+
+    // 连接建立成功后回调
+	@OnOpen
+    public void onOpen(@PathParam("uid") String uid, Session session) {
+        // 可以使用 session.getId() 来代替 uid 参数
+        onlineSessionClientMap.put(uid, session);
+        onlineSessionClientCount.incrementAndGet();
+        this.uid = uid;
+        this.session = session;
+    }
+    
+    @OnClose
+    public void onClose(@PathParam("uid") String uid, Session session) {
+        onlineSessionClientMap.remove(uid);
+        onlineSessionClientCount.decrementAndGet();
+    }
+    
+    @OnError
+    public void onError(Session session, Throwable error) {
+        log.error("WebSocket发生错误，错误信息为：" + error.getMessage());
+        error.printStackTrace();
+    }
+    
+    @OnMessage
+    public void onMessage(String message, Session session) {
+        Message msgObj = JsonUtils.getObject(message, Message.class);
+        Session toSession = onlineSessionClientMap.get(msgObj.toUid);
+        // 向 toSession 的 WS 客户端发送消息
+        toSession.getAsyncRemote().sendText(message);
+    }
+}
+~~~
+
 
 
 ## 异常处理

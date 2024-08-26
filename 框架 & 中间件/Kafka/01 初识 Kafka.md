@@ -111,7 +111,7 @@ ISR与 HW 和 LEO 有着紧密的关系。
 
 1. 配置 ZooKeeper
 
-2. 将安装包解压到指定目录
+2. 下载 https://downloads.apache.org/kafka/3.8.0/kafka_2.13-3.8.0.tgz，并将安装包解压到指定目录
 
    ~~~shell
    $ tar -zxvf kafka_2.12-2.4.1.tgz 
@@ -153,38 +153,38 @@ ISR与 HW 和 LEO 有着紧密的关系。
 
    
 
-Kafka 在2.8版本之后，就不再依赖 Zookeeper
+Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
 
 1. 修改 Kraft 协议配置文件`${kafka}/config/kraft/server.properties`
 
    ~~~properties
    node.id=1
-   process.roles=broker,controller
-   listeners=PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
-   advertised.listeners = PLAINTEXT://:9092
-   controller.quorum.voters=1@localhost:9093,2@localhost:9095,3@localhost:9097
+   process.roles=broker,controller 
+   listeners=PLAINTEXT://192.168.58.130:9092,CONTROLLER://192.168.58.130:9093
+   advertised.listeners = PLAINTEXT://192.168.58.130:9092
+   controller.quorum.voters=1@192.168.58.130:9093,2@192.168.58.130:9095,3@192.168.58.130t:9097
    log.dirs=/home/myokuuu/kafka/logs
    ~~~
 
    - `node.id`：这将作为集群中的节点 ID，唯一标识。
-   - `process.roles`：一个节点可以充当 broker 或 controller 
+   - `process.roles`：一个节点可以充当 broker 或 controller 。
    - `listeners`：broker 将使用 9092 端口，而 kraft controller 控制器将使用 9093 端口。
-   - `advertised.listeners`：这里指定 kafka 通过代理暴漏的地址，如果都是局域网使用，就配置`PLAINTEXT://:9092`即可。
+   - `advertised.listeners`：这里指定 kafka 通过代理暴漏的地址，如果都是在局域网中使用，就配置`PLAINTEXT://192.168.58.130:9092`即可。
    - `controller.quorum.voters`：这个配置用于指定 **controller 主控**选举的投票节点，所有`process.roles`包含 controller 角色的规划节点都要参与，即：zimug1、zimug2、zimug3。其配置格式为:`node.id1@host1:9093,node.id2@host2:9093`
    - `log.dirs`：kafka 将存储数据的日志目录，在准备工作中创建好的目录。
 
-2. 生成一个唯一的集群 ID（在一台Kafka实例上执行即可）
+2. 生成一个唯一的集群 ID（在一台 Kafka 实例上执行即可）
 
    ~~~shell
-   $ /home/kafka/kafka_2.13-3.1.0/bin/kafka-storage.sh random-uuid
-   SzIhECn-QbCLzIuNxk1A2A
+    $bin/kafka-storage.sh random-uuid
+   apzYbkooSEKdSSniKSoQmg
    ~~~
 
-   然后运行
+   然后在每个节点上执行
    ~~~shell
-    /home/kafka/kafka_2.13-3.1.0/bin/kafka-storage.sh format \
-   -t SzIhECn-QbCLzIuNxk1A2A \
-   -c /home/kafka/kafka_2.13-3.1.0/config/kraft/server.properties
+   $ bin/kafka-storage.sh format \
+   -t apzYbkooSEKdSSniKSoQmg \
+   -c /root/kafka/config/kraft/server.properties
    ~~~
 
    `log.dirs`目录下多出一个 meta.properties 文件
@@ -193,6 +193,17 @@ Kafka 在2.8版本之后，就不再依赖 Zookeeper
    node.id=1
    version=1
    cluster.id=SzIhECn-QbCLzIuNxk1A2A
+   ~~~
+
+3. 启动节点：
+
+   ~~~shell
+   $ bin/kafka-server-start.sh -daemon /usr/kafka/kafka_2.13-3.6.1/config/kraft/server.properties # 相当于 nohup + &
+   
+   $ bin/kafka-server-stop.sh
+   ~~~
+
+   
 
 ## 生产与消费
 
@@ -210,7 +221,7 @@ $ bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic topic-d
 - `--partitions` 指定了分区个数
 - `--create`是创建主题的动作指令
 
-> 新版本中，zookeeper选项已经被废除了，用--bootstrap-server选项指定Kafka broker的地址和端口
+> 新版本中，zookeeper 选项已经被废除了，用 --bootstrap-server 选项指定 Kafka broker的地址和端口
 
 
 
@@ -225,14 +236,15 @@ $ bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic topic-d
 通过 `kafka-console-consumer.sh` 脚本来订阅主题
 
 ~~~shell
-$ bin/kafka-console-consumer.bat --bootstrap-server localhost:9092 --topic topic-demo
+$ bin/kafka-console-consumer.sh --bootstrap-server 192.168.0.143:9092 --topic topic-demo
 ~~~
 
 使用 `kafka-console-producer.sh` 脚本发送一条消息
 
 ~~~shell
-$ bin/kafka-console-producer.bat --broker-list localhost:9092 --topic topic-demo
+$ bin/kafka-console-producer.sh --broker-list 192.168.0.143:9092 --topic topic-demo
 ~~~
 
 Kafka 引入了动态 broker 参数，将配置项分为三类：`read-only`、`per-broker` 和 `cluster-wide`，第一类跟原来一样需重启才生效，而后面两类都是动态生效的，只是影响范围不同
 
+优先级：**per-broker 参数 > cluster-wide 参数 > static 参数 > Kafka 默认值。**

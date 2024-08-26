@@ -685,8 +685,8 @@ formLogin
 
 这些异常通常在最后一个过滤器 FilterSecurityInterceptor 中抛出，然后在 ExceptionTranslationFilter 中捕获并处理。
 
-- AuthenticationEntryPoint 该类用来统一处理 `AuthenticationException` 异常
-- AccessDeniedHandler 该类用来统一处理 `AccessDeniedException` 异常
+- `AuthenticationEntryPoint` 该类用来统一处理 `AuthenticationException` 异常
+- `AccessDeniedHandler` 该类用来统一处理 `AccessDeniedException` 异常
 
 ~~~java
 public class SimpleAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -716,7 +716,7 @@ http.exceptionHandling().accessDeniedHandler(new SimpleAccessDeniedHandler()).au
 
 在 Spring Security 中，它保证了在一次会话中保持登录状态，但是如果要在多次会话中保持登录状态，那么要考虑实现「记住我」的功能了
 
-Spring Security 里为我们提供了一个 `RememberMeServices` 抽象，由它来实现“记住我”功能，默认有几个实现：
+Spring Security 里为我们提供了一个 `RememberMeServices` 抽象，由它来实现「记住我」功能，默认有几个实现：
 
 - `NullRememberMeServices`，空实现，即不提供「记住我」功能，`UsernamePasswordAuthenticationFilter` 内部默认使用了这个实现；
 

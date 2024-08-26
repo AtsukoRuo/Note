@@ -137,7 +137,7 @@ spring:
 ~~~
 
 - **导入顺序**：导入的配置文件将按照在配置中声明的顺序进行加载。
-- **覆盖行为**：导入配置文件中配置项可以覆盖主配置文件中相同的配置项。
+- **覆盖行为**：导入配置文件中配置项，可以覆盖主配置文件中相同的配置项。
 
 
 
@@ -188,9 +188,9 @@ public class BinaryTeaApplication {
 
 
 
-通过`@EnableAutoConfiguration`启用`spring-boot-autoconfigure`模块中的自动配置类来加载`Bean`（**约定大于配置**）。如果不想启用自动配置功能，可以在配置文件中配置`spring.boot.enableautoconfiguration=false`。
+通过`@EnableAutoConfiguration`启用`spring-boot-autoconfigure`模块中的自动配置类来加载`Bean`（**约定大于配置**）。如果不想启用自动配置功能，可以在配置文件中配置`spring.boot.enable.autoconfiguration=false`。
 
-自动配置类是如何被加载的呢？关键在于 `@EnableAutoConfiguration` 上的 `@Import(AutoConfigurationImportSelector.class)`。`AutoConfigurationImportSelector` 类是 `ImportSelector` 的实现，这个接口的作用就是根据特定条件决定可以导入哪些配置类。`AutoConfigurationImportSelector`会读取`/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，或者读取`META-INF/spring.factories`来加载自动配置类。
+自动配置类是如何被加载的呢？关键在于 `@EnableAutoConfiguration` 上的 `@Import(AutoConfigurationImportSelector.class)`。`AutoConfigurationImportSelector` 类是 `ImportSelector` 的实现，这个接口的作用就是根据特定条件决定可以导入哪些配置类。`AutoConfigurationImportSelector`会读取搜所有类路径下的`/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 文件，或者`META-INF/spring.factories`来加载自动配置类。
 
 > 有些读者可能困惑这与之前介绍的 @ComponentScan 来加载自动配置类有什么区别呢？ 这种方式一般在自定义 spring-boot-starter 时使用，相当于向其他模块暴露本项目的自动配置类。而通过 @ComponentScan 来加载自动配置类是本项目的私有自动配置类
 
@@ -1075,3 +1075,28 @@ Lombok是一个解放生产力的利器，它通过一系列注解消灭了上�
 | `@Slf4j` / `@CommonsLog` / `@Log4j2`                         | 自动生成对应日志框架的日志类，例如定义了一个 `Logger` 类型的 `log`，方便输出日志 |
 
 在 IDE 中，为了开启对 Lombok 的支持，我们需要安装对应 IDE 的 Lombok 插件，例如，IDEA 中要安装 IntelliJ Lombok plugin。
+
+## 自定义 Starter
+
+1. 创建新的 Maven 项目，命名格式为 `xxx-spring-boot-starter`
+
+2. 添加如下 Maven 依赖：
+
+   ~~~xml
+   <dependencies>
+       <dependency>
+           <groupId>org.springframework.boot</groupId>
+           <artifactId>spring-boot-starter</artifactId>
+       </dependency>
+       <dependency>
+           <groupId>org.springframework.boot</groupId>
+           <artifactId>spring-boot-autoconfigure</artifactId>
+       </dependency>
+   </dependencies>
+   ~~~
+
+3. 创建一个用 `@Configuration` 注释的配置类
+
+4. 在`src/main/resources/META-INF`目录下创建`spring.factories`文件，并在`org.springframework.boot.autoconfigure.EnableAutoConfiguration`关键字下列出您的自动配置类
+
+5. 

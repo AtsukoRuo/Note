@@ -129,11 +129,27 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
 
 
 
+MySQL 的安装：
+
+~~~shell
+apt install mysql-server
+systemctl start mysql
+systemctl enable mysql
+
+
+mysql -uroot -p
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '新密码';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+~~~
+
+在 `/etc/mysql/mysql.conf.d` 配置文件中，将 `bind-address` 以及 `mysqlx-bind-address` 修改为 `0.0.0.0`。
+
 下面简单搭建一个一主多从的 MySQL 架构：
 
 ![image-20220807183231101](./assets/image-20220807183231101.png)
 
-1. 在 docker 中创建并启动 MySQL 主服务器，并创建 MySQL 主服务器配置文件
+1. 在 docker 中创建并启动 MySQL 主服务器，并创建 MySQL 主服务器配置文件（my.cnf）
 
    ~~~shell
    [mysqld]
@@ -143,10 +159,12 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    binlog_format=STATEMENT
    
    # 二进制日志名，默认binlog
-   # log-bin=binlog
+   log-bin=binlog
+   
    # 设置需要复制的数据库，默认复制全部数据库
    # binlog-do-db=mytestdb1
    # binlog-do-db=mytestdb2
+   
    # 设置不需要复制的数据库
    # binlog-ignore-db=mysql
    # binlog-ignore-db=infomation_schema
@@ -170,17 +188,14 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
 3. 在主机中创建 slave 用户：
 
    ~~~sql
-   -- 修改默认密码校验方式
-   ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '123456';
-   
    -- 创建slave用户
-   CREATE USER 'atguigu_slave'@'%';
+   CREATE USER 'replica'@'%';
    
    -- 设置密码
-   ALTER USER 'atguigu_slave'@'%' IDENTIFIED WITH mysql_native_password BY '123456';
+   ALTER USER 'replica'@'%' IDENTIFIED WITH mysql_native_password BY 'grf.2001';
    
    -- 授予复制权限
-   GRANT REPLICATION SLAVE ON *.* TO 'atguigu_slave'@'%';
+   GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%';
    
    -- 刷新权限
    FLUSH PRIVILEGES;
@@ -203,8 +218,9 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
    [mysqld]
    # 服务器唯一id，每台服务器的id必须不同，如果配置其他从机，注意修改id
    server-id=2
+   
    # 中继日志名，默认xxxxxxxxxxxx-relay-bin
-   # relay-log=relay-bin
+   relay-log=relay-bin
    ~~~
 
 6. 使用命令行登录 MySQL 从服务器：
@@ -219,25 +235,19 @@ MySQL 主从同步的基本原理是：「slave 从 master 中读取 binlog 来�
 7. 在从机上配置主从关系：
 
    ~~~sql
-   #修改默认密码校验方式
-   ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '123456';
-   
-   CHANGE MASTER TO MASTER_HOST='192.168.100.201', 
-   MASTER_USER='atguigu_slave',MASTER_PASSWORD='123456', MASTER_PORT=3306,
-   MASTER_LOG_FILE='binlog.000003',MASTER_LOG_POS=1357; 
+   CHANGE MASTER TO MASTER_HOST='192.168.0.55', MASTER_USER='replica',MASTER_PASSWORD='grf.2001', MASTER_PORT=3306, MASTER_LOG_FILE='binlog.000004',MASTER_LOG_POS=1745;
    ~~~
-
+   
 8. 启动从机的复制功能：
 
    ~~~sql
    START SLAVE;
-   -- 查看状态（不需要分号）
-   SHOW SLAVE STATUS
+   SHOW SLAVE STATUS \G;
    ~~~
-
-   当下面两个参数都是 Yes 时，则说明主从配置成功！
-
-   [![img](./assets/image-20220715000533951.png)](https://image-tuchuang.oss-cn-chengdu.aliyuncs.com/image-20220715000533951.png)
+   
+当下面两个参数都是 Yes 时，则说明主从配置成功！
+   
+[![img](./assets/image-20220715000533951.png)](https://image-tuchuang.oss-cn-chengdu.aliyuncs.com/image-20220715000533951.png)
 
 
 
