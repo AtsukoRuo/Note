@@ -64,18 +64,6 @@ X HTTP host https://[maven](https://links.jianshu.com/go?to=https%3A%2F%2Fso.csd
   - config：配置文件
 - `main.dart`：应用初始化的代码
 
-## 视图层
-
-分析跨越不同组件之间的数据流是至关重要的，因为它决定了UI动态变化的逻辑。
-
-一般从`界面构建`、`事件触发` 和 `数据维护` 三个维度去分析数据流
-
-![image.png](assets/46a17a0b8248457896fef47e9795587atplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-例如
-
-![image.png](assets/cd546d7bd4cd481ebdab287a591ebfeatplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
 
 
 ## 适配暗黑模式
@@ -149,34 +137,68 @@ return MaterialApp(
 
 ## 首屏加载页面
 
-定义一个Cubit对象，来处理数据的初始化加载：
+定义一个 Cubit 对象，来处理数据的初始化加载：
 
 ~~~dart
+class AppConfig extends Equatable {
+  final bool isInitialized;
+  final bool isFailed;
+  final ThemeMode themeMode;
+  AppConfig({
+    required this.isInitialized,
+    required this.isFailed,
+    required this.themeMode,
+  });
 
+  AppConfig copyWith({
+    bool? isInitialized,
+    bool? isFailed,
+    ThemeMode? themeMode,
+  }) {
+    return AppConfig(
+        isInitialized: isInitialized ?? this.isInitialized,
+        isFailed: isFailed ?? this.isFailed,
+        themeMode: themeMode ?? this.themeMode);
+  }
+
+  @override
+  List<Object> get props => [isInitialized, isFailed, themeMode];
+}
+~~~
+
+~~~dart
 class AppConfigBloc extends Cubit<AppConfig> {
-  AppConfigBloc() : super(AppConfig());
-  
-  // 必须是一个异步方法
-  void initApp() async {
-    await LocalDatabase.localDatabase.connect();
-    AppConfig newAppConfig = state.copyWith(isInitialized: true);
+  AppConfigBloc()
+      : super(AppConfig(
+            isInitialized: false,
+            isFailed: false,
+            themeMode: ThemeMode.system));
 
-    // 为了避免发送信号后Widget尚未构建完成，我们需要在帧结束后再调用emit()，
-    final widgetsBinding = WidgetsBinding.instance;
-    widgetsBinding.addPostFrameCallback((_) {
-      emit(newAppConfig);
-    });
-    // 强制触发一帧的更新
-    widgetsBinding.scheduleFrame();
+  void initApp() async {
+    late AppConfig newAppConfig;
+    try {
+      Default.sharedPreference = await SharedPreferences.getInstance();
+      // 为了避免发送信号后 Widget 尚未构建完成，我们需要在帧结束后再调用 emit()，
+      newAppConfig = state.copyWith(isInitialized: true);
+    } on Exception catch (exception) {
+      newAppConfig = state.copyWith(isFailed: true);
+      Default.logger.e(exception);
+    } finally {
+      final widgetsBinding = WidgetsBinding.instance;
+      widgetsBinding.addPostFrameCallback((_) {
+        emit(newAppConfig);
+      });
+      // 强制触发一帧的更新
+      widgetsBinding.scheduleFrame();
+    }
   }
 }
+
 ~~~
 
 然后，定义`Splash Page`即可
 
 ~~~dart
-const int minimumLoadTime = 1000; // 启动页的最小时间，单位毫秒
-
 /// 启动页
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -185,6 +207,8 @@ class SplashPage extends StatefulWidget {
   State<StatefulWidget> createState() => _SplashPageState();
 }
 
+const int minimumLoadTime = 1000000; // 启动页的最小时间，单位毫秒
+
 class _SplashPageState extends State<SplashPage> {
   late int _initTimestamp;
 
@@ -192,9 +216,6 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
     _initTimestamp = DateTime.now().millisecondsSinceEpoch;
-
-    // 由于initApp是一个异步方法，不通过await调用异步方法并不会阻塞，任务交给后台来处理
-    // initApp通过Bloc对象来通知数据加载完毕的事件
     context.read<AppConfigBloc>().initApp();
   }
 
@@ -212,6 +233,11 @@ class _SplashPageState extends State<SplashPage> {
     return Container(color: Colors.green);
   }
 
+  // 错误弹窗的构建逻辑
+  Widget buildErrorDialog(BuildContext context) {
+    return Container(color: Colors.red);
+  }
+
   void _listenInitialization(BuildContext context, AppConfig state) async {
     // 保证启动页的最小时间
     int now = DateTime.now().millisecondsSinceEpoch;
@@ -220,32 +246,39 @@ class _SplashPageState extends State<SplashPage> {
       await Future.delayed(Duration(milliseconds: delay));
     }
 
-    if (state.isInitialized) {
-      Widget mainWidget = PlatformUIAdapter(
-        desktopWidget: Container(color: Colors.red),
-        mobileWidget: Container(color: Colors.yellow),
-      );
-
-      // 通过Navigator将启动页替换为主界面
+    if (state.isInitialized && !state.isFailed) {
+      // 通过 Navigator 将启动页替换为主界面
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => mainWidget),
+        MaterialPageRoute(builder: (_) => const MainPage()),
       );
+    } else {
+      // 弹出加载失败的界面
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => buildErrorDialog(context)));
     }
   }
 }
+
 ~~~
 
 最后，创建`Cubit`对象以及订阅者即可
 
 ~~~dart
-// 大致结构
-BlocProvider(
-	child : BlocBuilder (
-    	child : MaterialApp(		
-        	home : MainPage();
-        )
-    )
-)
+@override
+Widget build(BuildContext context) {
+    return MultiBlocProvider(
+        providers: [
+            BlocProvider<AppConfigBloc>(create: (_) => AppConfigBloc()),
+        ],
+        child: Builder(
+            builder: (ctx) => MaterialApp(
+                theme: ThemeConfig.theme,
+                darkTheme: ThemeConfig.darkTheme,
+                themeMode: ctx.read<AppConfigBloc>().state.themeMode,
+            ),
+        ),
+    );
+}
 ~~~
 
 ## 异步加载页面（1）
@@ -472,241 +505,14 @@ class PlatformUIAdapter extends StatelessWidget {
 
 
 
-## 代码编辑器
+## 调试
 
-在Flutter中富文本的使用：
-
-~~~dart
-void main() => runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: HomePage(),
-        ),
-      ),
-    );
-
-String src = '这是一段测试文字';
-final TextStyle lightTextStyle =
-    const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold);
-String part1 = src.substring(0, 4);
-String part2 = src.substring(4, 6);
-String part3 = src.substring(6, 8);
-
-// 十分不推荐使用树状结构的TextSpan
-InlineSpan span = TextSpan(children: [
-  TextSpan(text: part1),
-  TextSpan(text: part2, style: lightTextStyle),
-  TextSpan(text: part3)
-]);
-
-class HomePage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Text.rich(span);
-  }
-}
-~~~
-
-![image.png](assets/53132d51a9a3424c891437a039bf1f26tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-
-
-我们接下来实现匹配功能：
+可以使用 debugger() 语句来插入编程式断点：
 
 ~~~dart
-InlineSpan formSpan(String src, String pattern) {
-  List<TextSpan> span = [];
-  RegExp regExp = RegExp(pattern);
-
-  List<String> parts = src.split(regExp); //获取分割段
-  if (parts.isNotEmpty) return TextSpan(text: src);
-
-  List<RegExpMatch> allMatches = regExp.allMatches(src).toList(); //获取匹配段
-    
-  // 将分割段与匹配段交错插入到span中
-  for (int i = 0; i < parts.length; i++) {
-    span.add(TextSpan(text: parts[i]));
-    if (i != parts.length - 1) {
-      String matchValue = allMatches[i].group(0) ?? '';
-      span.add(TextSpan(text: matchValue, style: lightTextStyle));
-    }
-  }
-  return TextSpan(children: span);
-}
-~~~
-
-![image.png](assets/8537b248855e4f86947d9d970be059f7tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-split在根据匹配规则进行切分字符时，会进行匹配，但最后却丢弃匹配结果，并返回的是分割后的字符串列表。为了获取匹配段，我们不得不用 `RegExp` 再匹配一次。**splitMapJoin** 方法可以优化上述问题。
-
-~~~dart
-String splitMapJoin(Pattern pattern,
-      {String Function(Match)? onMatch, String Function(String)? onNonMatch});
-~~~
-
-- **Pattern**：匹配规则
-- **onMatch** 监听到每次匹配结果
-- **onNonMatch** 监听到不匹配结果
-
-
-
-为此，我们可以将`formSpan`重构为：
-
-~~~dart
-InlineSpan formSpan(String src, String pattern) {
-  List<TextSpan> span = [];
-  RegExp regExp = RegExp(pattern);
-  src.splitMapJoin(regExp, onMatch: (Match match) {
-    String value = match.group(0) ?? '';
-    span.add(TextSpan(text: value, style: lightTextStyle));
-    return '';
-  }, onNonMatch: (str) {
-    span.add(TextSpan(text: str));
-    return '';
-  });
-  return TextSpan(children: span);
-}
-~~~
-
-
-
-
-
-![image.png](assets/879d9dd55f384342b75ed547cab976dbtplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-前面的正则匹配中，我们只能为一种正则表达式进行高亮匹配。但很多场景下，我们需要为满足不同的规则的文字进行不同着色。
-
-我们可以使用`StringScanner`来实现上述需求。它有一个`position`属性，是当前被扫描字符的索引。`isDone` 表示是否扫描结束。它的核心工作原理是：每次 `scan` 时都会在 `position` 处进行 `matchAsPrefix` 匹配（字符串的开头是否匹配此模式）。如果匹配成功`position` 会自动移动到匹配末尾，否则保持在原位
-
-下面我们将StringScanner应用在多种不同规则的场景：
-
-~~~dart
-TextSpan generateSpan() {
-    StringScanner scanner = StringScanner("toly 1994,hello!");
-    List<InlineSpan> span = [];
-    while (!scanner.isDone) {
-        if (scanner.scan(RegExp(r'\d+'))) {
-      		String? matchStr = scanner.lastMatch?.group(0);
-      		span.add(TextSpan(text: matchStr, style: style1));
-      		continue;
-    	}
-    	if (scanner.scan(RegExp(r'o.'))) {
-      		String? matchStr = scanner.lastMatch?.group(0);
-      		span.add(TextSpan(text: matchStr, style: style2));
-      		continue;
-    	}
-    	span.add(TextSpan(text: scanner.string[scanner.position]));
-    	scanner.position++;
-    }
-    
-    return TextSpan(children: span);
-}
-~~~
-
-![image.png](assets/3d524511388443a98ec1154129557108tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-上述代码对于未匹配字符的处理是，每次移动索引都会添加一个`TextSpan`，这对于大片连续的未匹配字符是不友好的。
-
-我们可以定义一个`HeightMatch` 对象，用于保存所有匹配段的相关信息。这样扫描完后，就可以这些匹配段的信息，反推出非匹配段。因此上述代码重构为
-
-~~~dart
-// 高亮的类型
-enum HighlightType {
-  type1,
-  type2,
-}
-
-class HeightMatch {
-  final HighlightType type;
-  final int start;
-  final int end;
-
-  HeightMatch(this.type, this.start, this.end);
-    
-  // 高亮的样式
-  TextStyle get style => kHeightMap[type]!;
-}
-
-TextSpan generateSpan() {
-    string str = "toly 1994,hello!";
-    StringScanner scanner = StringScanner(str);
-    List<HeightMatch> heightMatches = [];
-    
-    while (!scanner.isDone) {
-    	if (scanner.scan(RegExp(r'\d+'))) {
-        	Match? match = scanner.lastMatch;
-            if (match != null) {
-            	HeightMatch heightMatch = HeightMatch(HighlightType.type1, match.start, match.end);
-                heightMatches.add(heightMatch);
-            }
-            continue;
-        }
-    	scanner.position++;
-    }
-    return TextSpan(child : _handleHeightMathes(heightMatches, str));
-}
-
-List<InlineSpan> _handleHeightMatches(
-	List<HeightMatch> heightMatches,
-    String string,
-) {
-    List<InlineSpan> span = [];
-    
-    // 设置一个游标，然后遍历匹配段
-    int cursor = 0;
-    for (int i = 0; i < heigthMatch.length; i++) {
-        HeightMatch match = heightMatches[i];
-        // 如果游标与匹配段的开头不相等
-        if (cursor != mathc.start) {
-            // 加入未匹配的字符
-            span.add(TextSpan(text: string.substring(cursor, match.start)));
-        }
-        // 然后加入匹配的字符
-        String matchStr = string.substring(match.start, match.end);
-        span.add(TextSpan(text: matchStr, style: match.style));
-        
-        //将游标设置到该匹配段的末尾
-    	cursor = match.end;
-    }
-    
-    if (cursor != string.length - 1) {
-        span.add(TextSpan(text: string.substring(cursor)));
-        
-    }
-    return span;
-}
-~~~
-
-
-
-我们可以继续优化上述获取匹配段的代码：
-
-![image.png](assets/11271721c0ce4dba88f98c46aa378148tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-将相似逻辑抽象为一个Map对象来处理：
-
-~~~dart
-Map<HighlightType,Pattern> ruleMap = {
-  	HighlightType.type1: RegExp(r"\d+"),
-  	HighlightType.type2: RegExp(r"o."),
-};
-
-List<Pattern> rules = ruleMap.values.toList();
-List<HighlightType> types = ruleMap.keys.toList();
-while (!scanner.isDone) {
-    next:
-    for (int i = 0; i < rules.length; i++) {
-        if (scanner.scan(rules[i])) {
-            Match? match = scanner.lastMatch;
-            if (match != null) {
-                HighlightMatch heightMatch = HighlightMatch(types[i], match.start, match.end);
-                heightMatches.add(heightMatch);
-            }
-            break next;
-        }
-    }
-    if(scanner.isDone) break;
-    scanner.position++;
+void someFunction(double offset) {
+  debugger(when: offset > 30.0);
+  // ...
 }
 ~~~
 

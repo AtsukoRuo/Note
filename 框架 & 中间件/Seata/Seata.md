@@ -31,9 +31,34 @@ Maven 依赖如下：
 </dependency>
 ~~~
 
+在分布式场景下，最好使用 cloud 版本的 Seata 框架。因为它会自动帮我们处理好事务 ID 在各个请求中的传播。否则我需要借助 HTTP 拦截器来手动传递事务 ID，事实上 cloud 也是这么做的。cloud 用 `SeataFeignClient`替换了默认的`feignClient`，把`xid`放到了`requestHeader`里。下游通过 `SeataHandlerInterceptor.preHandle()` MVC 拦截器来获取到 XID。
+
+下面讲解如何手动注入：
+
+~~~java
+public class XIDInterceptor implements ClientHttpRequestInterceptor {
+     @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+        if (StringUtils.isEmpty(RootContext.getXID())) {
+            httpRequest.getHeaders().add(RootContext.KEY_XID, RootContext.getXID());
+        }
+    }
+    
+}
+~~~
+
+Seata 的事务上下文由 RootContext 来管理。应用开启一个全局事务后，RootContext 会自动绑定该事务的 XID，事务结束（提交或回滚完成），RootContext 会自动解绑 XID。
+
+```java
+// 绑定 XID
+RootContext.bind(xid);
+// 解绑 XID
+String xid = RootContext.unbind();
+```
+
+RootContext 的实现是基于 *ThreadLocal* 的，即 XID 绑定在当前线程上下文中。通过上述基本原理，我们可以很容易理解：跨服务调用场景下的事务传播，本质上就是要把 XID 通过服务调用传递到服务提供方，并绑定到 RootContext 中去。
 
 
-在分布式场景下，最好使用 cloud 版本的 Seata 框架。因为它会自动帮我们处理好事务 ID 在各个请求中的传播。否则我需要借助 HTTP 拦截器来手动传递事务 ID，事实上 cloud 也是这么做的。
 
 
 

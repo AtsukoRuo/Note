@@ -6,6 +6,14 @@
 
 ![image-20240222103841934](assets/image-20240222103841934.png)
 
+|                            一对多                            |                            ER 图                             |                           基数表示                           |
+| :----------------------------------------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+| ![image-20240830133229162](./assets/image-20240830133229162.png) | ![image-20240830133240247](./assets/image-20240830133240247.png) | ![image-20240830133249682](./assets/image-20240830133249682.png) |
+
+
+
+
+
 ![img](./assets/1JN1XCFTNEP0N%7BN8$P%5B4%5BZR.jpg)
 
 ![QQ图片20240404161838](./assets/QQ%E5%9B%BE%E7%89%8720240404161838.jpg)
@@ -20,15 +28,19 @@ The participation of an entity set *E* in a relationship set *R* is said to be *
 
 Let *R* be a relationship set involving entity sets $E_1,...,E_n$. If the relationship set R has attributes $a_1, ... a_m$ associated with it, then the set of attributes $primaryKey(E_1) \cup ... \cup primaryKey(E_n) \cup \{a_1, a_2,...a_m\}$
 
-
-
-关系上的主键如何选取？
+ the set of attributes  $primaryKey(E_1) \cup ... \cup primaryKey(E_n) $ forms a superkey for the relationship set.
 
 The choice of the primary key for a binary relationship set depends on the mapping cardinality of the relationship set
 
-- For many-to-many relationships, the preceding union of the primary keys is  chosen as the primary key
-- For one-to-many and many-to-one relationships, the primary key of the “many” side is used as the primary key.
+- For many-to-many relationships, the union of the primary keys is chosen as the primary key
+
+- For one-to-many and many-to-one relationships, the primary key of the “many” side is used as t he primary key.
+
+  For example, if the relationship is many-to-one from student to instructor—that is, each student can have at most one advisor—then the primary key of advisor is simply the primary key of student
+
 - For one-to-one relationships, the primary key of either one of the participating entity sets forms a minimal superkey
+
+  if the advisor relationship is one-to-one—then the primary key of either student or instructor can be chosen as the primary key for advisor.
 
 
 
@@ -71,7 +83,7 @@ bottom-up 表示共性（泛化）
 
 ###  Representation of Strong Entity Sets
 
-Let E be a strong entity set with only simple descriptive attributes a1, a2, …, a  We represent this entity with a schema called E with n distinct attributes. Each tuple in a relation on this schema corresponds to one entity of the entity set E. the primary key of the entity set serves as the primary key of the resulting schema
+Let E be a strong entity set with only simple descriptive attributes a1, a2, …, an  We represent this entity with a schema called E with n distinct attributes. Each tuple in a relation on this schema corresponds to one entity of the entity set E. the primary key of the entity set serves as the primary key of the resulting schema
 
 We handle composite attributes by creating a separate attribute for each of the component attributes;
 

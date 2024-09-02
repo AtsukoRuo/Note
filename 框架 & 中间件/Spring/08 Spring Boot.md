@@ -126,6 +126,8 @@ Spring Boot 的起步依赖之后，此类问题就能得到缓解，同一版�
 
 
 
+## 配置文件
+
 `spring.config.import` 导入其他配置文件。这可以用于将配置逻辑分解为多个模块，使得配置更加清晰和易于管理。
 
 ~~~java
@@ -167,6 +169,24 @@ spring:
        <version>3.0.3</version>
    </dependency>
    ~~~
+
+
+
+
+
+假设我们有如下的三个环境：开发 dev、测试 test、生产 prod，每个环境使用不用的配置项，那么我们必须以 `application-{profile}.yml` 的命名来提供相应的配置文件。
+
+![在这里插入图片描述](./assets/0529ba9986f29a98592fcc73035960f4.png)
+
+其中 application.yml 存放公共配置，可以通过 srping.profiles.active 来指定所要读取的配置文件：
+
+~~~yaml
+spring:
+    profiles:
+        active: dev
+~~~
+
+
 
 ## 自动配置
 
@@ -217,7 +237,6 @@ public @interface Configuration {
 
     boolean enforceUniqueMethods() default true;
 }
-
 ~~~
 
 而它使用条件注解 `@Conditional` 来实现「根据特定条件来启用」的特性，也就是按需装配。注解中传入的 `Condition` 类就是不同条件的判断逻辑。Spring Boot 内置了很多条件注解（`@Conditional` + `Condition`类）
@@ -360,7 +379,9 @@ Spring 使用一些宽松的绑定属性规则。它一共支持四种属性命�
 
 
 
-默认情况下，Spring Boot 会忽略那些不能绑定到 `@ConfigurationProperties` 类字段的属性。可以将@`ConfigurationProperties`的`ignoreUnknownFields` 元素设置为 `false`，就实现当发现未绑定的属性时，控制台将会反馈给我们异常信息。然而这个注解被标记为`@Deprecated`了
+默认情况下，Spring Boot 会忽略那些不能绑定到 `@ConfigurationProperties` 类字段的属性。可以将@`ConfigurationProperties`的`ignoreUnknownFields` 元素设置为 `false`，就实现当发现未绑定的属性时，控制台将会反馈给我们异常信息。然而这个注解被标记为`@Deprecated`了。
+
+
 
 ## Spring Boot Actuator 
 
@@ -815,7 +836,7 @@ management.metrics.distribution.percentiles.order.summary=0.95
 
   
 
-### Metrics输出
+### Metrics 输出
 
 除了通过URL查看`Metrics`，还可以通过日志来查看。
 

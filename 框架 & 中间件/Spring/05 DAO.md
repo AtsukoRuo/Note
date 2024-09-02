@@ -915,43 +915,13 @@ public class UserTransactionListener {
     @Transactional
     public void saveUser() {
         userDao.save(user);
-        // 用户还得手动发布事件，但这些事件会临时存储起来，在事务提交/回滚时再执行这些事件
+        // 用户还得手动发布事件，但这些事件会临时存储起来，在事务提交/回滚时再真正广播这些事件
         eventPublisher.publishEvent(user);
     }
 }
 ~~~
 
-
-
-根据`@TransactionalEventListener`生成的监听器的源码：
-
-~~~java
-@Override
-public void onApplicationEvent(ApplicationEvent event) {
-    // 如果当前处于激活的事务当中，那么会创建一个TransactionSynchronization，并把它放到一个集合当中。
-    // 意思就是先不执行，只是临时存了起来。在事务提交/回滚时再执行这些事件
-    if (TransactionSynchronizationManager.isSynchronizationActive() &&
-            TransactionSynchronizationManager.isActualTransactionActive()) {
-        TransactionSynchronization transactionSynchronization = createTransactionSynchronization(event);
-        TransactionSynchronizationManager.registerSynchronization(transactionSynchronization);
-    }
-    else if (this.annotation.fallbackExecution()) {
-        // 如果没有事务，并且明确设置了fallbackExecution为true，那么直接执行，该效果和EventListener一样。
-        if (this.annotation.phase() == TransactionPhase.AFTER_ROLLBACK && logger.isWarnEnabled()) {
-            logger.warn("Processing " + event + " as a fallback execution on AFTER_ROLLBACK phase");
-        }
-        processEvent(event);
-    }
-    else {
-        // 如果没有事务，并且fallbackExecution 为false，那么直接丢弃该Event不做任何处理。
-        if (logger.isDebugEnabled()) {
-            logger.debug("No transaction is active - skipping " + event);
-        }
-    }
-}
-~~~
-
-这里有一个小坑，就是AFTER_COMPLETION 、AFTER_COMMIT监听器执行顺序得不到保证，这是因为JVM 的标准反射不保证方法列表返回的顺序一致。我们可以通过`@Order`来解决这个问题。
+这里有一个小坑，就是AFTER_COMPLETION 、AFTER_COMMIT监听器执行顺序得不到保证，这是因为 JVM 的标准反射不保证方法列表返回的顺序一致。我们可以通过`@Order`来解决这个问题。
 
 ### 分布式事务
 
@@ -972,58 +942,3 @@ public void onApplicationEvent(ApplicationEvent event) {
 ![{%}](assets/017.jpg)
 
 
-
-这背后的核心接口就是 `SQLExceptionTranslator`，它负责将驱动所抛出的 `SQLException` 转换为 `DataAccessException`。`SQLExceptionTranslator` 及其重要实现类的关系如下图所示
-
-<img src="assets/018.jpg" alt="{%}" style="zoom: 33%;" />
-
-其中，`SQLExceptionSubclassTranslator`和`SQLErrorCodeSQLExceptionTranslator`作为备用转换器，当`SQLErrorCodeSQLExceptionTranslator`无法转换时，将降级处理
-
-
-
-`SQLErrorCodeSQLExceptionTranslator`的转换逻辑在`doTranslate`中，具体流程如下：
-
-- 尝试调用`customTranslate`方法（留给用户覆写的），若成功则直接放回
-
-- 获取`SQLErrorCodes`对象
-
-- 尝试调用 `SQLErrorCodes` 中的 `customSqlExceptionTranslator` 方式来转换
-
-- 再尝试调用 `SQLErrorCodes` 中的 `customTranslations`方式来转换
-
-- 最后再根据配置的错误码来判断。`SQLErrorCodeSQLExceptionTranslator` 会通过 `SQLErrorCodesFactory` 加载特定数据库的错误码信息。`SQLErrorCodesFactory` 默认从 CLASSPATH 的 `org/springframework/jdbc/support/sql-error-codes.xml` 文件中加载错误码配置，这是一个 Bean 的配置文件，其中都是 `SQLErrorCodes` 类型的 Bean。这个文件中包含了 MySQL、Oracle、PostgreSQL、MS-SQL 等 10 余种常见数据库的错误码信息。
-
-  ~~~xml
-  <bean id="MySQL" class="org.springframework.jdbc.support.SQLErrorCodes">
-      <property name="databaseProductNames">
-          <list>
-              <value>MySQL</value>
-              <value>MariaDB</value>
-          </list>
-      </property>
-      <property name="badSqlGrammarCodes">
-          <value>1054,1064,1146</value>
-      </property>
-      <property name="duplicateKeyCodes">
-          <value>1062</value>
-      </property>
-      <property name="dataIntegrityViolationCodes">
-          <value>630,839,840,893,1169,1215,1216,1217,1364,1451,1452,1557</value>
-      </property>
-      <property name="dataAccessResourceFailureCodes">
-          <value>1</value>
-      </property>
-      <property name="cannotAcquireLockCodes">
-          <value>1205,3572</value>
-      </property>
-      <property name="deadlockLoserCodes">
-          <value>1213</value>
-      </property>
-  </bean>
-  ~~~
-
-- 如果最后还是匹配不上，就降级到其他 `SQLExceptionTranslator` 上。
-
-
-
-## 

@@ -19,14 +19,22 @@
 
 AOP 的实现原理就是使用了**动态代理技术**。 这种技术可以用 JDK 动态代理（`InvocationHandler`接口 + `Proxy.newProxyInstance()`）或者是 CGLIB 代理来实现。其中，CGLIB是一个生成或转换 Java 字节码的 API，广泛应用于各种框架中。
 
-|              | 必须要实现接口 | 支持拦截 `public` 方法 | 支持拦截 `protected` 方法 | 拦截默认作用域方法 |
-| :----------- | :------------: | :--------------------: | :-----------------------: | :----------------: |
-| JDK 动态代理 |       ✔️        |           ✔️            |             ❌             |         ❌          |
-| CGLIB 代理   |       ❌        |           ✔️            |             ✔️             |         ✔️          |
+|              | 被代理对象必须要实现接口 | 支持拦截 `public` 方法 | 支持拦截 `protected` 方法 | 支持拦截 `default` 方法 |      |
+| :----------- | :----------------------: | :--------------------: | :-----------------------: | :---------------------: | ---- |
+| JDK 动态代理 |            ✔️             |           ✔️            |             ❌             |            ❌            |      |
+| CGLIB 代理   |            ❌             |           ✔️            |             ✔️             |            ✔️            |      |
+
+无论是 JDK 还是 CGLIB，都不支持 final、private、static 方法的代理。
+
+从性能上来说，JDK 依赖于 Java 的反射机制，因此适合要求创建代理实例速度快、方法调用频率不高的场景。而 CGLIB 依赖于字节码生成技术，因此适合方法调用频率频繁的场景。
+
+
 
 最流行的 AOP 框架分别是`Spring AOP`和`AspectJ`。Spring Framework 通过后置处理器`AnnotationAwareAspectJAutoProxyCreator`来实现，它兼容 AspectJ 风格的切面声明，以及 SpringFramework 原生的 AOP 编程。
 
 注意，AspectJ 中的代理对象增强了 equals 方法，增强了 hashcode 方法，就是没有增强 toString 方法。
+
+
 
 ## @Aspect
 
@@ -160,6 +168,203 @@ args(com.ms.aop.args.demo1.UserModel)	// 拦截只有一个参数，且参数类
 
 
 
+this 和 target 之间的区别，下面我们通过一个例子来说明
+
+| 模式                             | 描述                                                         |
+| -------------------------------- | ------------------------------------------------------------ |
+| `this(com.learn.model.Member)`   | 当前 AOP 对象实现了 Member 接口/抽象类的某些方法，Member 的父类未覆写的方法不会被处理 |
+| `target(com.learn.model.Member)` | 当前目标对象（非AOP对象）实现了Member接口/抽象类的某些方法，Member 的父类未覆写的方法也会被处理 |
+
+~~~java
+public abstract class User {
+    public abstract void who();
+
+    public void say() {
+        System.out.println("hello");
+    }
+
+    public void root() {
+        System.out.println("user");
+    }
+}
+
+@Component
+public class Member extends User{
+
+    @Override
+    public void who() {
+        System.out.println("member");
+    }
+
+    public void doSomething() {
+        System.out.println("member doSomething");
+    }
+
+    public void getCompany() {
+        System.out.println("zero tec");
+    }
+}
+
+@Component
+public class Leader extends Member{
+    @Override
+    public void say() {
+        System.out.println("hello, members");
+    }
+
+    @Override
+    public void who() {
+        System.out.println("leader");
+    }
+
+    @Override
+    public void doSomething() {
+        System.out.println("leader doSomething");
+    }
+
+    public void self() {
+        System.out.println("leader self");
+    }
+}
+
+// 创建切面
+@Aspect
+@Component
+public class ExecutionAop {
+
+    @Before("execution(* com.learn.model..*.*(..)) && this(com.learn.model.Member)")
+    public void execute0(){
+        System.out.println("this(com.learn.model.Member)");
+    }
+
+    @Before("execution(* com.learn.model..*.*(..)) && target(com.learn.model.Member)")
+    public void execute1(){
+        System.out.println("target(com.learn.model.Member)");
+    }
+}
+
+
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class ApplicationTests {
+
+    @Resource
+    private Member member;
+    @Resource
+    private Leader leader;
+
+    // 实现
+    @Test
+    public void test1() {
+        System.out.println("---------------member---------------");
+        member.who();
+        System.out.println("---------------leader---------------");
+        leader.who();
+        /**
+        ---------------member---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        member
+        ---------------leader---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        leader
+		*/
+    }
+
+    @Test
+    public void test2() {
+        // 继承
+        System.out.println("---------------member---------------");
+        member.say();
+        // 重载
+        System.out.println("---------------leader---------------");
+        leader.say();
+        
+        /**
+        ---------------member---------------
+        target(com.learn.model.Member)
+        hello
+        ---------------leader---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        hello, members
+		*/
+    }
+
+    @Test
+    public void test3() {
+        System.out.println("---------------member---------------");
+        member.root();
+        System.out.println("---------------leader---------------");
+        leader.root();
+        /**
+        ---------------member---------------
+        target(com.learn.model.Member)
+        user
+        ---------------leader---------------
+        target(com.learn.model.Member)
+        user
+        */
+    }
+
+    @Test
+    public void test4() {
+        // 独有方法
+        System.out.println("---------------member---------------");
+        member.doSomething();
+        // 子类重写
+        System.out.println("---------------leader---------------");
+        leader.doSomething();
+        /**
+        ---------------member---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        member doSomething
+        ---------------leader---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        leader doSomething
+        */
+    }
+
+    @Test
+    public void test5() {
+        System.out.println("---------------member---------------");
+        member.getCompany();
+        System.out.println("---------------leader---------------");
+        leader.getCompany();
+        /**
+        ---------------member---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        zero tec
+        ---------------leader---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        zero tec
+        */
+    }
+
+    // 独有的方法
+    @Test
+    public void test6() {
+        System.out.println("---------------leader---------------");
+        leader.self();
+        /**
+        ---------------leader---------------
+        this(com.learn.model.Member)
+        target(com.learn.model.Member)
+        leader self
+        */
+    }
+}
+~~~
+
+
+
+
+
 我们还可以使用`@target`、`@args`、`@annotation`来匹配带有特定注解的目标对象：
 
 | PCD           | 说明                                                         |
@@ -197,13 +402,29 @@ Spring AOP 中有多种通知类型：
   我们还可以通过 JoinPoint 参数获取更多被代理对象的信息：
 
   ~~~java
-  @Before("execution(public * com..FinanceService.*(..))")
-  public void beforePrint(JoinPoint joinPoint) {
-      joinPoint.getTarget(); // 获取被代理对象
-      joinPoint.getThis();	// 获取代理对象
-      joinPoint.getArgs();	// 被拦截的方法的参数列表
-      (MethodSignature)joinPoint.getSignature();	// 被拦截的方法的签名
+  @Before("declareJoinPointerExpression()")
+  public void beforeMethod(JoinPoint joinPoint){
+      // 目标方法名
+      joinPoint.getSignature().getName();
+  
+      // 目标方法所属类的类名
+      joinPoint.getSignature().getDeclaringTypeName();
+  
+      MethodSignature signature = (MethodSignature) joinPoint.getSignature(); // 获取代理方法的信息
       
+      String methodName = signature.getName(); // 获取方法名
+      
+      Class<?> returnType = signature.getReturnType(); // 获取返回类型
+      
+  
+      //获取传入目标方法的参数
+      Object[] args = joinPoint.getArgs();
+      
+      // 被代理的对象
+      joinPoint.getTarget();
+      
+      //代理对象自己
+      joinPoint.getThis();
   }
   ~~~
 
@@ -354,6 +575,67 @@ public class UserService {
     public void get(String id) {}
 }
 ~~~
+
+
+
+
+
+下面来看这样一个场景：
+
+~~~java
+@Aspect
+@Component
+public class LoggingAspect {
+    @Before("execution(public * com..*.UserService.*(..))")
+    public void doAccessCheck() {
+        System.err.println("[Before] do access check...");
+    }
+}
+
+// 被代理对象
+@Component
+public class UserService {
+    // 成员变量:
+    public final ZoneId zoneId = ZoneId.systemDefault();
+
+    // public方法:
+    public ZoneId getZoneId() {
+        return zoneId;
+    }
+}
+
+@Component
+public class MailService {
+    @Autowired
+    UserService userService;
+
+    public String sendMail() {
+        ZoneId zoneId = userService.zoneId;
+        String dt = ZonedDateTime.now(zoneId).toString();		// 报错 ZoneId 空指针异常
+        return "Hello, it is " + dt;
+    }
+}
+~~~
+
+之所以会报空指针异常，是因为 CGLIB 生成代理对象时，在子类（代理对象）构造函数中并不会生成调用 super() 构造函数的代码，因此父类（被代理对象）的字段并不会按照预期进行初始化，只能赋值对应的空值。解决方法很简单，就是通过 getter 方法来访问字段：
+
+~~~java
+// 不要直接访问UserService的字段:
+ZoneId zoneId = userService.getZoneId();
+~~~
+
+这是因为代理对象会覆写 getter 方法，将其委托给被代理对象：
+
+```java
+public UserService$$EnhancerBySpringCGLIB extends UserService {
+    UserService target = ...
+        ...
+
+        public ZoneId getZoneId() {
+        return target.getZoneId();
+    }
+}
+```
 
 
 

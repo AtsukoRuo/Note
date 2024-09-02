@@ -661,15 +661,27 @@ class MenuControllerTest {
 </dependency>
 ~~~
 
+~~~yaml
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: Huicheng123**
+    url: jdbc:mysql://localhost:3306/codingmore-mybatis?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
+~~~
+
 配置文件：
 
 ~~~properties
 # 是否执行MyBatis xml配置文件的状态检查, 只是检查状态,默认false
 mybatis.check-config-location=true
+
 # mybatis-config.xml文件的位置
 mybatis.config-location=classpath:mybatis/mybatis-config.xml
+
 # Mapper对应的xml路径
 mybatis.mapper-locations=classpath:mybatis/mapper/*.xml
+
 # 设置别名的路径,可避免写全限定类名
 mybatis.type-aliases-package=com.manu.mybatisxml.model
 ~~~
@@ -1525,7 +1537,7 @@ public class Swagger2Configuration {
     
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-                .title("SpringBoot手动集成Swagger2")
+                .title("SpringBoot 手动集成 Swagger2")
                 .description("test swagger document")
                 .contact(new Contact("https://github.com/LinkedBear", "", ""))
                 .version("1.0")
@@ -1615,5 +1627,168 @@ public class User {
     // getter setter ......
 ~~~
 
+## Lombok
 
+Lombok 可以帮助我们减少编写模板代码
+
+~~~java
+@ToString
+class CmowerLombok {
+	@Getter @Setter private int age;
+	@Getter private String name;
+	@Setter private BigDecimal money;
+}
+~~~
+
+`@Data` 注解可以生成 `getter / setter`、`equals`、`hashCode`，以及 `toString`
+
+~~~java
+
+@Data
+class CmowerLombok {
+	private int age;
+	private String name;
+	private BigDecimal money;
+}
+
+
+class CmowerLombok {
+	private int age;
+	private String name;
+	private BigDecimal money;
+
+	public int getAge() {
+		return this.age;
+	}
+
+	public String getName() {
+		return this.name;
+	}
+
+	public BigDecimal getMoney() {
+		return this.money;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public void setMoney(BigDecimal money) {
+		this.money = money;
+	}
+
+	public boolean equals(Object o) {
+		if (o == this) {
+			return true;
+		} else if (!(o instanceof CmowerLombok)) {
+			return false;
+		} else {
+			CmowerLombok other = (CmowerLombok) o;
+			if (!other.canEqual(this)) {
+				return false;
+			} else if (this.getAge() != other.getAge()) {
+				return false;
+			} else {
+				Object this$name = this.getName();
+				Object other$name = other.getName();
+				if (this$name == null) {
+					if (other$name != null) {
+						return false;
+					}
+				} else if (!this$name.equals(other$name)) {
+					return false;
+				}
+
+				Object this$money = this.getMoney();
+				Object other$money = other.getMoney();
+				if (this$money == null) {
+					if (other$money != null) {
+						return false;
+					}
+				} else if (!this$money.equals(other$money)) {
+					return false;
+				}
+
+				return true;
+			}
+		}
+	}
+
+	protected boolean canEqual(Object other) {
+		return other instanceof CmowerLombok;
+	}
+
+	public int hashCode() {
+		int PRIME = true;
+		int result = 1;
+		int result = result * 59 + this.getAge();
+		Object $name = this.getName();
+		result = result * 59 + ($name == null ? 43 : $name.hashCode());
+		Object $money = this.getMoney();
+		result = result * 59 + ($money == null ? 43 : $money.hashCode());
+		return result;
+	}
+
+	public String toString() {
+		return "CmowerLombok(age=" + this.getAge() + ", name=" + this.getName() + ", money=" + this.getMoney() + ")";
+	}
+}
+~~~
+
+`@Slf4j` 生成日志
+
+~~~java
+@Slf4j
+public class Log4jDemo {
+    public static void main(String[] args) {
+        log.info("level:{}", "info");
+        log.warn("level:{}", "warn");
+        log.error("level:{}", "error");
+    }
+}
+
+public class Log4jDemo {
+    private static final Logger log = LoggerFactory.getLogger(Log4jDemo.class);
+
+    public Log4jDemo() {
+    }
+
+    public static void main(String[] args) {
+        log.info("level:{}", "info");
+        log.warn("level:{}", "warn");
+        log.error("level:{}", "error");
+    }
+}
+~~~
+
+
+
+@NoArgsConstructor, @RequiredArgsConstructor and @AllArgsConstructor 示例
+
+- @NoArgsConstructor：生成一个无参数的构造方法。
+- @RequiredArgsConstructor：标记为 `final` 和 `@NonNull` 的字段会被作为参数。
+- @AllArgsConstructor：生成一个包含所有字段的构造方法。
+
+~~~java
+@NoArgsConstructor
+@RequiredArgsConstructor
+@AllArgsConstructor
+public class Student {
+    @NonNull
+    private String name;
+    private final int age;
+}
+
+// 无参数的构造方法：public Student() { }
+// 包含所有特殊字段（name 和 age）的构造方法：public Student(String name, int age) { this.name = name; this.age = age; }
+// 包含所有字段的构造方法：public Student(String name, int age) { this.name = name; this.age = age; }
+~~~
+
+- `@NoArgsConstructor(force = true)`：当有 `final` 字段没有被初始化时，这个选项可以强制 Lombok 生成一个无参数的构造方法，并将所有 `final` 字段初始化为其默认值（0、false、null等）。
+- `@AllArgsConstructor(access = AccessLevel.PROTECTED)`：这个选项可以用来改变生成的构造方法的访问级别。
+- `@RequiredArgsConstructor(staticName = "of")`：这个选项可以让 Lombok 为你生成一个静态的工厂方法，而不是一个构造方法。
 

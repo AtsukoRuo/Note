@@ -374,7 +374,8 @@ public PasswordEncoder passwordEncoder() {
     encoders.put("noop", NoOpPasswordEncoder.getInstance());
     encoders.put("bcrypt", new BCryptPasswordEncoder());
     encoders.put("scrypt", new SCryptPasswordEncoder());
-    return new DelegatingPasswordEncoder("bcrypt", encoders);
+    String encodingId = "bcrypt";
+    return new DelegatingPasswordEncoder(encodingId, encoders);
 }
 ~~~
 

@@ -33,7 +33,7 @@ Git中主要的对象分为以下四种类型
 - `Commit`
 - `Tag`
 
-它们具有Immutable（不可修改）特性。在构建对象时，先将对象使用`Zlib`进行压缩，再用对象的内容作为`SHA-1`算法的输入，将该算法输出40个字符长度的`SHA-1`值作为该对象的引用，在不冲突情况下，可以用至少6个字符长度的`SHA-1`作为对象的引用。然后Git把对象存储在Git Object Database（在文件系统中存储），一般按以下规则组织存储：对象的`SHA-1`的前2位作为目录名，而后38位作为文件名。
+它们具有 Immutable（不可修改）特性。在构建对象时，先将对象使用`Zlib`进行压缩，再用对象的内容作为`SHA-1`算法的输入，将该算法输出40个字符长度的`SHA-1`值作为该对象的引用，在不冲突情况下，可以用至少6个字符长度的`SHA-1`作为对象的引用。然后Git把对象存储在 Git Object Database（在文件系统中存储），一般按以下规则组织存储：对象的`SHA-1`的前2位作为目录名，而后38位作为文件名。
 
 
 
@@ -83,13 +83,11 @@ git add Note/ 			#add目录
 
 - `-m`：说明提交信息，如果未添加该选项，那么自动跳转到VIM中来补充提交信息
 
-- `-a`：将工作区中所有已跟踪文件提交，相当于跳过 git add。
 
 
+要删除文件时，不要简单的在工作目录中执行本地删除命令，否则暂存区中的文件得不到删除。使用`git rm`命令，Git 会同时在工作区以及暂存区中删除该文件。` --cached`参数将文件仅从暂存区中删除，且不再跟踪该文件文件。
 
-要删除文件时，不要简单的在工作目录中执行本地删除命令，否则暂存区中的文件得不到删除。使用`git rm`命令，Git 会同时在工作区以及暂存区中删除该文件。
-
-`git rm --cached`命令将文件仅从暂存区中删除，且不再跟踪该文件文件移动或者重命名也是如此，要使用`git mv`命令，`git mv`指令当于运行了下面三条命令：
+移动或者重命名也是如此，要使用`git mv`命令，`git mv`指令当于运行了下面三条命令：
 
 ~~~shel
 $ mv README.md README
@@ -101,7 +99,7 @@ $ git add README
 
 
 
-`git log`打印从初始节点到当前HEAD所指向的Commit所有路径上的提交记录
+`git log`打印从初始节点到当前 HEAD 所指向的 Commit 所有路径上的提交记录
 
 -  `--graph`打印当前分支到根节点的所有提交 。`--all`与`--graph`配合使用，以图的形式打印全部提交，不仅仅打印出当前分支到根节点这一条路径上的提交。
 -  `--pretty=oneline` or `--oneline`：精简输出
@@ -116,7 +114,7 @@ $ git add README
 
 
 
-`git reset`可以进行撤回操作，即 HEAD 以及它所指向的 Branch 一起向前移动。git reset有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
+`git reset`可以进行撤回操作，即将 HEAD 向前移动。git reset 有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
 
 -  `--soft`：不会改变工作目录和暂存区的内容。
 
@@ -134,14 +132,13 @@ $ git add README
 
 我们可以在工作目录下创建一个`.gitignore`文件，说明要忽略的**未跟踪**文件。
 
-~~~
+~~~shell
 *.txt			# 匹配工作目录中（包括子文件夹中的）所有以txt结尾的文件（夹）
 /*.txt			# 在工作目录中（不包括子文件夹中的）所有以txt结尾的文件（夹）
 !666.txt		# 不排除666.txt文件（夹）
-test/			 # 也可以直接指定一个文件夹，文件夹下的所有文件将全部忽略
-xxx/*.txt		 # xxx目录中所有以txt结尾的文件，但不包括子目录
+test/			# 也可以直接指定一个文件夹，文件夹下的所有文件将全部忽略
+xxx/*.txt		# xxx目录中所有以txt结尾的文件，但不包括子目录
 xxx/**/*.txt 	 # 目录中所有以txt结尾的文件，包括子目录
-
 ~~~
 
 
@@ -185,8 +182,6 @@ git push origin --delete <tagname>
 
 使用 `git checkout` 命令，将 HEAD 指向某个 TAG 
 
-
-
 ## 分支
 
 
@@ -208,8 +203,8 @@ git push origin --delete <tagname>
   - `git checkout -b <name>`创建并切换，它是以下两条命令的缩写：
 
     ~~~shell
-    $git branch iss53
-    $git checkout iss53
+    $ git branch iss53
+    $ git checkout iss53
     ~~~
 
 - **移动 HEAD**：`git checkout <name>`。
@@ -306,7 +301,7 @@ git rebase master
 
 ![image-20240310230145537](./assets/image-20240310230145537-1721036898130-4.png)
 
-这里 A、B 没有在 Rebase 后出现，是因为无冲突产生。
+由于 A、B 是合并之后的提交，因此在 rebase 中并没有体现出来。
 
 
 
@@ -321,6 +316,20 @@ git cherry-pick 6
 ![image-20240310232114813](assets/image-20240310232114813.png)
 
 出现冲突后，可使用`git cherry-pick --continue`或者`git cherry-pick --abort` 
+
+
+
+Git 分支的命名规范：
+
+- 主分支（Main Branch）：用于存储稳定、可发布的代码。
+- 特性分支（Feature Branch）
+- 修复分支（Bugfix Branch）
+- 发布分支（Release Branch）
+- 热修复分支（Hotfix Branch）
+
+
+
+
 
 ## 远程仓库
 

@@ -4,8 +4,8 @@
 
 ## 类型系统
 
-- final变量是在运行时执行初始化，并且状态在运行时不可更改
-- const变量是在编译期执行初始化，并且状态在运行时不可更改
+- final 变量是在运行时执行初始化，并且状态在运行时不可更改
+- const 变量是在编译期执行初始化，并且状态在运行时不可更改
 
 ~~~dart
 var foo = const [];
@@ -18,7 +18,10 @@ const baz = []; // Equivalent to `const []`
 ~~~dart
 const pointAndLine = const {
   'point': const [const ImmutablePoint(0, 0)],
-  'line': const [const ImmutablePoint(1, 10), const ImmutablePoint(-2, 11)],
+  'line': const [
+      const ImmutablePoint(1, 10), 
+      const ImmutablePoint(-2, 11)
+  ],
 };
 
 const pointAndLine = {
@@ -95,7 +98,6 @@ record 类型
 (num, Object) pair = (42, 'a');
 
 var first = pair.$1; // Static type `num`, runtime type `int`.
-
 var second = pair.$2; // Static type `Object`, runtime type `String`.
 ~~~
 
@@ -111,15 +113,14 @@ for (var i = 0; i < 5; i++) {
 for (final c in callbacks) {
   c();
 }
-
 ~~~
 
 
 
 ~~~dart
-final myList = [  1,  2,  if (condition)    3];
-final myList = [1,2,if (condition) 3 else 4];
-final myList = [1,2,condition ? 3 : 4];
+final myList = [1, 2, if (condition) 3];
+final myList = [1, 2, if (condition) 3 else 4];
+final myList = [1, 2, condition ? 3 : 4];
 ~~~
 
 ~~~dart
@@ -166,6 +167,8 @@ try {
   }
   add(b: 5, a: 10);
   ~~~
+  
+  如果不给命名参数指定值的话，那么将会被赋予 null，此时要求命名参数的类型是可空的。
 
 
 
@@ -179,9 +182,11 @@ Once a parameter is optional, you can also assign a **default value** to it
 void add(a, [b = 5])
 ~~~
 
+如果不指定默认值的话，那么将会被赋予 null，此时要求参数的类型是可空的。
 
 
-Default values can also be assigned to named parameters - which are optional by default:
+
+Default values can also be assigned to named parameters  which are optional by default:
 
 ```dart
 void add({a, b = 5})
@@ -199,36 +204,11 @@ void add({required a, required b})
 void add(c, {a, b})
 ```
 
+
+
+
+
 ## 异步
-
-Dart的事件循环中有两个队列
-
-- **微任务队列（MicroTask queue）**
-- **事件队列（Event queue）**
-
-<img src="assets/webp.webp" alt="img" style="zoom: 33%;" />
-
-总之，每次事件循环中，**一次性处理完**微任务队列，但**只处理一个**在事件队列中的任务
-
-`scheduleMicrotask`将任务提交到微任务队列中
-
-~~~dart
-scheduleMicrotask((){
-    print('a microtask');
-});
-~~~
-
-`Timer.run`将任务提交到事件队列中
-
-~~~dart
-Timer.run((){
-   print('a event loop’);
-});
-~~~
-
-`Future((){ });`、`Future.delayed`都是将任务提交到事件队列中
-
-
 
 使用 `async` 和 `await` 关键字可以避免回调地狱 (Callback Hell) ，并使代码更具可读性：
 
@@ -265,9 +245,7 @@ Future<R> then<R>(FutureOr<R> onValue(T value), {Function onError});
 Future<T> catchError(Function onError, {bool test(Object error)});
 ~~~
 
-`catchError`方法还有一个可以选的`test`函数参数。当发生异常时，会首先调用`test`函数，如果该函数返回false，异常将不会被`catchError`函数处理，而是会继续传递下去；如果`test`函数返回 ture,`catchError`函数会处理该异常。如果未提供`test`函数，默认处理为true。
-
-
+`catchError`方法还有一个可以选的`test`函数参数。当发生异常时，会首先调用`test`函数，如果该函数返回 false，异常将不会被`catchError`函数处理，而是会继续传递下去；如果`test`函数返回 ture,`catchError`函数会处理该异常。如果未提供`test`函数，默认处理为true。
 
 Future对象还有一个`whenComplete`方法，当该`Future`处于完成状态时，通过该方法注册的回调会被调用，无论结果是成功还是失败，相当与`finally`代码块。
 
@@ -277,69 +255,14 @@ Future对象还有一个`whenComplete`方法，当该`Future`处于完成状态�
 
 `timeout`方法创建一个新的 Future 对象，接收一个`Duration`类型的`timeLimit`参数来设置超时时间。如果原`Future`在超时之前完成，最终的结果就是该原`Future`的值；如果达到超时时间后还未完成，就会产生`TimeoutException`异常。 该方法有一个`onTimeout`可选参数，如果设置了该参数，当发生超时时会调用该函数，该函数的返回值为 Future 的新的值，而不会产生`TimeoutException`。
 
-
-
-
-
-
-
 ## 类
 
 在 Dart 中，以下划线 `_` 开头的函数名或者字段名，都是私有的。
 
-
-
 - 组成单元：普通类，`abstract`抽象类、`mixin`。
 - 关系连接：`implements`实现、`extends`继承、`with`混入。
 
-抽象类：
 
-- 抽象类通过 abstract 关键字来定义
-- 没有方法体的方法称为抽象方法
-- 抽象类不能被实例化
-
-implements：
-
-- 允许后面接上多个普通或者抽象类
-- 使用`B implement A`修饰时，那么`A`中的所有的属性和方法都要在`B`中实现，无论它原来是抽象方法还是普通方法。
-
-
-
-`mixin` 和`abstract`类似，该类可以拥有成员变量、普通方法、抽象方法，但是不可以实例化
-
-~~~dart
-mixin DrawFunc {
-  String content = '..';
-  String what();
-    
-  void draw() {
-    print('I can draw ${what()}');  
-  }
-}
-
-class Teacher with DrawFunc {
-  String what() => "car";
-}
-
-void main() {
-  Teacher().draw();
-}
-~~~
-
-可以通过 on 来限制可以混入的类型：
-
-~~~dart
-mixin SingFunc on Person, DrawFunc {
-   	// ...
-}
-~~~
-
-
-
-命名冲突的情况：
-
-- `with`修饰的会覆盖`extends`中修饰的同名方法。
-- `with`列表中后一个的会覆盖之前的。
 
 ### 构造函数
 
@@ -420,15 +343,11 @@ const Text(			// 显式使用 const 函数
 
 
 
-
-
 构造函数的执行顺序：
 
 1. 调用初始化列表
 2. 调用父类的构造函数
 3. 调用自己的构造函数
-
-
 
 如果父类没有默认的无参构造函数，则需要通过 `super` 来手动指定父类的构造函数。
 
@@ -445,8 +364,6 @@ const StyledText(this.text, {super.key});
 const StyledText(text) text = text, super(key : key);
 ~~~
 
-
-
 ### 字段
 
 const 成员必须为 static 的
@@ -454,8 +371,6 @@ const 成员必须为 static 的
 ```dart
 static const Alignment topLeft = Alignment(-1.0, -1.0);
 ```
-
-
 
 getter、setter 是 getXXX、setXXX 的语法糖
 

@@ -990,9 +990,7 @@ departmentMapper.cleanCache();			// 只会清除一级缓存
 departmentMapper.findAll();
 ~~~
 
-第一次执行 `findAll` 方法时，它会开启一个 jdbc 的连接，并且发送 SQL 语句到数据库。但第二次再调用时，它没有再次发送 SQL。清空缓存后的第三次调用，会发送 SQL。
-
-一级缓存基于 `SqlSession`，不同的 `SqlSession` 一级缓存不共享。
+第一次执行 `findAll` 方法时，它会开启一个 jdbc 的连接，并且发送 SQL 语句到数据库。但第二次再调用时，它没有再次发送 SQL。清空缓存后的第三次调用，会发送 SQL。一级缓存基于 `SqlSession`，不同的 `SqlSession` 一级缓存不共享。
 
 ~~~java
 SqlSession sqlSession = sqlSessionFactory.openSession();

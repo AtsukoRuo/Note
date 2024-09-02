@@ -227,10 +227,10 @@ Spring Framework 提供了多种不同风格的配置方式：
 
   - 在 XML 中编写 Bean 标签
   
-- 基于注解的配置，是配合 Bean XML 或者 Java 配置类来一起使用的
+- 基于注解的配置，是配合 Bean XML 或者 Java 注解来一起使用的
 
   - Bean XML：`<context:component-scan base-package="learning.spring"/>`
-  - Java配置类：`@ComposeScan`兼容注解、`@ImportResource`，兼容 XML
+  - Java 注解：`@ComponentScan`注解（`@Controller` 、`@Service` 、`@Repository`、@Configuration）、@Import 导入配置类
 
 - Java 配置类的 `@Bean`
   
@@ -377,7 +377,9 @@ public class Hello {
 
 如何指定 Bean 的初始化顺序？
 
-一般情况下，Spring 容器会根据依赖关系来决定 Bean 的初始化顺序。不过，有时 Bean 之间的依赖关系是循环的，容器可能无法按照我们的预期进行初始化。此时，我们可以通过`<bean/>` 的 `depends-on` 属性来指定当前 Bean 还要依赖哪些 Bean，来确定 Bean 的依赖顺序（`@DependsOn` 注解）
+一般情况下，Spring 容器会根据依赖注入来决定 Bean 的初始化顺序。不过，我们可以通过（`@DependsOn` 注解），来确定 Bean 的初始化顺序。
+
+**@Order 支持集合的注入时，指定集合中 bean 的顺序**。它对于但 bean 之间的初始化顺序，没有任何影响。
 
 #### 基于注解的配置
 
@@ -416,11 +418,27 @@ public class Person { }
 
 在 Spring Boot 中，如果一个 @Component 类有多个构造器，Spring 会尝试选择一个最合适的构造器来实例化该类：
 
-- 如果该类中只有一个构造器，Spring 会使用该构造器来实例化该类。
-- 如果该类中有多个构造器，Spring 会首先尝试使用默认构造器（即无参构造器）来实例化该类。
-- 如果没有默认构造器，Spring会优先选择带有 @Autowired 注解的构造器（如果有的话），并将其用于实例化该类。
-- 如果有多个构造器都带有 @Autowired 注解，Spring 会选择参数数量最多的构造器来实例化该类
-- 如果有多个构造器的参数数量相同，则Spring会引发异常，因为无法确定应该使用哪个构造器。
+对于没有 @Autowired 注解的情况下：
+
+- 如果该类中只有一个构造器，毫无疑问会使用该构造器来实例化该类。但是构造器所依赖的对象必须要被满足（在 IOC 容器中），否则会报错。
+- 如果该类中有多个构造器，Spring 会首先尝试使用默认构造器（即无参构造器）来实例化该类，否则将直接报错。
+
+在有 @Autowired 注解的情况下：
+
+- 有一个 @Autowired 的话
+
+  - 如果 required 属性为 false，那么在这个构造函数所需要的参数不被满足的情况下，会调用无参构造函数来初始化。如果此时没有无参构造函数，那么就会报错。
+  - 如果 required 属性为 true，当无法满足参数时，就直接抛出异常。
+
+- 有多个 @Autowired 注解
+
+  - 如果这些 @Autowired 构造函数中存在 required=true 的构造函数，那么将会直接抛出异常。
+
+  - 排除掉不满足参数的 @Autowired 构造函数，然后根据继承关系计算剩余@Autowired 构造函数的差异度，选取差异度最小的 @Autowired 构造函数，来实例化 Bean。如果有多个相同的最小差异度，那么选择第一个被处理的
+
+  - 差异度的计算如下：假设我们需要 A，而容器中有 B， 那么参数 A 对差异度的贡献为 B 到 A 所经过的继承层次的层数 * 2。特别的，如果参数是一个接口的话，那么差异度会额外增加 1。
+
+    以构造器 Constructor(Object,Object,Object)，实际参数（Float,Double,Integer）为例。因为 Float，Double，Integer 均继承于 Number，并且 Number 继承于 Object，且 Object 不为接口。所以该构造器的差异度指数为 6。
 
 
 
@@ -466,13 +484,13 @@ public class ConstructorServiceImpl implements ConstructorService {
 }
 ~~~
 
-@Autowired 的注入逻辑如下：
+@Autowired 的字段注入逻辑如下：
 
 1. 按照类型，来匹配类型与之相同的 Bean 对象（考虑向上兼容）
 2. 如果有多个匹配的 Bean，按被注入对象的属性名来继续匹配 Bean ID。
 3. 否则默认抛出异常，如果设置了`@Autowired(required = false)`，那么返回`null`
 
-@Autowired的细节
+@Autowired 的细节
 
 - 只有使用构造函数注入才能注入 final 字段
 - 执行顺序：构造函数注入/构造函数 -> 字段注入/setter注入。这个执行顺序会有一些微妙的问题。
@@ -504,12 +522,7 @@ private List<Person> persons;
 
 
 
-`@Resource`的注入逻辑
-
-- 如果同时指定了 name 和 type，则注入同时匹配 name 和 type 的Bean
-- 如果指定了name，则注入匹配ID的Bean
-- 如果指定了type，则注入匹配类型的Bean
-- 如果既没有指定name，又没有指定type，则首先按照 byName 方式进行装配；如果没有匹配，则按照 byType 方式进行装配
+`@Resource`**JSR-250 **规范的一个注解（Spring 也支持），而 `@Autowired` 是 Spring 中的一个注解。 `@Inject` 是 JSR-330 规范中的一个注解。它们都实现了依赖注入的功能。
 
 
 
@@ -548,13 +561,13 @@ public class Config {
   AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(Config.class);
   ~~~
 
--  `@ComponentScan` 注解将指定包下的Bean对象（@Component、@Configuration等注解的类）添加到当前配置类中（兼容基于注解的配置）。 如果不写 `@ComponentScan` ，也是可以做到组件扫描的，可以在 `AnnotationConfigApplicationContext` 的构造方法中指定
+-  `@ComponentScan` 注解将指定包下的 Bean 对象（@Component、@Configuration等注解的类）添加到当前配置类中（兼容基于注解的配置）。 如果不写 `@ComponentScan` ，也是可以做到组件扫描的，可以在 `AnnotationConfigApplicationContext` 的构造方法中指定
 
   ~~~java
   ApplicationContext ctx = new AnnotationConfigApplicationContext("com.linkedbear.spring.annotation.c_scan.bean");
   ~~~
 
-- `@ImportResource`将指定XML配置文件中的Bean对象添加到当前配置类中（兼容基于XML的配置）。 
+- `@ImportResource`将指定XML 配置文件中的 Bean 对象添加到当前配置类中（兼容基于XML的配置）。 
 
 - `@Import`导入其他配置类
 
@@ -737,12 +750,14 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 
 3. 在 `<bean/>` 中配置的 `init-method` 或 `destroy-method`，`@Bean` 中配置的 `initMethod` 或 `destroyMethod`。
 
-对于原型 Bean 来说，并不会像单例 Bean 那样在容器初始化时执行回调，而是在延迟创建（按需创建）时，执行初始化回调。并且在销毁时，不会执行`destroy-method` 标注的方法。
+对于原型 Bean 来说，并不会像单例 Bean 那样在容器初始化时执行回调，而是在延迟创建（按需创建）时，执行初始化回调。原型 Bean 不由 Spring 负责销毁（因此不会执行那些回调方法），程序员应手动进行该 Bean 对象的销毁。
 
 何时执行销毁回调
 
-- 从容器中删除Bean时：`ctx.getBeanFactroy().destroyBean(pen);`
+- 从容器中删除 Bean 时：`ctx.getBeanFactroy().destroyBean(pen);`
 - 容器关闭时：`ctx.close();`	
+
+
 
 对于初始化以及销毁方法的要求：
 
@@ -750,6 +765,8 @@ dogProvider.ifAvailable(dog -> System.out.println(dog));
 2. 方法无返回值
 
 ### Aware 接口
+
+Spring 通过 Aware 接口机制，给类提供获取 spring 内部信息的能力
 
 | 接口名                         | 用途                             |
 | ------------------------------ | -------------------------------- |
@@ -830,9 +847,7 @@ public class ContextClosedEventAnnotationListener {
 }
 ~~~
 
-`@EventListener` 还有一些其他的用法，比如，在监听到事件后希望再发出另一个事件，这时可以将方法返回值从 `void` 修改为对应事件的类型
-
-`@EventListener` 也可以与 `@Async` 注解结合，实现在另一个线程中处理事件。
+`@EventListener` 还有一些其他的用法，比如，在监听到事件后希望再发出另一个事件，这时可以将方法返回值从 `void` 修改为对应事件的类型。`@EventListener` 也可以与 `@Async` 注解结合，实现在另一个线程中处理事件。
 
 
 
@@ -1013,7 +1028,7 @@ public class DataSourceConfiguration {
   }
   ~~~
 
--  `@Value` 注解，不支持注入到静态字段中。
+-  `@Value` 注解，向 Spring 管理的 Bean 中的字段注入值，但是它不支持注入到静态字段中。
 
   ~~~java
   //`${}` 引用配置文件中的变量
@@ -1028,22 +1043,20 @@ public class DataSourceConfiguration {
   private Integer age;
   ~~~
   
-  @Value 还支持 SpEL 表达式。SpEL 的语法统一用 **`#{}`** 表示
+  @Value 还支持 SpEL 表达式，可以动态计算属性值。SpEL 的语法统一用 **`#{}`** 表示
   
   - 算术运算符：加（+）、减（-）、乘（*）、除（/）、求余 （%）、幂（^）、求余（MOD）和除（DIV）等算术运算符
   - 关系运算符：等于（==）、不等于（!=）、大于（>）、大 于等于（>=）、小于（<）、小于等于（<=）、区间（between）运算 等。例如：#{2>3}的值为false。
   - 逻辑运算符：与（and）、或（or）、非（!或NOT）
   - 字符串运算符：连接（+）和截取（[ ]）。例如：#{'Hello ' + 'World!'}的结果为“Hello World!”；#{'Hello World!'[0]} 截取第一个字符“H”
   - 三目运算符
-  - 正则表达式匹配符： matches。例如：#{'123' matches '\\d{3}' }返回true
-  - 类型访问运算符： T(Type)。其中，“Type”表示某个Java类型，实际上对应于Java类的 java.lang.Class实例。Type必须是类的全限定名（包括包名），但是 核心包“java.lang”中的类除外。例如：T(String)表示访问的是 java.lang.String类，#{T(String).valueOf(1)}表示将整数1转换成字符串。
-  - 变量引用符：SpEL 提供了一个上下文变量的引用符“#”
+  - 正则表达式匹配符： matches。例如：#{'123' matches '\\d{3}' }返回 true
+  - 类型访问运算符： T(Type)。其中，“Type”表示某个Java类型，实际上对应于Java类的 java.lang.Class实例。Type必须是类的全限定名（包括包名），但是“java.lang 中的类除外。例如：T(String)表示访问的是 java.lang.String类，#{T(String).valueOf(1)}表示将整数1转换成字符串。
+  - 变量引用符：SpEL 提供了一个上下文变量的引用符 “#” 
   
   
   
-  
-  
-  我们可以在配置类上添加`@PropertySource("classpath:basic_di/value/red.properties")`，其中注解值为属性文件的路径。那么 @Value 可以从属性文件中获取属性值。
+  `${}`的 SpEL 表达式一般从外部源（如配置文件）注入变量中使用。我们可以在配置类上添加`@PropertySource("classpath:basic_di/value/red.properties")`，其中注解值为属性文件的路径。那么 @Value 可以从属性文件中获取属性值。
 
 
 
@@ -1091,7 +1104,7 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
 
 在配置好了 `TaskExecutor` 后
 
-- 在依赖注入后，可以直接调用它的 `execute()` 方法，并传入一个 `Runnable` 对象
+- 在依赖注入后，可以直接调用它的 `execute()` 方法
 
 - 在方法上使用 `@Async` 注解
 
@@ -1106,7 +1119,7 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
 
 `TaskScheduler`对定时任务有着很好的支持。
 
-- 在依赖注入后，可以直接调用它的 schedule() 方法
+- 在依赖注入后，可以直接调用它的 `schedule()` 方法
 
 - 也可以使用 @Scheduled 注解
 
@@ -1608,3 +1621,6 @@ public @interface EnableJdbc {}
 - 依赖查找通常**主动**使用上下文搜索（拿到 `BeanFactory` / `ApplicationContext` 之后主动调用 `getBean` 方法）
 
 推荐使用依赖注入DI（推），而不是使用借助 `BeanFactory` 进行依赖查找 DL（拉）。
+
+
+

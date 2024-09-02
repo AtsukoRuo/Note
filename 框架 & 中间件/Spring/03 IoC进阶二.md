@@ -219,53 +219,32 @@ public void preInstantiateSingletons() throws BeansException {
 
 它们都是通过 getBean 方法来创建的。它会获取指定名称的 Bean。如果未获取到，或者它是多例的，那么就实例化它。
 
-**getBean 方法十分重要，它是 Bean 对象生命周期的起点**。下面是**精简过后的** doGetBean 方法：
+**getBean 方法十分重要，它是 Bean 对象生命周期的起点**。下面就对 `doGetBean` 中出现的重要方法做一个概述：
 
-~~~java
-// AbstractBeanFactory
-protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredType,
-			@Nullable final Object[] args, boolean typeCheckOnly) throws BeansException 
-    
-    // 获取缓存
-	Object sharedInstance = getSingleton(beanName);
-	if (sharedInstance != null && args == null) {
-		bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
-	}
-	else {
-        // 1. 如果本地不存在当前 bean，则尝试让父容器实例化bean
-        // 2. 循坏依赖的处理
-        
-		if (mbd.isSingleton()) {
-            sharedInstance = getSingleton(beanName, () -> {
-                try {
-                    return createBean(beanName, mbd, args);
-                } // catch ......
-            });
-			bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
-		}
-		else if (mbd.isPrototype()) {
-            Object prototypeInstance = null;
-                try {
-                    // 注册正在创建的 Bean
-                    beforePrototypeCreation(beanName);
-                    prototypeInstance = createBean(beanName, mbd, args);
-                }
-                finally {
-                    // 取消注册。
-                    afterPrototypeCreation(beanName);
-                }
-                bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
-		}
-		// ...
-	}
-	return (T) bean;
-}
+1. 原型 Bean 的循环检测
 
-~~~
+2. 如果本容器中不存在，那么从父容器中获取
 
-下面就对 `doCreateBean` 中出现的重要方法做一个概述：
+3. 处理 @DependOn 注解
 
-- `XXXXPrototypeCreation`：将 Bean 添加到一个集合中，用于多例 Bean 的循环检测
+4. 创建对象
+
+   ~~~java
+   if (mbd.isSingleton()) {
+       sharedInstance = getSingleton(beanName, () -> {
+           try {
+               return createBean(beanName, mbd, args);
+           } // catch ......
+       });
+       bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
+   }
+   else if (mbd.isPrototype()) {
+       Object prototypeInstance = null;
+       prototypeInstance = createBean(beanName, mbd, args);
+       bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
+   }
+   ~~~
+
 - `getSingleton`：从单实例 bean 的缓存中获取该对象，如果不存在，那么尝试调用回调函数来创建它。
 - `getObjectForBeanInstance`：判断 bean 是不是 FactoryBean
   - 不是：直接返回 bean
@@ -409,18 +388,20 @@ IOC 无法解决的两种循环依赖：
 1. 在实例化 A 之后，先把 A 放在三级缓存中
 2. 在 A 的 populateBean （属性注入）中，发现依赖对象 B。由于在缓存中没有找到 B 对象，故开始初始化 B 对象。
 3. 实例化 B，并将其放在三级缓存中。
-4. 在 B 的 populateBean （属性注入）中，发现依赖对象 A。从三级缓存中获取 A 对象，然后放在二级缓存中。此时的 A 对象仅仅完成了实例化，并没有完成初始化工作（包括属性注入），是一个半成品 Bean。
+4. 在 B 的 populateBean （属性注入）中，发现依赖对象 A。从三级缓存中获取 A 对象，并尝试 AOP 代理，然后放在二级缓存中。
 5. B 完成初始化工作，放在一级缓存中
-6. A 注入完整的 B 对象，然后完成初始化工作，放在一级缓存中。此时对于 B 来说，A 已经是一个完整的 Bean 了。
+6. A 注入完整的 B 对象，然后完成初始化工作，将自己放在一级缓存中。此时对于 B 来说，A 已经是一个完整的 Bean 了。
 
 ![在这里插入图片描述](./assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80Mzk2NjYzNQ==,size_16,color_FFFFFF,t_70.png)
 
 
 
-从理论上来说，使用二级缓存是可以解决 AOP 代理 Bean 的循环依赖的。但是这样的话，每次要实例化 Bean 之后，都要为其创建代理对象。但这违反了 Bean 的生命周期设计，正常的流程是：
+从理论上来说，使用二级缓存是可以解决 AOP 代理 Bean 的循环依赖的。即在 doCreateBean方法中，直接生成基于 AOP 的代理对象，将代理对象存入二级缓存 earlySingleton。但是这样做的话，就把 AOP 中创建代理对象的时机提前了，不管是否发生循环依赖，都在 doCreateBean 方法中完成了 AOP 的代理。这不仅没有必要，而且违背 了Spring 违反了 Bean 的生命周期的设计。
 
 1. 创建实例 createBeanInstance
 2. 填充依赖 populateBean 
 3. 后置处理 initializeBean ，包括 AOP 对象的产生
 
-我们只需**特殊情况特殊对待**就行，而不是将整个 AOP 机制提前到 populateBean 中执行。所以，Spring 引入了一个三级缓存，并使用  ObjectFacotry 对象来包装半成品 Bean。当从三级缓存中获取的 Bean 对象，就会对其调用`wrapIfNecessary()`方法来**尝试**进行代理。而 `wrapIfNecessary()`另一个调用点在`AnnotationAwareAspectJAutoProxyCreator#postProcessAfterInitialization()`方法里，该方法会在对象实例化后、初始化完成后再进行调用。这里是在属性注入的时候就已经创建，所以相对而言，创建代理的时机提前了。
+我们只需**特殊情况特殊对待**就行，而不是将整个 AOP 机制提前到 populateBean 中执行。所以，Spring 引入了一个三级缓存，并使用  ObjectFacotry 对象来包装半成品 Bean。当从三级缓存中获取的 Bean 对象，就会对其调用`wrapIfNecessary()`方法来**尝试**进行代理。
+
+而 `wrapIfNecessary()`另一个调用点在`AnnotationAwareAspectJAutoProxyCreator#postProcessAfterInitialization()`方法里，该方法会在对象实例化后、初始化完成后再进行调用。这里是在属性注入的时候就已经创建，所以相对而言，创建代理的时机提前了。

@@ -115,7 +115,7 @@ public class MenuController {
 
 | 属性       | 类型              | 说明                                                         |
 | :--------- | :---------------- | :----------------------------------------------------------- |
-| `name`     | `String`          | 为映射定义一个名称。当类上和方法上的@RequestMapping注解里都定义了名称。 将它们连接起来 |
+| `name`     | `String`          | 为映射定义一个名称。当类上和方法上的 @RequestMapping 注解里都定义了名称。 将它们连接起来 |
 | `path`     | `String[]`        | 指定映射的 URL，也是本注解的默认属性，类上的 `path` 会作为方法上的 `path` 的前缀，如果路径中用了占位符 `{}`，可以用 `@PathVariable` 注解来取得对应占位符的值 |
 | `method`   | `RequestMethod[]` | 用来缩小映射的范围，指定可以接受的 HTTP 方法，`RequestMethod` 定义了支持的 HTTP 方法 |
 | `params`   | `String[]`        | 用来缩小映射的范围，当请求参数匹配规则时才做映射，可以用 `param1=value1`、`param2!=value2`、`param3` 和 `!param4` 分别表示参数等于某个值，参数不等于某个值，必须包含某个参数和不能包含某个参数 |
@@ -608,22 +608,6 @@ public void download(
 }
 ~~~
 
-### 跨域
-
-只要触发以下三种情况之一，都会引起跨域问题：
-
-- http 访问 https ，或者 https 访问 http
-- 不同域名 / 服务器主机之间的访问
-- 不同端口之间的访问
-
-目前来讲，浏览器的同源策略，在处理跨域问题时的态度如下：
-
-- 非同源的 cookie 、localstorage 、indexedDB 无法访问
-- 非同源的 iframe 无法访问（防止加载其他网站的页面元素）
-- 非同源的 ajax 请求可以访问，但浏览器拒绝接收响应
-
-
-
 ## 分块&断点传输
 
 注意，MultipartFile 会将文件内容全部加载到内存中，这可能导致内存溢出。与它相关的配置：
@@ -1024,7 +1008,7 @@ public class MvcConfig implements WebMvcConfigurer {
 
 ## 异步请求
 
-如果请求方法返回一个 Callable 对象，那么就异步执行。
+如果请求方法返回一个 Callable 对象，那么就异步执行。Spring MVC 会在新的异步线程中执行 Callable 的 call 方法，并在操作完成后将结果返回给主线程。最后主线程将异步操作的结果发送给客户端。
 
 ~~~java
 @RestController
@@ -1042,7 +1026,7 @@ public class AsyncController {
 
 
 
-如果请求方法的返回类型是 DeferredResult，那么该方法并不会给前端响应结果，直到超时或者在别的地方调用 `setResult()` 方法。用于在指定时间内将**异步操作的结果**同步返回给前端的场景。
+如果请求方法的返回类型是 DeferredResult，那么该方法并不会给前端响应结果，直到超时或者在别的地方调用 `setResult()` 方法。
 
 注意，当 DeferredResult 阻塞时，Servlet 容器线程会结束，另起线程来对 DeferredResult 的结果进行处理。
 
@@ -1104,7 +1088,7 @@ public void addData() {
 
 
 
-![img](assets/1f00dfac2d364b288c94b5c6e0f35007tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
+![](assets/1f00dfac2d364b288c94b5c6e0f35007tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
 - 一个标注了 `@RequestMapping` 注解的方法，就是一个 `Handler`
 - `DispatcherServlet` 委托 `HandlerMapping` 来负责找 `Handler`。`HandlerMapping`将`Handler`、涉及到的拦截器以及请求封装成`HandlerExecutionChain`返回给`DispatcherServlet` 
@@ -1337,6 +1321,65 @@ public String uploadFile(String filePath) {
 ~~~
 
 
+
+RestTemplate 的拦截器
+
+~~~java
+public class MyInterceptor implements ClientHttpRequestInterceptor {
+
+    @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+        // 在请求发送之前，对请求进行修改或添加一些额外的信息
+        request.getHeaders().add("Authorization", "Bearer token123");
+
+        // 执行请求
+        ClientHttpResponse response = execution.execute(request, body);
+
+        // 在请求发送之后，对响应进行修改或添加一些额外的信息
+        response.getHeaders().add("Cache-Control", "no-cache");
+
+        return response;
+    }
+}
+
+@Bean
+public RestTemplate restTemplate() {
+    RestTemplate restTemplate = new RestTemplate();
+
+    List<ClientHttpRequestInterceptor> interceptors
+        = restTemplate.getInterceptors();
+    if (CollectionUtils.isEmpty(interceptors)) {
+        interceptors = new ArrayList<>();
+    }
+    // 添加拦截器
+    interceptors.add(new RestTemplateHeaderModifierInterceptor());
+    restTemplate.setInterceptors(interceptors);
+    return restTemplate;
+}
+~~~
+
+
+
+我们可以给 RestTemplate 指定一个 HTTP 客户端：`HttpClient`、`OkHttp3`、`Netty4`都可，但这些都需要额外导包。默认使用 JDK 内置的`java.net.URLConnection`作为 client 客户端。
+
+~~~xml
+<dependency>
+    <groupId>com.squareup.okhttp3</groupId>
+    <artifactId>okhttp</artifactId>
+    <version>4.7.2</version>
+</dependency>
+~~~
+
+~~~java
+@Configuration
+public class ContextConfig {
+    @Bean("OKHttp3")
+    public RestTemplate OKHttp3RestTemplate(){
+        RestTemplate restTemplate = new RestTemplate(new OkHttp3ClientHttpRequestFactory());
+        return restTemplate;
+    }
+}
+~~~
 
 
 

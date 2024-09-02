@@ -220,7 +220,7 @@ public class UserFeignFactory implements FallbackFactory<UserFeign> {
     public UserFeign create(Throwable cause) {
         //打印下异常
         cause.printStackTrace();
-        // 返回一个 Fallback 示例
+        // 返回一个 Fallback 实例
         return userFeignFallback;
     }
 }

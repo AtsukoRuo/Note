@@ -85,20 +85,41 @@ Maven 的主要环节：
 当依赖继承时，父项目要打包成 pom，定义父子项目的示例：
 
 ~~~xml
+<!--在子文件中，通过 parent 标签来指定配置文件-->
 <parent>
-    <groupId>com.starfish.maven</groupId>
-    <artifactId>Parent</artifactId>
+    <groupId>cn.atsukoruo</groupId>
+    <artifactId>CloudMusic</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <!-- 父工程 pom.xml 文件的相对路径 -->
-    <relativePath>../Parent/pom.xml</relativePath>
 </parent>
+
+
+<dependencies>
+    <!--使用其他微服务中的包-->
+    <dependency>
+        <groupId>cn.atsukoruo</groupId>
+        <artifactId>product-common</artifactId>
+    </dependency>
+</dependencies>
 ~~~
 
 ~~~xml
-<properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <spring.version>4.2.6</spring.version>
-</properties>
+<!--  packaging的默认打包类型是jar。所有的父工程打包方式都需要设置成pom-->
+<packaging>pom</packaging>
+<!--子 Maven 项目名-->
+<modules>
+    <module>project-common</module>
+</modules>
+
+<!--依赖配置：目前这里的配置的依赖所引入的 jar 包在此工程下的所有子工程都会被引入-->
+<dependencies>
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>fastjson</artifactId>
+        <version>1.2.73</version>
+    </dependency>
+</dependencies>
+
+<!--依赖管理：这里的配置的依赖只是对依赖版本的管理配置，子工程并不会直接引入。如果子工程要需要引入只需要加入如下标签：<dependency> -->
 <dependencyManagement>
     <dependencies>
         <dependency>
@@ -117,7 +138,7 @@ Maven 的主要环节：
 ~~~xml
 <!-- 配置聚合 -->
 <modules>
-    <!-- 指定各个子工程的相对路径 -->
+    <!-- 通过名字来指定各个子工程 -->
     <module>starfish-learn-grpc</module>
     <module>starfish-learn-kafka</module>
     <module>starfish-web-demo</module>

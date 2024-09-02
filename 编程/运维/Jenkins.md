@@ -678,8 +678,6 @@ node('slave1') {
 
 首先通过 Deployment 来部署 Master 节点。并且每次运行 Job 时，会自动创建一个 Jenkins Slave。Job 完成后，Slave 主动删除容器，让资源释放。而且 Kubernetes 会根据每个资源的使用情况，动态分配 Slave 到空闲的节点上创建。
 
-
-
 此外，我们还要安装 NFS（Network File System），这样我们可以在不同节点上公用一套配置（Maven、Java），避免每个节点因主节点故障转移都要做相同的配置。下面我们在 NFS 服务端做如下配置
 
 ~~~shell
