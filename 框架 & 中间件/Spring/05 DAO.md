@@ -444,51 +444,6 @@ public interface TransactionDefinition {
 
 - 是否只读
 
-
-
-#### 指定事务管理器
-
-~~~java
-@Configuration
-@EnableTransactionManagement
-public class Profiledemo implements TransactionManagementConfigurer {
-
-	// 注入事务管理器2
-    @Resource(name="txManager2")
-    private PlatformTransactionManager txManager2;
-
-    // 创建事务管理器2
-    @Bean(name = "txManager2")
-    public PlatformTransactionManager txManager2(EntityManagerFactory factory) {
-        return new JpaTransactionManager(factory);
-    }
-
-    // 创建事务管理器1
-    @Bean(name = "txManager1")
-    public PlatformTransactionManager txManager(DataSource dataSource) {
-        return new DataSourceTransactionManager(dataSource);
-    }
-
-    // 默认使用的事务管理器
-    @Override
-    public PlatformTransactionManager annotationDrivenTransactionManager() {
-        return txManager2;
-    }
-}
-
-public class Service{
-	//使用 value 具体指定使用哪个事务管理器
-	@Transactional(value="txManager1")
-	@Override
-	public void xxx() {
-	    
-	}
-	//默认使用上面 annotationDrivenTransactionManager() 方法返回的事务管理器
-	@Transactional
-	public void xxx() {}
-}
-~~~
-
 #### TransactionStatus
 
 **TransactionStatus**：事务运行状态。
@@ -513,14 +468,59 @@ public Boolean execute(){
 }
 ~~~
 
+#### 指定事务管理器
+
+记得 `@EnableTransactionManagement`
+
+~~~java
+@Configuration
+@EnableTransactionManagement
+public class Profiledemo implements TransactionManagementConfigurer {
+
+	// 注入事务管理器2
+    @Resource(name="txManager2")
+    private PlatformTransactionManager txManager2;
+
+    // 创建事务管理器2
+    @Bean(name = "txManager2")
+    public PlatformTransactionManager txManager2(EntityManagerFactory factory) {
+        return new JpaTransactionManager(factory);
+    }
+
+    // 创建事务管理器1
+    @Bean(name = "txManager1")
+    public PlatformTransactionManager txManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
+    // 指定默认使用的事务管理器
+    @Override
+    public PlatformTransactionManager annotationDrivenTransactionManager() {
+        return txManager2;
+    }
+}
+
+public class Service{
+	//使用 value 具体指定使用哪个事务管理器
+	@Transactional(value="txManager1")
+	@Override
+	public void xxx() {
+	    
+	}
+	//默认使用上面 annotationDrivenTransactionManager() 方法返回的事务管理器
+	@Transactional
+	public void xxx() {}
+}
+~~~
+
+
+
 ### 事务管理
 
 在 Spring 中，事务有两种实现方式：
 
 - **编程式事务管理**：编程式事务管理使用`TransactionTemplate`，或者直接使用底层的`PlatformTransactionManager`。
 - **声明式事务管理**： 建立在AOP之上的。其本质是对方法前后进行拦截，然后在目标方法开始之前创建或者加入一个事务，在执行完目标方法之后根据执行情况提交或者回滚事务。 通过`@Transactional`就可以进行事务操作。默认情况下，声明式事务在遇到 `RuntimeException` 和 `Error` 时才会回滚，对于`checked exception`并不会执行回滚操作。
-
-
 
 如果 public 方法上被标注`@Transactional` 注解的话，Spring 容器就会在启动的时候为其创建一个代理：
 
@@ -531,16 +531,6 @@ public Boolean execute(){
 ### 编程式事务管理
 
 首先注册这两个 Bean
-
-~~~java
-<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
-    <property name="dataSource" ref="dataSource"/>
-</bean>
-
-<bean id="transactionTemplate" class="org.springframework.transaction.support.TransactionTemplate">
-    <property name="transactionManager" ref="transactionManager"/>
-</bean>
-~~~
 
 - `DataSourceTransactionManager` ：事务管理器，它负责控制事务
 - `TransactionTemplate` ：事务模板，使用它可以完成编程式事务
@@ -734,7 +724,29 @@ public class MyService {
 
 **@Transactional 事务默认只能加在 public 的方法上**
 
-**注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常**
+**注意：`@Transactional`注解本身并不会吞掉或隐藏任何异常**，下面给出一个示例：
+
+~~~java
+@Test
+public void catchExceptionFromTransaction() {
+    try {
+        errorTransaction();
+    } catch (Exception e) {
+        // 捕获到了异常
+        e.printStackTrace();
+    }
+}
+
+@Transactional
+public void errorTransaction() {
+    int i = 1 / 0;
+    insertNewUser();
+}
+~~~
+
+
+
+
 
 下面那我们通过一个示例，来认识事务传播机制
 
@@ -816,6 +828,13 @@ public void B(b){
     ~~~
     
     这种情形的执行结果就是 a1 没有存储，而 b1 和 b2 存储成功，因为 testB 的事务传播设置为 REQUIRES_NEW ,所以在执行 testB 时会开启一个新的事务，testMain 中发生的异常时在 testMain 所开启的事务中，所以这个异常不会影响testB 的事务提交。
+
+  在事务中调用事务的情景，REQUIRES_NEW 具体来说是挂起当前事务，它会做以下事情：
+
+  - 挂起当前线程绑定的事务，及其事务同步器
+  - 挂起和当前线程绑定的 session 和 connection（解决了 Mybatis 的一些问题）
+  - 创建新的session，并开启新的事务
+  - 在新事务提交后，会恢复上个事务的所有信息和执行
 
 - **NESTED ：嵌套**
 
@@ -940,5 +959,4 @@ public class UserTransactionListener {
 不同数据库的 JDBC 驱动中会定义一些自己的 `SQLException` 子类，而且不同数据库对于同一种错误可能返回不同的错误码。为了避免业务层代码和持久层代码的耦合，Spring Framework 为我们提供了统一的数据库异常类`DataAccessException`。它支持绝大多数常用数据库，将不同数据库的返回码翻译成特定的异常类型。例如，违反了唯一性约束就会抛出的 `DataIntegrityViolationException`；针对主键冲突的异常，还有一个 `DuplicateKeyException` 子类
 
 ![{%}](assets/017.jpg)
-
 

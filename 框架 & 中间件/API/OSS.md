@@ -23,7 +23,7 @@ Maven 依赖如下：
 <dependency>
     <groupId>com.aliyun.oss</groupId>
     <artifactId>aliyun-sdk-oss</artifactId>
-    <version>3.8.0</version>
+    <version>3.17.3</version>
 </dependency>
 ~~~
 
@@ -42,10 +42,29 @@ try {
     e.printStackTrace();
     return;
 }
-// 存储空间名与对象名
+// 第一个参数指定存储空间
+// 第二个参数指定要创建的 OSS 对象的名字
 ossClient.putObject("atsukoruo-oss-demo", "3.avif", inputStream);
 ossClient.shutdown();
 ~~~
+
+OSSClient 是线程安全的，允许多线程访问同一实例，并且在内部维持一个连接池。
+
+OSS Java SDK包含两类异常，一类是客户端异常 ClientException，另一类是服务器端异常OSSException，这两类异常均继承自 RuntimeException。
+
+
+
+删除 OSS 对象：
+
+~~~java
+ossClient.delete(bucketName, objectName);
+~~~
+
+
+
+
+
+
 
 Web 端访问 OSS 的方式
 

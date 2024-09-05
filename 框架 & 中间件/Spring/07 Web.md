@@ -6,8 +6,8 @@
 
 Spring MVC 能帮助我们方便地开发符合 MVC 模式的 Web 应用，MVC 即 **Model-View-Controller**（模型——视图——控制器），是一种软件架构模式。MVC 的主要目标就是对用户界面与业务逻辑进行解耦，提升系统代码的可扩展性、可复用性和可维护性。
 
-- **模型层**封装了业务逻辑，
-- **视图层**则是暴露给用户的界面，
+- **模型层**封装了业务逻辑
+- **视图层**则是暴露给用户的界面
 - **控制器层**则在两者之间充当黏合剂，很单薄
 
 ![img](assets/15628a80d7794c60b9620cfe58f5cd63tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
@@ -516,57 +516,76 @@ public class MenuController {
 
 
 
-### 文件上传
+## 文件上传与下载
 
-HTTP 文件上传是通过 **multipart/form-data 协议**实现的，
+与表单有关的 Content-Type：
+
+- application/x-www-form-urlencoded
+- multipart/form-data
+
+在 application/x-www-form-urlencoded 中，如果以 GET 方法发送请求，那么将表单数据作为作为查询参数附加到 URL 中。如果以 POST 方法发送请求，那么就将 form 数据封装到 http body 中。下面给出一个例子：
+
+~~~java
+<form action="user/login.do" method="post" >  
+    用户名:<input type="text" name="username"><br>  
+    密码:<input type="text" name="password"><br>  
+    <input type="submit" value="登录"/>  
+</form> 
+~~~
+
+~~~http
+POST http://localhost:8080/springmvc/user/login.do HTTP/1.1  
+Content-Type: application/x-www-form-urlencoded  
+
+username=xiaoming&password=123456789
+~~~
+
+
+
+当要上传文件时，就要使用 **multipart/form-data** 了，它将整个表单数据进行分割，并为每个部分加上 Content-Disposition （form-data 或者 file）、Content-Type （默认为 text/plain）、name 等信息，并加上分割符（boundary）。下面我们来看一个例子：
+
+~~~html
+<form action="user/login.do" method="post" enctype="multipart/form-data">  
+    用户名:<input type="text" name="username"><br>  
+    密码:<input type="text" name="password"><br>  
+    上传文件:<input type="file" name="uploadFile"/><br>  
+    <input type="submit" value="登录"/>  
+</form>  
+~~~
+
+~~~http
+POST http://localhost:8080/springmvc/user/login.do HTTP/1.1
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundarykALcKBgBaI9xA79y  
+
+------WebKitFormBoundarykALcKBgBaI9xA79y  
+Content-Disposition: form-data; name="username"  
+
+xiaoming 
+------WebKitFormBoundarykALcKBgBaI9xA79y  
+Content-Disposition: form-data; name="password"  
+
+123456789  
+------WebKitFormBoundarykALcKBgBaI9xA79y  
+Content-Disposition: form-data; name="uploadFile"; filename="file.txt"  
+Content-Type: text/plain  
+
+HelloWorld!    
+------WebKitFormBoundarykALcKBgBaI9xA79y--  
 
 ~~~
-Content-Type: multipart/form-data; boundary=xxxx
-~~~
-
->HTML Form 的 HTTP Request 内容
->
->```html
-><form action="http://foo.com" method="get">
->    <label for="say">What greeting do you want to say?</label>
->    <input name="say" id="say" value="Hi" />
->    
->    <label for="to">Who do you want to say it to?</label>
->    <input name="to" id="to" value="Mom" />
-></form>   
->```
->
-> form 中的字段在 get 方法中对应着 URL 查询参数，例如
->
->~~~
->GET /?say=Hi&to=Mom HTTP/2.0
->Host: foo.com
->~~~
->
->而 post 方法的 form 却有所不同。它将表单数据追加到 HTTP 请求体中
->
->~~~
->POST / HTTP/2.0
->Host: foo.com
->Content-Type: application/x-www-form-urlencoded
->Content-Length: 13
->
->say=Hi&to=Mom
->~~~
 
 
 
-~~~dart
-@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-public ResponseEntity<List<MenuItem>> createBatch(
-    @RequestParam("file") MultipartFile file) {
-    // 参数类型可以是 MultipartFile，这样可以处理多个文件的上传
-    // 在定义方法时，我们可以通过 MultipartFile 这个参数类型来获得上传的文件，从中取得 InputStream 读取内容
-    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
-        
-    }
-    
-}
+
+
+注意，MultipartFile 会将文件内容全部加载到内存中，这可能导致内存溢出。与它相关的配置：
+
+~~~yaml
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB       # 单个最大文件大小，默认是1MB
+      max-request-size: 100MB   # 总请求文件大小
 ~~~
 
 MultipartFile 接口的相关方法如下：
@@ -580,63 +599,30 @@ MultipartFile 接口的相关方法如下：
 - boolean isEmpty() ：判断被上传文件是否为空。
 - void transferTo(File destination) ：将上传文件保存到目标目录下。
 
-
-
-### 文件下载
-
-文件下载需要两个响应报头：
-
-- `Content-Type：application/x-msdownload`
-- `Content-Disposition`
-
 ~~~java
-@RequestMapping(value = "download")
-public void download(
-    String fileName, 
-    HttpServletRequest request, 
-    HttpServletResponse response) throws IOException {
-    // 获取下载的文件路径
-    // 设置下载文件时的响应报头
-    response.setHeader("Content-Type", "application/x-msdownload");
-    response.setHeader("Content-Disposition", "attachment;filename=" + toUTF8String(fileName));
-
-    // 获取文件输入流
-    FileInputStream in = new FileInputStream(new File(realpath, fileName));
-
-    // 获得响应对象的输出流，用于向客户端输出二进制数据
-    ServletOutputStream out = response.getOutputStream();
+@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<List<MenuItem>> createBatch(
+    @RequestParam("file") MultipartFile file) {
+    // 参数类型可以是 MultipartFile，这样可以处理多个文件的上传
+    // 在定义方法时，我们可以通过 MultipartFile 这个参数类型来获得上传的文件，从中取得 InputStream 读取内容
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+        
+    }
+    
 }
 ~~~
 
-## 分块&断点传输
 
-注意，MultipartFile 会将文件内容全部加载到内存中，这可能导致内存溢出。与它相关的配置：
 
-~~~yaml
-spring:
-  servlet:
-    multipart:
-      max-file-size: 10MB       # 单个最大文件大小，默认是1MB
-      max-request-size: 100MB   # 总请求文件大小
-~~~
 
-~~~java
-multipartFile.getContentType()
-multipartFile.getName()
-multipartFile.getOriginalFilename()
-multipartFile.getSize() 
-multipartFile.getInputStream()
-multipartFile.getBytes()
-multipartFile.transferTo(new File("D:/"));
-~~~
 
-将HTTP请求体作为一个`InputStream`接收。这样，数据就可以作为流被读取，而不是一次性载入内存。当需要发送大量数据时，可以使用`HttpServletResponse`的输出流。
+将 HTTP 请求体作为一个`InputStream`接收。这样，数据就可以作为流被读取，而不是一次性载入内存。当需要发送大量数据时，可以使用`HttpServletResponse`的输出流。
 
 分块上传的大致思路：
 
 1. 前端做分块逻辑，然后分批上传到服务端
 
-2. 后端以分块的 MD5 作为文件名来创建临时文件
+2. 后端以分块的 MD5 作为文件名，来创建临时文件
 
 3. 通过 FileChannel 来合并文件：
 
@@ -663,6 +649,59 @@ Range : bytes=50-       # 从第 50 个字节开始
 Range : bytes=-70       # 从最后的 70 个字节开始
 Range : bytes=50-100    # 下载第 50 字节到 100 字节
 ~~~
+
+下面给出一个例子
+
+~~~http
+GET /filename.pdf HTTP/1.1
+
+Range:bytes=5000-10000,12000-150000
+~~~
+
+响应：
+
+~~~http
+HTTP/1.1 206 Partial Content
+
+Content-Type:multipart/byteranges;boundary=xxxxx
+--xxxxx
+Content-Type:application/pdf
+Content-Range:bytes=5000-10000
+
+--xxxxx
+Content-Type:application/pdf
+Content-Range:bytes=12000-15000
+
+--xxxxx--
+~~~
+
+
+
+文件下载需要两个响应报头：
+
+- `Content-Type：application/x-msdownload`
+- `Content-Disposition`
+
+~~~java
+@RequestMapping(value = "download")
+public void download(
+    String fileName, 
+    HttpServletRequest request, 
+    HttpServletResponse response) throws IOException {
+    // 获取下载的文件路径
+    // 设置下载文件时的响应报头
+    response.setHeader("Content-Type", "application/x-msdownload");
+    response.setHeader("Content-Disposition", "attachment;filename=" + toUTF8String(fileName));
+
+    // 获取文件输入流
+    FileInputStream in = new FileInputStream(new File(realpath, fileName));
+
+    // 获得响应对象的输出流，用于向客户端输出二进制数据
+    ServletOutputStream out = response.getOutputStream();
+}
+~~~
+
+
 
 ## WebSocket 
 

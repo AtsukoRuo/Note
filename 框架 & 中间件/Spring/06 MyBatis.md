@@ -224,6 +224,19 @@ Mapper 的使用
 
 此时，字段名按照驼峰规则自动匹配对象中对应的属性名，然后填入。对于多余的字段名，Mybatis 会忽略掉，对于多余的属性，Mybatis 会填入默认值。如果想要设置复杂的映射规则，推荐使用`<resultMap>`标签，不过它一般用于手动处理对象属性的填入。
 
+在 mybatis 中，除了统计数据，不要用基本类型来接收结果，最好都用包装类型。我们来看这样一个例子：
+
+~~~sql
+@Select("select id from tb_box where box_no = #{name}")
+int selectId(@Param("name")String name);
+~~~
+
+如果数据不存在，会返回 null，但是由于返回类型是基本类型，因此会报错
+
+![img](./assets/1394703-20210202161139437-1537952234.png)
+
+
+
 此外，Mybatis 还支持向SQL传入参数：
 
 - 如果参数只有一个对象，可以直接通过属性名来访问对象的属性。
@@ -446,7 +459,7 @@ int TYPE_SCROLL_SENSITIVE = 1005;
 | 属性             | 描述                                                         | 备注                                                         |
 | ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | flushCache       | 执行 SQL 后会清空缓存                                        | 默认值 true                                                  |
-| useGeneratedKeys | 开启使用，则 MyBatis 会使用 jdbc 底层的 getGeneratedKeys 方法，取出自增主键的值 | 仅适用于 insert 和 update ，默认值 false                     |
+| useGeneratedKeys | 开启使用，则 MyBatis 会使用 jdbc 底层的 getGeneratedKeys 方法，取出自增主键的值放入到对象中 | 仅适用于 insert 和 update ，默认值 false                     |
 | keyProperty      | 配合 useGeneratedKeys 使用，将自增值填充至指定属性中         | 仅适用于 insert 和 update ，无默认值                         |
 | keyColumn        | 设置 useGeneratedKeys 生效的值对应到数据库表中的列名。       | 仅适用于 insert 和 update ，如果主键列不止一个，可以用逗号分隔多个属性名 |
 
@@ -880,7 +893,7 @@ public class DepartmentTypeHandler implements TypeHandler<Department> {
 
 
 
-**objectFactory-对象工厂**将JDBC查询出来的`ResultSet`封装成实体类对象，下面我们自定义一个objectFactory
+**objectFactory-对象工厂** 将 JDBC 查询出来的`ResultSet`封装成实体类对象，下面我们自定义一个 objectFactory
 
 ~~~java
 public class ExtendsObjectFactory extends DefaultObjectFactory {
@@ -900,7 +913,7 @@ public class ExtendsObjectFactory extends DefaultObjectFactory {
 
 ~~~
 
-注册该自定义的objectFactory
+注册该自定义的 objectFactory
 
 ~~~xml
 <objectFactory type="com.linkedbear.mybatis.factory.ExtendsObjectFactory"/>
@@ -1203,6 +1216,8 @@ int saveUseGeneratedKeys(Department department);
 
 Mapper的 insert 方法返回类型是一个整数，这个整数代表受影响的记录行数。返回类型也可以是 void。
 
+
+
 `@Options` 注解的定义如下：
 
 ~~~java
@@ -1219,7 +1234,7 @@ String resultSets() default "";
 String databaseId() default "";
 ~~~
 
-useGeneratedKeys 参数设置为 true。参数对象的自增字段会自动被 Mybatis 框架设置。
+useGeneratedKeys 参数设置为 true。参数对象的自增字段会自动被 Mybatis 框架设置。同时也要设置 keyProperty 属性，指定自增字段。
 
 
 
@@ -1342,12 +1357,9 @@ public String deleteById(String id) {
 
 ## 事务
 
-MySQL 中默认的事务隔离级别是 **repeatable read** 。对于 jdbc 的事务操作而言，无非就是**开启事务、提交事务、回滚事务**三个操作
+MySQL 中默认的事务隔离级别是 **repeatable read** 。对于 jdbc 的事务操作而言，无非就是**开启事务、提交事务、回滚事务**三个操作。
 
-在 MyBatis 中有两种事务管理器：
 
-- **JDBC** – 直接使用了 JDBC 的提交和回滚方法
-- **MANAGED** – 使用外置的事务管理器
 
 ~~~java
 SqlSession sqlSession = sqlSessionFactory.openSession();
@@ -1357,6 +1369,29 @@ SqlSession sqlSessionAutoCommit = sqlSessionFactory.openSession(true);
 在 MyBatis 中，当我们创建了一个新的 SqlSession 后，默认情况下它是不会自动提交事务的，即开启 Spring 事务。也就是说在执行过数据库操作后，必须明确地调用 SqlSession 的 commit() 方法来提交事务。
 
 如果你调用 SqlSessionFactory 的 openSession(true) 方法，得到的 SqlSession 会在每次调用执行增删改（insert/update/delete）操作后，自动提交事务，即忽略 Spring 的事务特性。也就是说，你不再需要在每次做完修改后还要额外调用 commit() 方法。
+
+
+
+下面我们来看一段有关 Mybatis 事务的源码：
+
+~~~java
+protected SqlSessionFactory buildSqlSessionFactory() throws IOException {
+    // ...
+    if (this.transactionFactory == null) {
+      this.transactionFactory = new SpringManagedTransactionFactory();
+   }
+}
+~~~
+
+可以看到 Mybatis 使用 SpringManagedTransactionFactory 作为事务管理器。这样在创建 sqlSession 时，可以通过该事务管理器（**Spring 的默认数据源**）获取 JDBC 连接。
+
+而且我们在业务代码使用了@Transaction 注解，那么 Spring 就通过 dataSource 创建了一个Connection 并放入ThreadLocal 中。那么当 Mapper 代理对象调用方法时，就先尝试从 ThreadLocal 中获取该 Connection，如果没有再通过**自己的 Mybatis 数据源**创建一个 Connection。也就是说，如果没有开启事务，每一次 sql 都创建新的 SqlSession，这时 mybatis 的一级缓存是失效的。
+
+~~~java
+Connection con = fetchConnection(dataSource);
+~~~
+
+
 
 ## 扩展特性
 

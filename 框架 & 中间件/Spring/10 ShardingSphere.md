@@ -245,8 +245,9 @@ FLUSH PRIVILEGES;
    SHOW SLAVE STATUS \G;
    ~~~
    
+
 当下面两个参数都是 Yes 时，则说明主从配置成功！
-   
+
 [![img](./assets/image-20220715000533951.png)](https://image-tuchuang.oss-cn-chengdu.aliyuncs.com/image-20220715000533951.png)
 
 
@@ -416,8 +417,7 @@ rules:
 这里使用 `dynamic-datasource` 来实现多数据源的切换。
 
 ~~~xml
-
-<!-- dynamic多数据源 -->
+<!-- dynamic 多数据源 -->
 <dependency>
 	<groupId>com.baomidou</groupId>
 	<artifactId>dynamic-datasource-spring-boot-starter</artifactId>
@@ -504,7 +504,6 @@ public class DataSourceConfiguration {
 接着使用 @DS 注解来指定所使用的数据源：
 
 ~~~java
-
 @Repository
 public interface CommonDealerMapper {
  
@@ -518,6 +517,13 @@ public interface CommonDealerMapper {
 ~~~
 
 推荐使用枚举值来代替硬编码的字符串
+
+~~~java
+// 多数据源事务
+@DSTransactional
+~~~
+
+
 
 ## 广播表
 

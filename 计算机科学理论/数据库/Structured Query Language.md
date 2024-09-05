@@ -21,7 +21,7 @@ SQL, originally called Sequel,  has several parts:
 
 The SQL standard supports a variety of built-in types, including:
 
-- **char**(*n*): A fixed-length character string with user-specified length *n*。注意，这里的 n 是字节数，不是字符的个数
+- **char**(*n*): A fixed-length character string with user-specified length *n*。注意，这里的 n 是字节数，不是字符的个数。但是在 Mysql 4.1 版本之后，n 的含义就是存放**字符的个数**
 - **varchar**(*n*): A variable-length character string with user-specified maximum length *n*
 - **int**: An integer (a finite subset of the integers that is machine dependent)
 
@@ -45,7 +45,10 @@ The SQL standard supports a variety of built-in types, including:
   SELECT SUBSTRING(字段名, 开始位置, 截取长度) FROM 表名;
   ~~~
 
-  
+
+
+
+
 
 Each type may include a special value called the **null** value. 
 

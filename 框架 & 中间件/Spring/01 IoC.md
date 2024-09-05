@@ -1078,6 +1078,8 @@ public DataSource readDruidDataSource() {
 }
 ~~~
 
+
+
 #### 任务抽象
 
 Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别对任务的异步执行与定时执行进行了抽象。

@@ -315,7 +315,7 @@ public interface Lifecycle {
 
    2. 随后回调自定义的 bean 的销毁方法。
 
-   3. 之后如果 bean 中有定义内部 bean 则会一并销毁。这里内部的Bean是指：
+   3. 之后如果 bean 中有定义内部 bean 则会一并销毁。这里内部的 Bean 是指：
 
       ~~~xml
       <bean id="cat" class="com.linkedbear.spring.lifecycle.e_source.bean.Cat">

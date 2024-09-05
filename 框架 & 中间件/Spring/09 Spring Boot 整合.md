@@ -99,7 +99,7 @@ logging:
   level:
   	# 当配置为某个等级时，表示这个等级及以上的日志信息都将被记录。
     root: INFO
-    javax.activation: info
+    javax.activation: INFO
     org.apache.catalina: INFO
     org.apache.commons.beanutils.converters: INFO
     org.apache.coyote.http11.Http11Processor: INFO
@@ -263,7 +263,6 @@ xml 配置模板如下：
         <Logger name="org.quartz" level="info"/>
         <Logger name="com.andya.demo" level="debug"/>
     </Loggers>
-
 </Configuration>
 ~~~
 
@@ -655,9 +654,9 @@ class MenuControllerTest {
     <version>2.2.0</version>
 </dependency>
 <dependency>
-    <groupId>mysql</groupId>
-    <artifactId>mysql-connector-java</artifactId>
-    <version>8.0.31</version>
+    <groupId>com.mysql</groupId>
+    <artifactId>mysql-connector-j</artifactId>
+    <scope>runtime</scope>
 </dependency>
 ~~~
 
@@ -746,194 +745,216 @@ public class UserService {
 
 ## Redis
 
-SpringBoot 中默认的客户端是 Lettuce, 所以需要 exclude 掉 lettuce-core 包，并引入 jedis 的包。
+Redis 客户端有 luttuce、jedis、redisson。性能较好的是 luttuce 与 redisson，因为它们都使用了 Netty。其中 luttuce 简单易用，而 redisson 功能强大。这里就介绍 redisson 了。
+
+**注意，如果 Redis 服务端以集群模式启动，那么必须配置多节点，而不是单节点模式。**
+
+- Redisson 客户端需要通过发送集群节点发现请求，来获取 Redis 集群中所有节点的信息，并将其保存在本地的拓扑维护表中。
+- Redisson 客户端将操作路由到正确的节点上，以便访问正确的数据。
+- Redisson 客户端需要能够将多个命令组合成一个批量操作，以便将其发送到多个节点上执行，从而减少网络延迟和操作次数。
+- Redisson 还提供了事务支持和 Lua 脚本执行功能，可以在多个节点之间执行事务和脚本。
 
 ~~~xml
+<!-- https://mvnrepository.com/artifact/org.redisson/redisson-spring-boot-starter -->
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-    <exclusions>
-        <exclusion>
-            <artifactId>lettuce-core</artifactId>
-            <groupId>io.lettuce</groupId>
-        </exclusion>
-    </exclusions>
-</dependency>
-
-<dependency>
-    <groupId>redis.clients</groupId>
-    <artifactId>jedis</artifactId>
-</dependency>
-
-<dependency>
-    <groupId>org.apache.commons</groupId>
-    <artifactId>commons-pool2</artifactId>
-    <version>2.9.0</version>
+    <groupId>org.redisson</groupId>
+    <artifactId>redisson-spring-boot-starter</artifactId>
+    <version>3.33.0</version>
 </dependency>
 ~~~
 
-配置文件如下：
-
-~~~properties
-spring.data.redis.host = 你的Redis服务器地址
-spring.data.redis.port = 你的Redis服务器端口
-spring.data.redis.password = 你的Redis密码 (如果有的话)
-spring.data.redis.database = 数据库索引 (默认为0)
-spring.data.redis.jedis.pool.max-active = 连接池最大连接数 (使用负值表示没有限制)
-spring.data.redis.jedis.pool.max-idle = 连接池中的最大空闲连接
-spring.data.redis.jedis.pool.min-idle = 连接池中的最小空闲连接
-spring.data.redis.jedis.pool.max-wait = 连接池最大阻塞等待时间（使用负值表示没有限制）
+~~~yaml
+spring:
+  redis:
+     redisson: 
+        file: classpath:redisson.yaml
 ~~~
 
-SpringBootTest 提供了针对 SpringDataRedis 的场景测试器，所以可以直接用 `@DataRedisTest` 而不是 `@SpringBootTest`
+~~~yaml
+# 单节点配置
+singleServerConfig:
+  # 连接空闲超时，单位：毫秒
+  idleConnectionTimeout: 10000
+  # 连接超时，单位：毫秒
+  connectTimeout: 10000
+  # 命令等待超时，单位：毫秒
+  timeout: 3000
+  # 命令失败重试次数,如果尝试达到 retryAttempts（命令失败重试次数） 仍然不能将命令发送至某个指定的节点时，将抛出错误。
+  # 如果尝试在此限制之内发送成功，则开始启用 timeout（命令等待超时） 计时。
+  retryAttempts: 3
+  # 命令重试发送时间间隔，单位：毫秒
+  retryInterval: 1500
+  # 密码
+  password:
+  # 单个连接最大订阅数量
+  subscriptionsPerConnection: 5
+  # 客户端名称
+  clientName: myredis
+  # 节点地址
+  address: redis://127.0.0.1:6379
+  # 发布和订阅连接的最小空闲连接数
+  subscriptionConnectionMinimumIdleSize: 1
+  # 发布和订阅连接池大小
+  subscriptionConnectionPoolSize: 50
+  # 最小空闲连接数
+  connectionMinimumIdleSize: 32
+  # 连接池大小
+  connectionPoolSize: 64
+  # 数据库编号
+  database: 0
+  # DNS监测时间间隔，单位：毫秒
+  dnsMonitoringInterval: 5000
+# 线程池数量,默认值: 当前处理核数量 * 2
+#threads: 0
+# Netty线程池数量,默认值: 当前处理核数量 * 2
+#nettyThreads: 0
+# 编码
+codec: !<org.redisson.codec.JsonJacksonCodec> {}
+# 传输模式
+transportMode : "NIO"
+# 线程池数量
+threads: 8
+# Netty线程池数量
+nettyThreads: 16
+~~~
+
+~~~yaml
+# 集群模式
+clusterServersConfig:
+  # 集群节点地址
+  # 一定不要在前面全写主节点的地址，否则有个奇怪的BUG。
+  nodeAddresses:
+    - "redis://127.0.0.1:18001"
+    - "redis://127.0.0.1:18002"
+    - "redis://127.0.0.1:18003"
+    - "redis://127.0.0.1:18004"
+    - "redis://127.0.0.1:18005"
+    - "redis://127.0.0.1:18006"
+  # 密码
+  password: redis@pass
+  # 客户端名称 
+  clientName: redisClient
+  # master 最小空闲连接数
+  masterConnectionMinimumIdleSize: 16
+  # master 连接池大小
+  masterConnectionPoolSize: 32
+  # slave最小空闲连接数
+  slaveConnectionMinimumIdleSize: 16
+  # slave连接池大小
+  slaveConnectionPoolSize: 64
+  # 连接空闲超时，单位：毫秒
+  idleConnectionTimeout: 10000
+  # 命令等待超时，单位：毫秒
+  timeout: 3000
+  # 发布和订阅连接池大小
+  subscriptionConnectionPoolSize: 50
+  # 读取模式
+  readMode: "SLAVE"
+  # 订阅模式
+  subscriptionMode: "MASTER"
+~~~
 
 ~~~java
-@DataRedisTest
-public class RedisTest {
-    @Autowired
-    // 这里的反省参数指定redis中key的类型，以及value类型
-    // 如果是Object，那么直接保存 协议序列化的字符串
-    private RedisTemplate<Object, Object> redisTemplate;
-    
-    @Autowired
-    // 相当于RedisTemplate<String, String>
-    private StringRedisTemplate stringRedisTemplate;
+@Autowired
+private RedissonClient redissonClient;
+~~~
+
+
+
+手动装配：
+
+~~~xml
+<!-- Redisson -->
+<!-- https://mvnrepository.com/artifact/org.redisson/redisson-spring-boot-starter -->
+<dependency>
+    <groupId>org.redisson</groupId>
+    <artifactId>redisson</artifactId>
+    <version>3.35.0</version>
+</dependency>
+~~~
+
+~~~java
+@Bean
+public RedissonClient redissonClient() {
+    Config config = new Config();
+    ClusterServersConfig clusterServersConfig = config.useClusterServers()
+        .addNodeAddress(
+        "redis://114.116.218.95:6379",
+        "redis://116.63.9.166:6379",
+        "redis://114.116.204.34:6379",
+        "redis://114.116.220.197:6379",
+        "redis://122.9.36.231:6379",
+        "redis://122.9.7.252:6379")
+        .setSlaveConnectionMinimumIdleSize(1)
+        .setMasterConnectionMinimumIdleSize(1)
+        .setMasterConnectionPoolSize(8)
+        .setSlaveConnectionPoolSize(8);
+    clusterServersConfig.setPassword("grf.2001");//设置密码
+    return Redisson.create(config);
 }
 ~~~
 
 
 
-key-value 的操作：
+
+
+操作字符串：
 
 ~~~java
-ValueOperations<Object, Object> valueOperations = redisTemplate.opsForValue();
+RedissonClient redisson = ...;
+RBucket<String> bucket = redisson.getBucket("name");
 
-// 存入指定值
-valueOperations.set("abc", "def");
-valueOperations.setIfAbsent("qaz", 123);
-valueOperations.setIfAbsent("qaz", 456); // 这次不会生效
-
- // 存入指定值，并设置过期时间为1分钟（三种方式均可）
-valueOperations.set("qqq", 333, 1, TimeUnit.MINUTES);
-valueOperations.set("aaa", 444, TimeUnit.MINUTES.toMillis(1));
-valueOperations.set("zzz", 555, Duration.ofMinutes(1));
-
-// 取出指定值
-valueOperations.get("abc")
-valueOperations.get("qaz")
-    
-// 获取指定key的过期时间
-redisTemplate.getExpire("qqq")
-    
-// 删除指定值，多个值
-redisTemplate.delete("abc");
-redisTemplate.delete(Arrays.asList("qqq", "aaa", "zzz"));
-
-// 检查某个key是否存在
-redisTemplate.hasKey("qaz")
+bucket.set("Redisson");
+String value = bucket.get();
 ~~~
 
-
-
-List 列表的操作
+操作队列：
 
 ~~~java
-ListOperations<Object, Object> listOperations = redisTemplate.opsForList();
+RQueue<String> queue = redisson.getQueue("myQueue");
 
-// 向一个列表的左侧压入数据
-listOperations.leftPush("leftList", "aaa");
-// 一次性向左侧压入多个数据
-listOperations.leftPushAll("leftList", 123, 456, 789);
-// 获取列表中的数据
-List<Object> leftList = listOperations.range("leftList", 0, 100);
-
-// 替换列表中的一个数据
-listOperations.set("leftList", 0, 999);
-
-// 根据索引获取数据
-listOperations.index("leftList", 1)
-    
-// 获取数据对应的索引
-listOperations.indexOf("leftList", 456) 
-    
-// 向左弹出一个数据
-listOperations.leftPop("leftList")
-
-// 删除指定元素
-// 如果第二个参数不为0，则表示将要删除的元素所在的位置，例如传入-1表示删除从列表末尾开始的第一个值为111的元素，并传入1则表示删除从列表开头计数的第一个值为111的元素。 为0，表示删除所有
-listOperations.remove("rightList", 0, 111);
+queue.add("一条消息"); // 往队列添加元素
+String item = queue.poll(); // 从队列获取并移除一个元素
 ~~~
 
-
-
-对于 Set 的操作、Hash 的操作、ZSet 等操作，回来自行查阅补充
-
-
-
-工具类的封装
+操作 Map
 
 ~~~java
-public class RedisUtil {
+RMap<String, String> map = redisson.getMap("myMap");
 
-    @SuppressWarnings("unchecked")
-    private static RedisTemplate<String, String> redisTemplate = SpringUtil.getBean(StringRedisTemplate.class);
+map.put("key1", "值1");
+String value = map.get("key1");
+~~~
 
-    static  public boolean expire(String key, long time) {
-        return redisTemplate.expire(key, time, TimeUnit.SECONDS);
-    }
+订阅主题：
 
-    static  public long getExpireTime(String key) {
-        return redisTemplate.getExpire(key, TimeUnit.SECONDS);
-    }
-
-    static  public boolean hasKey(String key) {
-        return redisTemplate.hasKey(key);
-    }
-
-    static  public Object get(String key) {
-        return key == null ? null : redisTemplate.opsForValue().get(key);
-    }
-
-    static public void set(String key, String value) {
-        redisTemplate.opsForValue().set(key, value);
-    }
-    static public void delete(String key) {
-        redisTemplate.delete(key);
-    }
-    static public void batchSet(Map<String, String> keyAndValue) {
-        redisTemplate.opsForValue().multiSet(keyAndValue);
-    }
-}
-
-
-/**
- * spring工具类 方便在非spring管理环境中获取bean
- *
- * @author Lion Li
- */
-@Component
-public final class SpringUtil implements BeanFactoryPostProcessor
-{
-    /** Spring应用上下文环境 */
-    private static ConfigurableListableBeanFactory beanFactory;
-
+~~~java
+// 订阅主题
+RTopic topic = redisson.getTopic("myTopic");
+topic.addListener(String.class, new MessageListener<String>() {
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException
-    {
-        SpringUtil.beanFactory = beanFactory;
+    public void onMessage(CharSequence channel, String msg) {
+        System.out.println("收到消息：" + msg);
     }
+});
 
-    @SuppressWarnings("unchecked")
-    public static <T> T getBean(String name) throws BeansException
-    {
-        return (T) beanFactory.getBean(name);
-    }
+// 发布消息
+topic.publish("Hello Redisson!");
+~~~
 
-    public static <T> T getBean(Class<T> clz) throws BeansException
-    {
-        T result = (T) beanFactory.getBean(clz);
-        return result;
-    }
+事务：
+
+~~~java
+RTransaction transaction = redisson.createTransaction(TransactionOptions.defaults());
+RMap<String, String> map = transaction.getMap("myMap");
+map.put("1", "2");
+String value = map.get("3");
+RSet<String> set = transaction.getSet("mySet")
+set.add(value);
+try {
+   transaction.commit();
+} catch(TransactionException e) {
+   transaction.rollback();
 }
 ~~~
 
@@ -1087,8 +1108,6 @@ maven依赖：
     <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
 </dependency>
 ~~~
-
-
 
 ~~~java
 @Autowired
@@ -1362,7 +1381,7 @@ public class CacheConfig {
 
 我们可以使用 spring 提供的 `@Cacheable`、`@CachePut`、`@CacheEvict`等注解，来方便的使用 caffeine 缓存。
 
-## xxl-job
+## Quartz
 
 通过 Cron 表达式来描述任务的定期执行策略
 
@@ -1401,7 +1420,155 @@ Cron 使用示例：
 
 
 
-xxl-job 是分布式任务调度平台。要从 [Github](https://codeload.github.com/xuxueli/xxl-job/zip/refs/tags/2.3.1) 中下载项目的 ZIP 包，直接解压即可：
+XML 依赖如下：
+
+~~~xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-quartz</artifactId>
+    </dependency>
+</dependencies>
+~~~
+
+~~~java
+@EnableScheduling
+@SpringBootApplication
+public class SpringBootQuartzApplication {}
+
+@Scheduled(cron = 0/5 * * * * *)
+public void test() {
+    LOGGER.info("ScheduleService test invoke ......");
+}
+~~~
+
+
+
+Quartz 的内部是由 3 个核心 API 构成的，它们分别是：
+
+- `Job` ：任务模型，封装了要执行的业务逻辑；
+- `Trigger` ：任务触发器，根据 Cron 表达式触发具体的 Job
+- `Scheduler` ：任务调度器，将 `Job` 和 `Trigger` 关联起来
+
+~~~java
+// 通过 Job 接口来封装任务
+public class SimpleJob implements Job {
+    private Logger logger = LoggerFactory.getLogger(this.getClass());
+    
+    @Override
+    public void execute(JobExecutionContext context) {
+        logger.info("简单任务执行 ......");
+    }
+}
+~~~
+
+~~~java
+@Autowired
+private Scheduler scheduler;
+
+@GetMapping("/addSchedule")
+public String addSchedule() throws SchedulerException {
+    int random = ThreadLocalRandom.current().nextInt(1000);
+    
+    // 1. 创建JobDetail
+    // withIdentity 用于标识该任务的，可用于后续的暂停、删除任务。
+    JobDetail jobDetail = JobBuilder.newJob(SimpleJob.class)
+        .withIdentity("test-schedule" + random, "test-group").build();
+    
+    // 2. 创建Trigger，并指定每3秒执行一次
+    CronScheduleBuilder cron = CronScheduleBuilder.cronSchedule("0/3 * * * * ?");
+    Trigger trigger = TriggerBuilder.newTrigger()
+        .withIdentity("test-trigger" + random, "test-trigger-group")
+        .withSchedule(cron).build();
+    
+    // 3. 调度任务
+    scheduler.scheduleJob(jobDetail, trigger);
+    return "success";
+}
+~~~
+
+
+
+上面介绍的是基于内存的动态定时任务。下面我们介绍如何将定时任务持久化。关键在于以下配置项
+
+~~~properties
+# 设置将定时任务的信息保存到数据库
+spring.quartz.job-store-type=jdbc
+# 每次应用启动的时候都初始化数据库表结构
+spring.quartz.jdbc.initialize-schema=always
+~~~
+
+`spring.quartz.jdbc.initialize-schema` 设置为 always 的话有个问题：每次重启应用的时候，跟 Quartz 相关的表会被删除重建！所以可以先用 always 模式执行一次后，再调为 never （不初始化）即可。
+
+![33. 自动初始化了数据库.png](./assets/e9df038fea954eea8e94483e95a30299tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
+
+
+
+暂停任务：
+
+~~~java
+@GetMapping("/pauseSchedule")
+public String pauseSchedule(String jobName, String jobGroup) throws SchedulerException {
+    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
+    // 获取定时任务
+    JobDetail jobDetail = scheduler.getJobDetail(jobKey);
+    if (jobDetail == null) {
+        return "error";
+    }
+    scheduler.pauseJob(jobKey);
+    return "success";
+}
+~~~
+
+恢复任务：
+
+~~~java
+@GetMapping("/remuseSchedule")
+public String remuseSchedule(String jobName, String jobGroup) throws SchedulerException {
+    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
+    // 获取定时任务
+    JobDetail jobDetail = scheduler.getJobDetail(jobKey);
+    if (jobDetail == null) {
+        return "error";
+    }
+    scheduler.pauseJob(jobKey);
+    return "success";
+}
+~~~
+
+移除定时任务：
+
+~~~java
+@GetMapping("/removeSchedule")
+public String removeSchedule(String jobName, String jobGroup, String triggerName, String triggerGroup) throws SchedulerException {
+    TriggerKey triggerKey = TriggerKey.triggerKey(triggerName, triggerGroup);
+    JobKey jobKey = JobKey.jobKey(jobName, jobGroup);
+    Trigger trigger = scheduler.getTrigger(triggerKey);
+    if (trigger == null) {
+        return "error";
+    }
+    // 停止触发器
+    scheduler.pauseTrigger(triggerKey);
+    // 移除触发器
+    scheduler.unscheduleJob(triggerKey);
+    // 删除任务
+    scheduler.deleteJob(jobKey);
+    return "success";
+}
+~~~
+
+
+
+## xxl-job
+
+xxl-job 是分布式任务调度平台。它的设计思想是，调度平台本身不承担业务逻辑，而是负责调度请求。执行器接收到调度请求后执行任务，这里的任务抽象为分散的 JobHandler。
+
+要从 [Github](https://codeload.github.com/xuxueli/xxl-job/zip/refs/tags/2.3.1) 中下载项目的 ZIP 包，直接解压即可：
 
 ![34. 解压后用IDEA打开.png](./assets/7e23b2b1ef874aa5bb8f312dcd5cf584tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
 
@@ -1441,19 +1608,26 @@ public class XxlJobConfiguration {
     
     @Value("${xxl.job.admin.addresses}")
     private String adminAddresses;
-    @Value("${xxl.job.accessToken:}")
+
+    @Value("${xxl.job.accessToken}")
     private String accessToken;
+
     @Value("${xxl.job.executor.appname}")
     private String appname;
-    @Value("${xxl.job.executor.address:}")
+
+    @Value("${xxl.job.executor.address}")
     private String address;
-    @Value("${xxl.job.executor.ip:}")
+
+    @Value("${xxl.job.executor.ip}")
     private String ip;
-    @Value("${xxl.job.executor.port:9999}")
+
+    @Value("${xxl.job.executor.port}")
     private int port;
-    @Value("${xxl.job.executor.logpath:}")
+
+    @Value("${xxl.job.executor.logpath}")
     private String logPath;
-    @Value("${xxl.job.executor.logretentiondays:30}")
+
+    @Value("${xxl.job.executor.logretentiondays}")
     private int logRetentionDays;
     
     @Bean
@@ -1478,6 +1652,8 @@ public class XxlJobConfiguration {
 @Service
 public class DemoService {
     
+    // 每个微服务都会注册一个同名的 JobHandle
+    // 调度平台根据路由策略，选择某个（些） JobHandle 来执行任务。
     @XxlJob("demoTest")
     public void test() {
         System.out.println("触发定时任务 。。。");

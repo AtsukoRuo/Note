@@ -348,6 +348,8 @@ public void foo() {
 }
 ~~~
 
+
+
 在编码时， `DelegatingPasswordEncoder`会根据明文的前缀自动选择编码器。下表给出了前缀对应的 `PasswordEncoder` 实现。如果没有前缀，那么就默认使用 `{bcrypt}`
 
 | 前缀                           | 对应的 `PasswordEncoder` 实现                              |
