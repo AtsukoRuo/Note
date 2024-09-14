@@ -79,35 +79,52 @@ Kafka 为分区引入了**多副本（Replica）**机制，通过增加副本数
 
 
 
-Kafka 消费端也具备一定的容灾能力。Consumer 使用**拉（Pull）模式**从服务端获取消息，并且保存消费的具体位置，当消费者宕机后恢复上线时可以根据之前保存的消费位置重新拉取需要的消息进行消费，这样就不会造成消息丢失。
+Kafka 消费端也具备一定的容灾能力。Consumer 使用**拉（Pull）模式**从服务端获取消息，并且保存消费的具体位置。当消费者宕机后恢复上线时，可以根据之前保存的消费位置，重新拉取需要的消息进行消费，这样就不会造成消息丢失。
 
-分区中的所有副本统称为**AR（Assigned Replicas）**，与保持一定程度同步的副本（包括leader副本在内）组成**ISR（In-Sync Replicas）**，而同步滞后过多的副本（不包括leader副本）组成**OSR（Out-of-Sync Replicas）**。可见，`AR = ISR + OSR`。
+分区中的所有副本统称为**AR（Assigned Replicas）**，与保持一定程度同步的副本（包括 leader 副本在内）组成**ISR（In-Sync Replicas）**，而同步滞后过多的副本（不包括leader副本）组成**OSR（Out-of-Sync Replicas）**。可见，`AR = ISR + OSR`。
 
 默认情况下，当 leader 副本发生故障时，只有在 ISR 集合中的副本才有资格被选举为新的 leader，原则上不考虑OSR集合中的副本。
 
 
 
-ISR与 HW 和 LEO 有着紧密的关系。
+ISR 与 HW 和 LEO 有着紧密的关系。
 
 - HW 是 High Watermark 的缩写，俗称高水位，它标识了一个特定的消息偏移量（offset），消费者只能拉取到这个 offset 之前的消息。
 - LEO 是 Log End Offset 的缩写，它标识当前日志文件中下一条待写入消息的 offset
 
 ![img](assets/epub_25462424_6.jpeg)
 
-分区 ISR 集合中的每个副本都会维护自身的 LEO，而 ISR 集合中最小的 LEO 即为分区的HW，对消费者而言只能消费 HW 之前的消息。
+分区 ISR 集合中的每个副本都会维护自身的 LEO，而 ISR 集合中最小的 LEO 即为分区的 HW，对消费者而言只能消费 HW 之前的消息。
 
 可见，Kafka 消息的复制机制既有同步，也有异步
 
-- 同步是指， follower 副本都复制完这条消息，它才会被确认为已成功提交。
-- 异步是指，follower 副本异步地从 leader 中复制消息
+- 同步是指，ISR 中的 follower 副本都复制完这条消息，它才会被确认为已成功提交，才可以被消费者消费。
+- 异步是指，follower 副本**异步地、主动地**从 leader 中拉取消息，来做同步工作。
 
 
+
+
+
+ES 高性能的原因：
+
+- 分区
+
+- 网络传输上减少开销
+
+  - 批量发送
+  - 端到端压缩
+
+- 顺序读写：kafka 将消息追加到日志文件中，利用了磁盘的顺序读写特性，来提高读写效率
+
+- 零拷贝技术
+
+  
 
 ## 安装与配置
 
-### Kafka
+### Kafka & Zookeeper
 
-首先要安装 ZooKeeper（不再介绍）。下面启动一个 Kafka 服务（就是一个 Broker ）
+首先要安装 ZooKeeper（不再介绍）。下面启动一个 Kafka 服务
 
 1. 配置 ZooKeeper
 
@@ -151,7 +168,10 @@ ISR与 HW 和 LEO 有着紧密的关系。
 
    可以通过`jps -l`命令查看 Kafka 服务进程是否已经启动
 
-   
+
+
+
+### Kraft
 
 Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
 
@@ -162,14 +182,14 @@ Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
    process.roles=broker,controller 
    listeners=PLAINTEXT://192.168.58.130:9092,CONTROLLER://192.168.58.130:9093
    advertised.listeners = PLAINTEXT://192.168.58.130:9092
-   controller.quorum.voters=1@192.168.58.130:9093,2@192.168.58.130:9095,3@192.168.58.130t:9097
+   controller.quorum.voters=1@192.168.0.93:9093,4@192.168.0.137:9093,5@192.168.0.221:9093
    log.dirs=/home/myokuuu/kafka/logs
    ~~~
 
    - `node.id`：这将作为集群中的节点 ID，唯一标识。
    - `process.roles`：一个节点可以充当 broker 或 controller 。
    - `listeners`：broker 将使用 9092 端口，而 kraft controller 控制器将使用 9093 端口。
-   - `advertised.listeners`：这里指定 kafka 通过代理暴漏的地址，如果都是在局域网中使用，就配置`PLAINTEXT://192.168.58.130:9092`即可。
+   - `advertised.listeners`：这里指定 kafka 通过代理暴漏的地址，如果都是在局域网中使用，就配置`PLAINTEXT://192.168.58.130:9092`即可。这里一定要填写公网地址！
    - `controller.quorum.voters`：这个配置用于指定 **controller 主控**选举的投票节点，所有`process.roles`包含 controller 角色的规划节点都要参与，即：zimug1、zimug2、zimug3。其配置格式为:`node.id1@host1:9093,node.id2@host2:9093`
    - `log.dirs`：kafka 将存储数据的日志目录，在准备工作中创建好的目录。
 
@@ -177,7 +197,7 @@ Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
 
    ~~~shell
     $bin/kafka-storage.sh random-uuid
-   apzYbkooSEKdSSniKSoQmg
+   nUGThgotT7uhpBo9s8xZPg
    ~~~
 
    然后在每个节点上执行
@@ -198,7 +218,7 @@ Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
 3. 启动节点：
 
    ~~~shell
-   $ bin/kafka-server-start.sh -daemon /usr/kafka/kafka_2.13-3.6.1/config/kraft/server.properties # 相当于 nohup + &
+   $ bin/kafka-server-start.sh -daemon /root/kafka/config/kraft/server.properties  # 相当于 nohup + &
    
    $ bin/kafka-server-stop.sh
    ~~~
@@ -215,9 +235,9 @@ $ bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic topic-d
 
 上述命令创建一个分区数为 1、副本因子为 1 的主题 topic-demo。其中
 
-- `--zookeeper`指定了Kafka所连接的ZooKeeper服务地址
+- `--zookeeper`指定了 Kafka 所连接的 ZooKeeper 服务地址
 - `--topic`指定了所要创建主题的名称
-- `--replication-factor` 指定了副本因子（不得大于Broker的数量）
+- `--replication-factor` 指定了副本因子（不得大于 Broker 的数量）
 - `--partitions` 指定了分区个数
 - `--create`是创建主题的动作指令
 

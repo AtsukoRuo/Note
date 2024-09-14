@@ -138,12 +138,14 @@ systemctl enable mysql
 
 
 mysql -uroot -p
-ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '新密码';
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'grf.2001';
+
+CREATE USER 'root'@'%' IDENTIFIED BY 'grf.2001';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; 
 FLUSH PRIVILEGES;
 ~~~
 
-在 `/etc/mysql/mysql.conf.d` 配置文件中，将 `bind-address` 以及 `mysqlx-bind-address` 修改为 `0.0.0.0`。
+在 `/etc/mysql/mysql.conf.d/mysqld.cnf` 配置文件中，将 `bind-address` 以及 `mysqlx-bind-address` 修改为 `0.0.0.0`。记得执行 `systemctl daemon-reload`
 
 下面简单搭建一个一主多从的 MySQL 架构：
 
@@ -185,7 +187,7 @@ FLUSH PRIVILEGES;
    mysql -uroot -p
    ~~~
 
-3. 在主机中创建 slave 用户：
+3. 在主机中创建 replica 用户：
 
    ~~~sql
    -- 创建slave用户
@@ -200,7 +202,7 @@ FLUSH PRIVILEGES;
    -- 刷新权限
    FLUSH PRIVILEGES;
    ~~~
-   
+
 4. 主机中查询 master 状态：
 
    ~~~sql
@@ -221,9 +223,11 @@ FLUSH PRIVILEGES;
    
    # 中继日志名，默认xxxxxxxxxxxx-relay-bin
    relay-log=relay-bin
+   
+   # 记得执行 `systemctl daemon-reload`
    ~~~
 
-6. 使用命令行登录 MySQL 从服务器：
+6. 使用命令行登录 MySQL **从服务器**：
 
    ~~~shell
    #进入容器：
@@ -235,16 +239,16 @@ FLUSH PRIVILEGES;
 7. 在从机上配置主从关系：
 
    ~~~sql
-   CHANGE MASTER TO MASTER_HOST='192.168.0.55', MASTER_USER='replica',MASTER_PASSWORD='grf.2001', MASTER_PORT=3306, MASTER_LOG_FILE='binlog.000004',MASTER_LOG_POS=1745;
+   CHANGE MASTER TO MASTER_HOST='192.168.0.137', MASTER_USER='replica',MASTER_PASSWORD='grf.2001', MASTER_PORT=3306, MASTER_LOG_FILE='binlog.000002', MASTER_LOG_POS=157;
    ~~~
-   
+
 8. 启动从机的复制功能：
 
    ~~~sql
    START SLAVE;
    SHOW SLAVE STATUS \G;
    ~~~
-   
+
 
 当下面两个参数都是 Yes 时，则说明主从配置成功！
 

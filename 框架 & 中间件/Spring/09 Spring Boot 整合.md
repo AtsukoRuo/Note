@@ -88,6 +88,17 @@ log4j2 的 Maven 依赖。注意在所有包含 `spring-boot-starter-*` 的依�
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-log4j2</artifactId>
 </dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-logging</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
 ~~~
 
  引入`log4j2`依赖后，需要在 `application.yaml` 中指定 log4j2 的配置文件路径 ：
@@ -117,20 +128,23 @@ xml 配置模板如下：
     <!--<Configuration status="WARN" monitorInterval="30"> -->
     <!--monitorterval：是用于指定log4j自动重新检测读取配置内容的间隔时间-->
     <properties>
+        <!--定义一些变量-->
         <property name="LOG_HOME">./service-logs</property>
     </properties>
+    
+    
     <Appenders>
         
         <!--*********************控制台日志***********************-->
         <Console name="consoleAppender" target="SYSTEM_OUT">
             <!--设置日志格式及颜色-->
             <PatternLayout
-                    pattern="%style{%d{ISO8601}}{bright,green} %highlight{%-5level} [%style{%t}{bright,blue}] %style{%C{}}{bright,yellow}: %msg%n%style{%throwable}{red}"
+                    pattern="%style{%d{HH:mm:ss}}{bright,green} %highlight{%-5level} [%style{%t}{bright,blue}] %style{%C}{bright,yellow}: %msg%n%style{%throwable}{red}"
                     disableAnsi="false" noConsoleNoAnsi="false"/>
         </Console>
 
         <!--*********************文件日志***********************-->
-        <!-- all级别日志 -->
+        <!-- all 级别日志 -->
         <!--%i 是一个递增的数字-->
         <RollingFile name="allFileAppender"
                      fileName="${LOG_HOME}/all.log"
@@ -241,16 +255,18 @@ xml 配置模板如下：
         <!--<Root> 元素表示的是根日志器。在Log4j2中，所有的Logger都派生自Root Logger-->
         <!--这里 level=debug 意味着该应用程序会记录所有debug及以上级别的日志-->
         <Root level="debug">
-            <AppenderRef ref="allFileAppender" level="all"/>
             <AppenderRef ref="consoleAppender" level="debug"/>
+            <!--
+            <AppenderRef ref="allFileAppender" level="all"/>
             <AppenderRef ref="debugFileAppender" level="debug"/>
             <AppenderRef ref="infoFileAppender" level="info"/>
             <AppenderRef ref="warnFileAppender" level="warn"/>
             <AppenderRef ref="errorFileAppender" level="error"/>
             <AppenderRef ref="errorJsonAppender" level="error"/>
+			-->
         </Root>
 
-        <!--spring日志-->
+        <!-- spring 日志-->
         <Logger name="org.springframework" level="debug"/>
                                                         
         <!--druid数据源日志-->
@@ -265,6 +281,22 @@ xml 配置模板如下：
     </Loggers>
 </Configuration>
 ~~~
+
+关于 Pattern 的说明：
+
+| 类型               | 转换字符                     | 输出                     |
+| ------------------ | ---------------------------- | ------------------------ |
+| 日期               | %-d{yyyy-MM-dd HH:mm:ss.SSS} | 2021-05-08 14:51:59 1048 |
+| 线程名             | %t                           | main                     |
+| 日志级别           | %-5level                     | INFO                     |
+| 日志信息           | %msg                         |                          |
+| 输出所在方法名     | %M                           | main                     |
+| 输出所在行号       | %L                           | 33                       |
+| 调用该 Logger 的类 | %C                           | cn.atsukoruo.demo        |
+| 换行符             | %n                           |                          |
+| 日志事件的发生位置 | %l                           |                          |
+
+
 
 
 
@@ -958,6 +990,33 @@ try {
 }
 ~~~
 
+有序集合：
+
+~~~java
+RZSet<String> zset = redisson.getScoredSortedSet("my-zset");
+// 添加元素到 ZSet 集合
+zset.add("item1", 1.0);
+zset.add("item2", 2.0);
+zset.add("item3", 3.0);
+
+// 获取元素的分数
+Double score = zset.getScore("item2");
+System.out.println(score); // 输出：2.0
+
+// 获取指定范围的元素
+Collection<String> items = zset.range(0, 2);
+System.out.println(items); // 输出：[item1, item2]
+
+// 获取指定分数范围的元素
+Collection<String> itemsByScore = zset.rangeByScore(1.0, 2.0);
+System.out.println(itemsByScore); // 输出：[item1, item2]
+
+// 使用 zset.first() 方法获取排名最高的元素。
+// 使用 zset.delete() 方法删除所有元素。
+~~~
+
+
+
 
 
 ## Kafka
@@ -984,56 +1043,45 @@ Maven 依赖
 @Configuration
 public class KafkaProducerConfig {
 
+   
+    // KakfaTemplate 实例是线程安全的
     // 创建 kafka 操作模板对象, 用于简化消息发送操作
+    // 第一个泛型参数指定 Key 的类型，而第二个指定 Value 的类型
     @Bean
-    public KafkaTemplate<?, ?> kafkaTemplate(ProducerFactory<Object, Object> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
+    public KafkaTemplate<String, String> kafkaTemplate(ProducerFactory<String, String> producerFactory) {
+        return new KafkaTemplate<String, String>(producerFactory);
     }
 
     // 创建 kafka 生产者工厂
     @Bean
-    public ProducerFactory<?, ?> producerFactory() {
+    public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> properties = buildProducerProperties();
         return new DefaultKafkaProducerFactory<>(properties);
     }
 
     /**
      * 构建生产者配置
-     * @return
      */
-    public static Map<String, Object> buildProducerProperties() {
+    private static Map<String, Object> buildProducerProperties() {
         Map<String, Object> properties = new HashMap<>();
-        properties.put("bootstrap.servers", "127.0.0.1:9092");
-        properties.put("acks", "all");
-        properties.put("retries", 0);
-        properties.put("batch.size", 16384);
-        properties.put("linger.ms", 1);
-        properties.put("buffer.memory", 33554432);
-        properties.put("key.serializer", StringSerializer.class.getName());
-        properties.put("value.serializer", StringSerializer.class.getName());
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "122.9.7.252:9092");
+        properties.put(ProducerConfig.ACKS_CONFIG, "all");
+        properties.put(ProducerConfig.RETRIES_CONFIG, 3);
+        properties.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        properties.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+        properties.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         return properties;
     }
 }
 
 @Component
 public class KafkaProducerDemo {
-    @Autowired
-    private Consumer<String, Object> consumer;
-    public void send() throws InterruptedException {
-        // 创建 Header
-        Header recordHeader = new RecordHeader("myHeader", "headerValue".getBytes());
-
-        // 创建 Message
-        Message<String> message = MessageBuilder
-            .withPayload(payload)
-            .setHeader(KafkaHeaders.TOPIC, topic)
-            .setHeader(KafkaHeaders.MESSAGE_KEY, "myKey")
-            .setHeader(KafkaHeaders.TIMESTAMP, System.currentTimeMillis())
-            .setHeaders(new RecordHeaders(Arrays.asList(recordHeader)))
-            .build();
-
-        // 发送消息
-        kafkaTemplate.send(message);
+    public void send(String topic, Object msg) throws InterruptedException {
+        ProducerRecord<String, String> pr = new ProducerRecord<>(topic, objectMapper.writeValueAsString(msg));
+        pr.headers().add("type", msg.getClass().getName().getBytes(StandardCharsets.UTF_8));
+        kafkaTemplate.send(pr);
     }
 }
 ~~~
@@ -1048,29 +1096,24 @@ public class KafkaConsumerConfig {
 
     /**
      * 创建 消费者对象
-     *
-     * @param consumerFactory
-     * @return
      */
     @Bean
-    public Consumer<?, ?> consumer(ConsumerFactory<Object, Object> consumerFactory) {
+    public Consumer<String, String> consumer(ConsumerFactory<String, String> consumerFactory) {
         return consumerFactory.createConsumer();
     }
 
     @Bean
-    public ConsumerFactory<?,?> consumerFactory() {
+    public ConsumerFactory<String,String> consumerFactory() {
         return new DefaultKafkaConsumerFactory<>(buildConsumerProperties());
     }
 
     /**
      * 构建消费者配置
-     *
-     * @return
      */
     public static Map<String, Object> buildConsumerProperties() {
         Map<String, Object> properties = new HashMap<>();
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "119.45.163.155:9092");
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "gpu_realtime_group");
+        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "114.116.204.34:9092");
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "60000");
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
@@ -1083,7 +1126,6 @@ public class KafkaConsumerConfig {
 public class KafkaConsumerDemo {
     @Autowired
     private Consumer<String, Object> consumer;
-
 
     @PostConstruct
     public void consumerTest() {

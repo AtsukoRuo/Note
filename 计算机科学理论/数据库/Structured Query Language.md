@@ -27,7 +27,7 @@ The SQL standard supports a variety of built-in types, including:
 
   - **smallint**: short
   - **bitint**：long
-  - **tinyint**：byte
+  - **tinyint**：byte，MySQL 规定，对于 tinyint(1) 类型解读为 Boolean 类型。
 
 - **numeric**(*p*, *d*): A fixed-point number with user-specified precision. The number consists of *p* digits (plus a sign), and *d* of the *p* digits are to the right of the decimal point. Thus, **numeric**(3,1) allows 44.5
 - **real, double precision**: Floating-point and double-precision floating-point numbers with machine-dependent precision.
@@ -39,8 +39,10 @@ The SQL standard supports a variety of built-in types, including:
   - MEDIUMTEXT – 16MB
   - LONGTEXT – 4GB
 
-  如果 TEXT 字段太大，对内存有压力，那么可以使用 SUBSTRING 来分段获取 TEXT
+  TEXT 字段的大小是动态的
 
+  如果 TEXT 字段太大，对内存有压力，那么可以使用 SUBSTRING 来分段获取 TEXT
+  
   ~~~sql
   SELECT SUBSTRING(字段名, 开始位置, 截取长度) FROM 表名;
   ~~~
@@ -533,7 +535,7 @@ from course;
 where 
 ~~~
 
-COUNT 有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略 null 的行。`COUNT(*)`、`COUNT(1)`会统计为 null 的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是SQL92中的标准语法
+COUNT 有三种用法`COUNT(常量)`、`COUNT(*)`、`COUNT(列名)`。但是`COUNT(列名)`忽略 null 的行。`COUNT(*)`、`COUNT(1)`会统计为 null 的行。在MySQL官方文档中说：InnoDB handles SELECT COUNT(*) and SELECT COUNT(1) operations in the same way. There is no performance difference. 但是推荐使用`COUNT(*)`，因为这是 SQL92 中的标准语法
 
 if there are no matching rows
 

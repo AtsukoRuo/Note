@@ -114,7 +114,7 @@ $ git add README
 
 
 
-`git reset`可以进行撤回操作，即将 HEAD 向前移动。git reset 有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
+`git reset`可以进行撤回操作，即将 HEAD 以及 HEAD 所指向的分支一起向前移动。git reset 有三种工作模式，即`--soft`、`--mixed`（默认方式）与`--hard`。
 
 -  `--soft`：不会改变工作目录和暂存区的内容。
 
@@ -209,9 +209,9 @@ git push origin --delete <tagname>
 
 - **移动 HEAD**：`git checkout <name>`。
 
-  - `<name>`是分支名、SHA-1。如果 name 是分支名，那么就指向该分支。如果是 Commit 的 SHA-1，那么就指向 Commit，但是 HEAD 所指向的分支并不会一起移动
+  - `<name>`是分支名、SHA-1。如果 name 是分支名，那么就指向该分支。如果是 Commit 的 SHA-1，那么就指向 Commit，但是 HEAD 所指向的分支并不会一起移动。
   
-- **移动分支**：`git branch -f <branch-name> <commit>`
+- **移动分支**：`git branch -f <branch-name> <commit>`：将指定分支移动到指定提交上
 
   - `<commit>`可以是HEAD、分支名、SHA-1
   - `HEAD`所指向的分支不能移动

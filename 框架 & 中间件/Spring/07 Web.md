@@ -574,10 +574,6 @@ HelloWorld!
 
 ~~~
 
-
-
-
-
 注意，MultipartFile 会将文件内容全部加载到内存中，这可能导致内存溢出。与它相关的配置：
 
 ~~~yaml
@@ -788,6 +784,7 @@ public class RuntimeExceptionHandler {
         HttpServletRequest request, 
         HttpServletResponse response, 
         RuntimeException e) {
+        // 这里的 error 是视图名
         return "error";
     }
 }
@@ -956,7 +953,7 @@ void jacksonDemo() {
 
 ## 拦截器
 
-拦截器是 SpringWebMvc（框架） 的概念，而过滤器是 Servlet（Web容器） 的概念。任何来自于 Servlet 容器的请求都会走这些过滤器。而拦截器只能拦截到被 `DispatcherServlet` 接收处理的请求。
+拦截器是 SpringWebMvc（框架） 的概念，而过滤器是 Servlet（Web容器） 的概念。任何来自于 Servlet 容器的请求都会走这些过滤器。而拦截器只能处理被 `DispatcherServlet` 过滤器接收的请求。
 
 
 
@@ -991,8 +988,8 @@ public interface HandlerInterceptor {
 三个方法具体的执行流程如下：
 
 - `preHandle` ：在执行 Controller 的方法之前触发，可用于编码、权限校验拦截等。如果返回 false 将跳过处理器、拦截器 postHandle 方法、视图渲染等，直接执行拦截器 afterCompletion 方法。
-- `postHandle` ：在执行完 Controller 方法后，跳转页面 / 返回 json 数据之前触发
-- `afterCompletion` ：在完全执行完 Controller 方法后触发，可用于异常处理、性能监控等
+- `postHandle` ：在 Controller 方法正常返回后执行
+- `afterCompletion` ：无论 Controller 方法是否抛异常都会执行，可用于异常处理、性能监控等
 
 
 
@@ -1027,7 +1024,7 @@ public class MvcConfig {
 }
 ~~~
 
-或者通过 InterceptorRegistry 来注册：
+或者通过 `InterceptorRegistry` 来注册：
 
 ~~~java
 @Configuration
@@ -1062,8 +1059,6 @@ public class AsyncController {
     }
 }
 ~~~
-
-
 
 如果请求方法的返回类型是 DeferredResult，那么该方法并不会给前端响应结果，直到超时或者在别的地方调用 `setResult()` 方法。
 
@@ -1215,210 +1210,115 @@ void cachedContent(ResposeEntity resposeEntity) {
 
 
 
-###  RestTemplate
+###  http
 
-当我们以 Rest 风格远程同步调用一个 HTTP 接口时，我们经常会用到 RestTemplate 这个类。
+连接池有：
 
-**表 9-16　`RestTemplate` 的一些常用方法**
+- Java HttpURLConnection
+- Java11 HttpClient
+- Apache HttpClient
+- OkHttp
 
-![img](./assets/1775037-20200922215954239-1690710117.png)
+封装库：
 
-**当返回 404、503 错误时， RestTemplate 会直接抛出异常**
-
-创建一个 RestTemplate 客户端：
-
-~~~java
-@Bean
-public RestTemplate restTemplate(ClientHttpRequestFactory factory) {
-    RestTemplate restTemplate = new RestTemplate(factory);
-    return restTemplate;
-}
-
-@Bean
-public ClientHttpRequestFactory simpleClientHttpRequestFactory() {
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setReadTimeout(5000);
-    factory.setConnectTimeout(15000);
-    // 设置代理
-    //factory.setProxy(null);
-    return factory;
-}
-~~~
+1. Retrofit
+2. SpringBoot RestTemplate
+3. Spring5 WebClient
+4. Spring Cloud Feign
+5. Spring6.1 RestClient
 
 
 
-使用示例：
+GET 请求：
 
-发送请求
+读取 Body 的内容
 
 ~~~java
-RestTemplate restTemplate = new RestTemplate();
-String url = "http://localhost:8001/fund/account/{id}";
-// GET请求，返回 Account 对象
-// 第三个参数对应 URL 中的占位符{id}
-// 根据 responseType 的类型，当响应返回的时候，再调用合适的 HttpMessageConvert 进行响应转换
-Account account = restTemplate.getForObject(url, Account.class, 1L);
+RestClient restClient = RestClient.create();
 
-// 第三个参数可以接收一个 Map
-Map<String, String> vars = Collections.singletonMap("hotel", "42");
-String result = restTemplate.getForObject(
-    "https://example.com/hotels/{hotel}/rooms/{hotel}", 
-    String.class, 
-    vars);
+String result = restClient.get()
+  .uri("https://example.com")
+  .retrieve()
+  .body(String.class);
+System.out.println(result);
 ~~~
 
-POST 请求
+访问整个 Http 响应体
 
 ~~~java
-public static void post() {
-   RestTemplate restTemplate = new RestTemplate();
-   String url = "http://localhost:8001/fund/account";
-   // 请求头
-   HttpHeaders headers = new HttpHeaders();
-    
-   // 设置请求体为JSON
-   headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
-   Account account = new Account();
-    
-   // 封装请求实体对象，将账户对象设置为请求体
-   HttpEntity<Account> request = new HttpEntity<>(account, headers);
-    
-   // 发送POST请求，返回 Account 对象
-   Account result = restTemplate.postForObject(url, request, Account.class);
-}
+ResponseEntity<String> result = restClient.get()
+  .uri("https://example.com")
+  .retrieve()
+  .toEntity(String.class);
+
+System.out.println("Response status: " + result.getStatusCode());
+System.out.println("Response headers: " + result.getHeaders());
+System.out.println("Contents: " + result.getBody());
 ~~~
 
-PUT 请求
+将 JSON 转换为对象
 
 ~~~java
-public static void put() {
-   RestTemplate restTemplate = new RestTemplate();
-   String url = "http://localhost:8001/fund/account";
-   // 请求头
-   HttpHeaders headers = new HttpHeaders();
-   // 设置请求体媒体类型为JSON
-   headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
-   Account account = new Account();
-   // 封装请求对象
-   HttpEntity<Account> request = new HttpEntity<>(account, headers);
-   // 发送请求，put 请求是无返回值的
-   restTemplate.put(url, request);
-}   
+int id = ...
+Pet pet = restClient.get()
+  .uri("https://petclinic.example.com/pets/{id}", id)
+  .accept(APPLICATION_JSON)
+  .retrieve()
+  .body(Pet.class);
 ~~~
 
-DELETE 请求
+
+
+默认情况下，`RestClient`在接收到4xx和5xx状态码的时候，会抛出一个`RestClientException`的子类。对于这个动作，我们可以通过`onStatus`方法去重写它
 
 ~~~java
-public static void delete() {
-   RestTemplate restTemplate = new RestTemplate();
-    
-   // {id}是占位
-   String url = "http://localhost:8001/fund/account/{id}";
-    
-   // DELETE请求没有返回值
-   restTemplate.delete(url, 123L);
-}
+String result = restClient.get()
+  .uri("https://example.com/this-url-does-not-exist")
+  .retrieve()
+  .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+      throw new MyCustomRuntimeException(response.getStatusCode(), response.getHeaders())
+  })
+  .body(String.class);
 ~~~
 
-exchange 方法调用
+exchange方法提供了更灵活且完整的请求处理入口。
+
+
+
+POST 操作：
 
 ~~~java
-// 添加 Header 和 Cookie
-RequestEntity<JSONObject> requestEntity = RequestEntity.post(uri).
-                header(HttpHeaders.COOKIE, "key1=value1").
-                header(("MyRequestHeader", "MyValue")
-                accept(MediaType.APPLICATION_JSON).
-                contentType(MediaType.APPLICATION_JSON).
-                body(requestParam);
-ResponseEntity<JSONObject> responseEntity = restTemplate.exchange(requestEntity, JSONObject.class);
+Pet pet = ...
+ResponseEntity<Void> response = restClient.post()
+  .uri("https://petclinic.example.com/pets/new")
+  .contentType(APPLICATION_JSON)
+  .body(pet)
+  .retrieve()
+  .toBodilessEntity();
 ~~~
 
-文件上传：
+
+
+上传文件：
 
 ~~~java
-public String uploadFile(String filePath) {
-    String requestUrl = "";
-    File file = new File(filePath);
+HttpEntity httpEntity = MultipartEntityBuilder.create()
+    // 表单数据
+    .addPart("url", new StringBody("...", ContentType.APPLICATION_FORM_URLENCODED))
+    // JSON数据，
+    .addPart("meta", new StringBody(), ContentType.APPLICATION_JSON))
+    // 文件数据
+    .addBinaryBody("logo", new File())
+    .build();
 
-    //设置请求头
-    HttpHeaders headers = new HttpHeaders();
-    //1.设置请求类型 上传文件必须用表单类型
-    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-    //2.设置内容长度，必须设置
-    headers.setContentLength(file.length());
-    //3.设置文件名称，处理文件名是中文的情况
-    headers.setContentDispositionFormData("fileName", URLEncoder.encode(file.getName()));
-
-    //4.设置请求体，注意是 LinkedMultiValueMap
-    MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
-    //5.把文件填充到表单里，注意使用 FileSystemResource
-    form.add("uploadedFile", new FileSystemResource(file));
-    HttpEntity requestEntity = new HttpEntity<>(form, headers);
-    //6.发起请求
-    ResponseEntity<String> responseEntity = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-}
+ResponseEntity<String> responseEntity = restClient
+    .post()
+    .uri("http://localhost:8080/demo/upload")
+    // 设置 Content Type
+    .contentType(MediaType.parseMediaType(
+    	httpEntity.getContentType().getValue()))
+    .body(httpEntity::writeTo) // 把编码后的请求体写入到服务器
+    .retrieve()
+    .toEntity(String.class)
 ~~~
-
-
-
-RestTemplate 的拦截器
-
-~~~java
-public class MyInterceptor implements ClientHttpRequestInterceptor {
-
-    @Override
-    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        // 在请求发送之前，对请求进行修改或添加一些额外的信息
-        request.getHeaders().add("Authorization", "Bearer token123");
-
-        // 执行请求
-        ClientHttpResponse response = execution.execute(request, body);
-
-        // 在请求发送之后，对响应进行修改或添加一些额外的信息
-        response.getHeaders().add("Cache-Control", "no-cache");
-
-        return response;
-    }
-}
-
-@Bean
-public RestTemplate restTemplate() {
-    RestTemplate restTemplate = new RestTemplate();
-
-    List<ClientHttpRequestInterceptor> interceptors
-        = restTemplate.getInterceptors();
-    if (CollectionUtils.isEmpty(interceptors)) {
-        interceptors = new ArrayList<>();
-    }
-    // 添加拦截器
-    interceptors.add(new RestTemplateHeaderModifierInterceptor());
-    restTemplate.setInterceptors(interceptors);
-    return restTemplate;
-}
-~~~
-
-
-
-我们可以给 RestTemplate 指定一个 HTTP 客户端：`HttpClient`、`OkHttp3`、`Netty4`都可，但这些都需要额外导包。默认使用 JDK 内置的`java.net.URLConnection`作为 client 客户端。
-
-~~~xml
-<dependency>
-    <groupId>com.squareup.okhttp3</groupId>
-    <artifactId>okhttp</artifactId>
-    <version>4.7.2</version>
-</dependency>
-~~~
-
-~~~java
-@Configuration
-public class ContextConfig {
-    @Bean("OKHttp3")
-    public RestTemplate OKHttp3RestTemplate(){
-        RestTemplate restTemplate = new RestTemplate(new OkHttp3ClientHttpRequestFactory());
-        return restTemplate;
-    }
-}
-~~~
-
-
 

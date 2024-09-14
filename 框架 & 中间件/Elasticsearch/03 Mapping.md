@@ -1,5 +1,7 @@
 # Mapping
 
+[TOC]
+
 Mapping is a process of defining and developing a schema definition representing adocument’s data fields and their associated data types.  
 
 Mapping 定义了数据模式（scheme，结构化数据），这有助于 ES 分析、搜索、排序、过滤、聚合数据。具体来说它定义了：
@@ -21,7 +23,7 @@ Mapping 定义了数据模式（scheme，结构化数据），这有助于 ES �
 
 ![image-20240630122841670](./assets/image-20240630122841670.png)
 
-如果在第一个文档进行索引时， 索引不存在，Elasticsearch 会动态地推导和确定字段的数据类型，并为我们创建 Mapping。 如果 JSON 文档中的值以 yyyy-MM-dd 或 yyyy/MM/dd 格式提供，Elasticsearch 可以推断字段是一个日期类型。如果想要禁用自动创建索引的特性，需要设置 `action.auto_create_index`：
+如果在索引中插入第一个文档时， 索引不存在，Elasticsearch 会动态地推导和确定字段的数据类型，并为我们创建 Mapping。 如果 JSON 文档中的值以 yyyy-MM-dd 或 yyyy/MM/dd 格式提供，Elasticsearch 可以推断字段是一个日期类型。如果想要禁用自动创建索引的特性，需要设置 `action.auto_create_index`：
 
 ~~~json
 PUT _cluster/settings
@@ -245,7 +247,7 @@ Mapping 支持的数据类型有：
   }
   ~~~
 
-- `flattened`：本字段以及其子字段都不会被文本分析，避免性能损耗。扁平化字段的子字段始终是关键字类型。
+- `flattened`：可以容纳任意数量的子字段。本字段以及其子字段都不会被文本分析，避免性能损耗。扁平化字段的子字段始终是关键字类型。
 
   ~~~json
   "properties": {
@@ -263,7 +265,6 @@ Mapping 支持的数据类型有：
       "doctor_notes": {
           // 扁平化字段可以容纳任意数量的子字段
           // 这些字段都不会被分析
-          // 
           "temperature": 103,
           "symptoms": ["发冷","发烧","头痛"],
           "history": "无",
@@ -271,8 +272,8 @@ Mapping 支持的数据类型有：
       }
   }
   ~~~
-
   
+
 
 ## 字段特性
 
@@ -398,7 +399,7 @@ Mapping 参数可以用来控制某个字段的特性，例如这个字段是否
 
 ### nested 
 
-nested 类型允许数组中的元素作为整体被索引，而不是经扁平化处理后，每个元素的分量被索引到。
+nested 类型允许对象数组中的元素作为整体被索引，而不是经扁平化处理后，每个元素的分量被索引到。
 
 下面我们来看一个例子来认识这一点：
 
@@ -501,7 +502,7 @@ PUT doctors
 {
     "mappings": {
         "properties": {
-            // 声明了一个 join 类型的属性 relationship
+            // 声明了一个 join 类型的属性名为 relationship 的zi'duan
             "relationship":{
                 "type": "join",
                 "relations": {

@@ -1080,7 +1080,7 @@ public DataSource readDruidDataSource() {
 
 
 
-#### 任务抽象
+#### 任务抽象（线程）
 
 Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别对任务的异步执行与定时执行进行了抽象。
 
@@ -1140,6 +1140,85 @@ Spring Framework 通过 `TaskExecutor` 和 `TaskScheduler` 这两个接口分别
   ~~~
 
   为了让该注解生效，需要在 Java 配置类上增加 `@EnableScheduling` 注解，或者在 XML 文件中增加 `<task:annotation-driven/>` 配置。
+
+
+
+
+
+关于上下文信息（ThreadLocal）在线程传递的处理，可以使用 Spring 框架中的 ThreadPoolTaskExecutor 的 Decorator 来解决：
+
+~~~java
+@Configuration
+public class ThreadPoolExecutorConfig {
+
+    private static final int CORE_THREAD_SIZE = Runtime.getRuntime().availableProcessors() + 1;
+
+    private static final int MAX_THREAD_SIZE = Runtime.getRuntime().availableProcessors() * 2 + 1;
+
+    private static final int WORK_QUEUE = 1000;
+
+    private static final int KEEP_ALIVE_SECONDS = 60;
+
+    @Bean("taskExecutor")
+    public Executor taskExecutor(){
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(CORE_THREAD_SIZE);
+        executor.setMaxPoolSize(MAX_THREAD_SIZE);
+        executor.setQueueCapacity(WORK_QUEUE);
+        executor.setKeepAliveSeconds(KEEP_ALIVE_SECONDS);
+        executor.setThreadNamePrefix("task-thread-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        // 新增线程装饰器
+        executor.setTaskDecorator(new BusinessContextDecorator());
+        executor.initialize();
+        return executor;
+    }
+}
+~~~
+
+~~~java
+public class BusinessContextDecorator implements TaskDecorator {
+    @Override
+    public Runnable decorate(Runnable runnable) {
+        // 获取本地线程中的上下文
+        UserContextInfo userContext = UserContext.getUserContext();
+        return () -> {
+            // 在异步线程中设置上下文
+            try {
+                UserContext.setUserContext(userContext);
+                runnable.run();
+            }finally {
+                UserContext.clear();
+            }
+        };
+    }
+}
+~~~
+
+
+
+@Async 默认线程池优先尝试找 TaskExecutor 类型的 Bean，如果查询不到，就使用 SimpleAsyncTaskExecutor，即每次都会创建一个线程，并不会复用。
+
+
+
+在 SpringBoot 项目启动时，开启一个后台线程：
+
+~~~java
+@SpringBootApplication
+@EnableAsync
+public class SocietyServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(SocietyServiceApplication.class, args);
+    }
+
+    @Async
+    @PostConstruct
+    public void receiveMessageFromKafka() {
+		// 开启一个后台线程
+    }
+}
+
+~~~
 
 
 

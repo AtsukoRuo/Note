@@ -662,7 +662,37 @@ mount -t ext4 /dev/sdf2 /home/extra
 
 ### Swap
 
-free 命令可以显示当前交换空间的使用情况
+`free -h` 命令可以显示当前交换空间的使用情况
+
+1. 使用 df -hal 来查看文件系统
+
+2. 创建 4G 的虚拟内存
+
+   ~~~shell
+   $ dd if=/dev/vda1 of=/tmp/swapfile bs=1M count=4096
+   ~~~
+
+3. 赋予 Swap 文件适当的权限：
+
+   ~~~shell
+   chown root:root /tmp/swapfile
+   chmod 600 /tmp/swapfile
+   ~~~
+
+4. ~~~shell
+   $ mkswap /tmp/swapfile
+   ~~~
+
+5. ~~~shell
+   swapon /tmp/swapfile
+   swapon -s
+   ~~~
+
+6. 用 vim 打开 /etc/fstab 文件，在其最后添加如下一行：
+
+   ~~~txt
+   /tmp/swapfile   swap  swap   defaults  0 0
+   ~~~
 
 ## 系统配置
 
@@ -1062,9 +1092,10 @@ grep r.*t /etc/passwd
 
   ~~~shell
   echo 'hello'"'"'world'
+  
   hello'world
   ~~~
-
+  
   
 
 Shell 中的特殊变量
@@ -1264,8 +1295,6 @@ Adduser 不是标准 Linux 命令，它本质上是一个在后台使用 useradd
 ~~~shell
 sudo useradd -d /home/test -m -s/bin/bash \ -c FullName,Phone,OtherInfo test && passwd test
 ~~~
-
-
 
 ## 会话
 
@@ -1480,8 +1509,6 @@ $ sudo systemctl kill apache.service
 $ sudo systemctl reload apache.service
 ~~~
 
-
-
 每一个 Unit 都有一个配置文件，告诉 Systemd 怎么启动这个 Unit 。Systemd 默认从目录`/etc/systemd/system/`读取配置文件。但是，里面存放的大部分文件都是符号链接，指向目录`/usr/lib/systemd/system/`，真正的配置文件存放在那个目录。
 
 `systemctl enable`命令用于在上面两个目录之间，建立符号链接关系：
@@ -1494,7 +1521,7 @@ $ sudo ln -s '/usr/lib/systemd/system/clamd@scan.service' '/etc/systemd/system/m
 
 如果配置文件里面设置了开机启动，`systemctl enable`命令相当于激活开机启动。与之对应的，`systemctl disable`命令用于在两个目录之间，撤销符号链接关系，相当于撤销开机启动。
 
-
+`systemctl daemon-reload`  重新加载 systemd 程序的配置文件
 
 配置文件的格式：
 

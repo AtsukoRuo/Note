@@ -1452,3 +1452,64 @@ public class PerformanceInterceptor implements Interceptor {
 }
 ~~~
 
+## 小问题
+
+有些字段与 SQL 关键字重名，此时我们应该用 `` `来包裹起来字段：
+
+~~~java
+INSERT INTO relationship(`from`, `to`, `relation`)
+~~~
+
+
+
+当对象的字段为 boolean 类型时，在数据库中对应列的类型应该设置为 tinyint(1)，而且还要：
+
+~~~java
+@Select("SELECT * FROM user WHERE id=#{userId}")
+@Results({
+    @Result(property = "isBanned", column = "is_banned", javaType = boolean.class),
+    @Result(property = "isInfluencer", column = "is_influencer", javaType = boolean.class)
+})
+User selectById(int userId);
+~~~
+
+
+
+获取自增主键：
+
+~~~java
+@Options(useGeneratedKeys = true, keyProperty = "id")
+@Insert("INSERT INTO user(....)")
+void insertUser(User user);
+~~~
+
+
+
+批量插入：
+
+~~~java
+public String insertToInbox(Integer from,  Integer inbox, List<Integer> ids) {
+    SQL sql = new SQL();
+    sql.INSERT_INTO("inbox(user_id, post_id, create_time, from_id)");
+    StringBuilder builder = new StringBuilder();
+    builder.append(" VALUES ");
+    for (Integer id : ids) {
+        Date date = new Date(System.currentTimeMillis());
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String value = "(" + inbox + "," + id + ",'" + df.format(date) +"'," +  from + "),";
+        builder.append((value));
+    }
+    return sql + builder.substring(0, builder.length() - 1);
+}
+~~~
+
+
+
+关于时间的处理：
+
+只需要在设计表时，给相应时间类型添加长度，就可以将时间精确到毫秒或微秒。
+
+- 毫秒：timestamp(3)、datetime(3)
+- 微秒：time(6)、datetime(6)
+
+使用 java.sql.Timestamp 来插入、获取时间

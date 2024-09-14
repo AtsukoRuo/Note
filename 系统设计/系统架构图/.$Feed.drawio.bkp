@@ -1,0 +1,96 @@
+<mxfile host="Electron" modified="2024-09-06T14:12:12.288Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/22.1.11 Chrome/114.0.5735.289 Electron/25.9.8 Safari/537.36" etag="t6fBT4BYFxQo39p8pIb5" version="22.1.11" type="device">
+  <diagram name="第 1 页" id="9KpR6PSarjAJxaDIPFJ5">
+    <mxGraphModel dx="1158" dy="727" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-18" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-10" target="OUS-oGFCs6h1HQ9Ki9yX-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-10" value="发送请求到服务器" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="299" y="160" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-13" target="OUS-oGFCs6h1HQ9Ki9yX-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-13" value="是否为大 V" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="314" y="410" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-16" value="保存到发件箱中" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="299" y="280" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-19" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-16" target="OUS-oGFCs6h1HQ9Ki9yX-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-20" target="OUS-oGFCs6h1HQ9Ki9yX-21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-20" value="获取关注列表" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="525" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-21" value="Kafka 异步推送到收件箱" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="640" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-29" target="OUS-oGFCs6h1HQ9Ki9yX-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-34" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-29" target="OUS-oGFCs6h1HQ9Ki9yX-35">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="234" y="790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-29" value="是否有 outbox 缓存" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="184" y="560" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-13" target="OUS-oGFCs6h1HQ9Ki9yX-29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-32" target="OUS-oGFCs6h1HQ9Ki9yX-35">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="230" y="830" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-32" value="构建 outbox 缓存" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="54" y="680" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-35" value="写入 outbox 缓存中" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="169" y="850" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-37" target="OUS-oGFCs6h1HQ9Ki9yX-39">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-37" target="OUS-oGFCs6h1HQ9Ki9yX-41">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-37" value="是否有 inbox 缓存" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="475" y="750" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-21" target="OUS-oGFCs6h1HQ9Ki9yX-37">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-39" target="OUS-oGFCs6h1HQ9Ki9yX-41">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="695" y="990" />
+              <mxPoint x="525" y="990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-39" value="构建 inbox 缓存" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="630" y="890" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-41" value="写入 inbox 缓存中" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="460" y="1050" width="130" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-51" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="OUS-oGFCs6h1HQ9Ki9yX-50">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1200" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="OUS-oGFCs6h1HQ9Ki9yX-50" value="客户端传入 size 与 lastTimeStamp" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="170" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

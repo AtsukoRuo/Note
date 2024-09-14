@@ -446,6 +446,12 @@ public interface Principal {
 - `getCredentials()`：返回用户提供的用于进行身份验证的凭据，通常是密码。
 - `getDetails()` 方法用于获取更详细的身份验证信息。这可能包括 IP 地址、证书细节或者自定义的信息。
 
+UsernamePasswordAuthenticationToken 实现了 `Authentication` 接口。
+
+
+
+
+
 当前用户实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。请求结束后，`SpringSecurity`将认证结果存储到 `Session`，对应的 `Key` 是：`SPRING_SECURITY_CONTEXT`，并且会生成一个与此 `Session` 相关联的 `JSESSIONID`。每次请求携带 `JSESSIONID`，再从 `Session` 对象中取回认证信息。这些都是由 `SecurityContextPersistenceFilter` 来完成的
 
 `SecurityContextHolder` 是 `SecurityContext` 的工具类，`Controller` 类可以通过它获取 `SecurityContext`：
@@ -686,7 +692,9 @@ formLogin
 
 **Spring Security** 中的异常主要分为两大类：一类是 **HTTP 401 错误 - 未授权（Unauthorized）** 异常（`AuthenticationException`），另一类是 **HTTP 403 错误 - 被禁止（Forbidden）**相关的异常（`AccessDeniedException`）。
 
-这些异常通常在最后一个过滤器 FilterSecurityInterceptor 中抛出，然后在 ExceptionTranslationFilter 中捕获并处理。
+**如果在自定义过滤器中抛出异常，那么 SpringSecurity 继续执行接下来的过滤器。**
+
+这些异常通常在最后一个过滤器 FilterSecurityInterceptor 中抛出，然后在 ExceptionTranslationFilter 中捕获并处理（注：ExceptionTranslationFilter 虽然在过滤链中靠后的部分，但是可以捕获整个过滤链中的异常）。
 
 - `AuthenticationEntryPoint` 该类用来统一处理 `AuthenticationException` 异常
 - `AccessDeniedHandler` 该类用来统一处理 `AccessDeniedException` 异常
@@ -712,8 +720,6 @@ public class SimpleAuthenticationEntryPoint implements AuthenticationEntryPoint 
 ~~~java
 http.exceptionHandling().accessDeniedHandler(new SimpleAccessDeniedHandler()).authenticationEntryPoint(new SimpleAuthenticationEntryPoint())
 ~~~
-
-
 
 ## 记住我
 
@@ -744,7 +750,7 @@ http.rememberMe(e -> e.rememberMeParameter("rememberMe").key("i*24qg}{bp}"));
 `rememberMe()` 中常用的配置方法
 
 | 配置方法                 | 作用                                                         |
-| ------------------------ | ------------------------------------------------------------ |
+| :----------------------- | ------------------------------------------------------------ |
 | `key()`                  | 设置 `md5Hex()` 时使用的私钥                                 |
 | `rememberMeParameter()`  | 请求中表示是否要“记住我”的参数名，默认是 `remember-me`       |
 | `rememberMeCookieName()` | 在 Cookies 中保存令牌的 Cookie 名称，默认是 `remember-me`    |
