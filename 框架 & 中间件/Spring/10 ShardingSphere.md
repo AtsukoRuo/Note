@@ -19,6 +19,27 @@ ShardingSphere-JDBC 的 Maven 依赖如下：
     <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>
     <version>5.2.0</version>
 </dependency>
+
+<!-- 阿里巴巴的druid数据源 -->
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>druid-spring-boot-starter</artifactId>
+    <version>1.1.23</version>
+</dependency>
+
+
+<dependency>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.1.3</version>
+    <exclusions>
+        <!-- 排除默认的 HikariCP 数据源 -->
+        <exclusion>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
 ~~~
 
 下面配置定义了 ShardingSphere 使用的数据源：
@@ -27,7 +48,7 @@ ShardingSphere-JDBC 的 Maven 依赖如下：
 spring:
     shardingsphere:
         datasource:
-          names: master,slave 	# 这里定义了各个数据源的名称
+          names: master, slave 	# 这里定义了各个数据源的名称
           # 主数据源
           master:
             type: com.alibaba.druid.pool.DruidDataSource 	# 指定使用何种数据源
@@ -75,42 +96,257 @@ db1
 
 
 ~~~yaml
-# 分片规则配置
-rules:
-    sharding:
-    	# 分片算法配置
-    	sharding-algorithms:
-    		database-inline:
-             	# 分片算法类型
-            	type: INLINE
-                props:
-                # 分片算法的行表达式
-                # 行表达式标识符可以使用 ${...} 或 $->{...}，但前者与 Spring 本身的属性文件占位符冲突，因此在 Spring 环境中使用行表达式标识符建议使用 $->{...}
-            		algorithm-expression: db$->{order_id > 4 ? 1 : 0}
-    		table-inline:
-                # 分片算法类型
-                type: INLINE
-                props:
+spring:
+  shardingsphere:
+    rules:
+        sharding:
+            # 分片算法配置
+            sharding-algorithms:
+                database-inline:
+                    # 分片算法类型
+                    type: INLINE
+                    props:
                     # 分片算法的行表达式
-                    algorithm-expression: t_order_$->{order_id % 4}
+                    # 行表达式标识符可以使用 ${...} 或 $->{...}，但前者与 Spring 本身的属性文件占位符冲突，因此在 Spring 环境中使用行表达式标识符建议使用 $->{...}
+                        algorithm-expression: db$->{order_id > 4 ? 1 : 0}
+                table-inline:
+                    # 分片算法类型
+                    type: INLINE
+                    props:
+                        # 分片算法的行表达式
+                        algorithm-expression: t_order_$->{order_id % 4}
 
-    tables:
-        t_order:	# 定义一个逻辑表名称
-            actual-data-nodes: db${0..1}.t_order_${0..3}
+            tables:
+                t_order:	# 定义一个逻辑表名称
+                    actual-data-nodes: db$->{0..1}.t_order_${0..3}
+                    # 分库策略
+                    database-strategy:
+                        standard:
+                            # 分片列名称
+                            sharding-column: order_id
+                            # 分片算法名称
+                            sharding-algorithm-name: database-inline
+                    # 分表策略
+                    table-strategy:
+                        standard:
+                            # 分片列名称
+                            sharding-column: order_id
+                            # 分片算法名称
+                            sharding-algorithm-name: table-inline
+~~~
+
+在 Mapper 中，表名就填写逻辑表的名称即可。
+
+用于调试的：
+
+~~~java
+spring:
+    shardingsphere: 
+        props:
+          sql:
+            show: true #开启SQL显示，默认false
+~~~
+
+## 分片策略
+
+https://www.cnblogs.com/chengxy-nds/p/18097298
+
+- 分片策略确定了数据的拆分依据
+- 分片算法则决定了如何对分片键值运算，将数据路由到哪个物理分片中
+
+`ShardingSphere`对外提供了`standard`、`complex`、`hint`、`inline`、`none `5 种分片策略。不同的分片策略可以搭配使用不同的分片算法。
+
+**若 SQL 语句中没有分片键，则无法进行分片，需要全路由。**
+
+~~~yaml
+spring:
+  shardingsphere:
+    rules:
+      sharding:
+        tables:
+          t_order: # 逻辑表名称
+            # 数据节点：数据库.分片表
+            actual-data-nodes: db$->{0..1}.t_order_${1..10}
             # 分库策略
-            database-strategy:
-                standard:
-                    # 分片列名称
-                    sharding-column: order_id
-                    # 分片算法名称
-                    sharding-algorithm-name: database-inline
-            # 分表策略
-            table-strategy:
-                standard:
-                    # 分片列名称
-                    sharding-column: order_id
-                    # 分片算法名称
-                    sharding-algorithm-name: table-inline
+            databaseStrategy: # 分库策略
+              standard: # 用于单分片键的标准分片场景
+                shardingColumn: order_id # 分片列名称
+                shardingAlgorithmName: # 分片算法名称
+            tableStrategy: # 分表策略，同分库策略
+~~~
+
+~~~yaml
+databaseStrategy: # 分库策略
+	complex: # 用于多分片键的复合分片场景
+		shardingColumns: order_id，user_id # 分片列名称，多个列以逗号分隔
+		shardingAlgorithmName: # 分片算法名称
+tableStrategy: # 分表策略，同分库策略
+~~~
+
+~~~yaml
+# 分库策略
+databaseStrategy: # 分库策略
+	hint: # Hint 分片策略
+		shardingAlgorithmName: # 分片算法名称
+tableStrategy: # 分表策略，同分库策略
+~~~
+
+~~~yaml
+# 分库策略
+databaseStrategy: # 分库策略
+	none: # 不分片
+tableStrategy: # 分表策略，同分库策略
+~~~
+
+~~~yaml
+# 分库策略
+databaseStrategy: # 分库策略
+	inline:   # 行表达式类型分片策略
+		# 相当于直接执行 INLINE 分片算法
+		algorithm-expression: db$->{order_id % 2} Groovy表达式
+tableStrategy: # 分表策略，同分库策略
+~~~
+
+
+
+
+
+行表达式能够支持：
+
+- `${begin..end}` 表示范围区间
+- `${[unit1, unit2, unit_x]}` 表示枚举值
+- Groovy 能够支持的所有操作，行表达式均能够支持。
+
+行表达式中如果出现连续多个 `${ expression }` 或 `$->{ expression }` 表达式，整个表达式最终的结果将会根据每个子表达式的结果进行笛卡尔组合。
+
+~~~yaml
+${['online', 'offline']}_table${1..3}
+~~~
+
+最终会解析为：
+
+```
+online_table1, online_table2, online_table3, offline_table1, offline_table2, offline_table3
+```
+
+## 分片算法
+
+~~~yaml
+# 分片算法定义
+sharding-algorithms:
+	t_order_table_mod:
+		type: MOD # 取模分片算法
+		props:
+			# 指定分片数量
+			sharding-count: 6
+~~~
+
+~~~yaml
+sharding-algorithms:
+	t_order_table_hash_mod:	# 该分片算法的名字
+		type: HASH_MOD # 哈希取模分片算法
+		props:
+			# 指定分片数量
+			sharding-count: 6
+~~~
+
+~~~yaml
+sharding-algorithms:
+	t_order_table_volume_range:
+		type: VOLUME_RANGE	# 按分配均匀分布
+		props:
+			range-lower: 2 # 范围下界，超过边界的数据会报错
+			range-upper: 20 # 范围上界，超过边界的数据会报错
+			sharding-volume: 10 # 分片容量
+			
+tables:
+	t_order: # 逻辑表名称
+		actual-data-nodes: db$->{0..1}.t_order_${0..2}
+		# 分库策略
+		database-strategy:
+		....
+		# 分表策略
+		table-strategy:
+			standard:
+				sharding-column: order_id
+				sharding-algorithm-name: t_order_table_volume_range
+~~~
+
+![基于分片容量的范围分片算法](./assets/1921007-20240326181939850-139089106.png)
+
+
+
+
+
+~~~yaml
+sharding-algorithms:
+	# 基于分片边界的范围分片算法
+	t_order_table_boundary_range:
+		type: BOUNDARY_RANGE
+		props:
+			sharding-ranges: 10,20,30,40 # 分片的范围边界，多个范围边界以逗号分隔
+			
+actual-data-nodes: db$->{0..1}.t_order_${0..2}
+~~~
+
+![基于分片边界的范围分片算法](./assets/1921007-20240326181939857-1786366313.png)
+
+
+
+
+
+~~~yaml
+# 分片算法定义
+sharding-algorithms:
+	# 标准分片算法
+	# 行表达式分片算法
+	t_order_table_inline:
+		type: INLINE
+		props:
+			algorithm-expression: t_order_$->{order_id % 3} # 分片算法的行表达式
+			allow-range-query-with-inline-sharding: false # 由于该算法只支持含有 = 和 IN 操作符的SQL，一旦SQL使用了范围查询 >、< 等操作会报错。要想执行范围查询成功，该属性开启为true即可，一旦开启范围查询会无视分片策略，进行全库表路由查询，这个要慎重开启！
+			
+tables:
+ 	actual-data-nodes: db$->{0..1}.t_order_${0..2}
+ 	table-strategy:
+ 		standard:
+ 			sharding-column: order_id
+ 			sharding-algorithm-name: t_order_table_inline
+~~~
+
+
+
+
+
+在一些应用场景中，分片条件并不存在于 SQL，而存在于外部业务逻辑。 因此需要提供一种通过外部指定分片结果的方式，在 Apache ShardingSphere 中叫做 Hint。
+
+例如，如果想要向`db0.t_order_1`分片表中插入一条数据，但 Insert SQL 中并没有分片健，此时执意执行插入操作可能就会导致全库表路由，插入的数据就会重复，显然是不能接受的。Hint 算法可以很好的解决此场景。
+
+~~~yaml
+# HINT_INLINE 算法一定要在 HINT 分片策略内使用，否则会报错。
+sharding-algorithms:
+	# Hint 行表达式分片算法
+	t_order_database_hint_inline:
+		type: HINT_INLINE
+		props:
+			algorithm-expression: db$->{Integer.valueOf(value) % 2} # 分片算法的行表达式，默认值${value}
+~~~
+
+这里的 Value 由 HintManager 来设置。这个对象是由 ThreadLocal 管理的，因此 value 尽在当前线程内生效：
+
+~~~java
+HintManager hintManager = HintManager.getInstance();
+hintManager.clearShardingValues();
+
+// 设置逻辑表 t_order 的分库值
+hintManager.addDatabaseShardingValue("t_order", 0);
+
+// 设置逻辑表 t_order 的分表值
+hintManager.addTableShardingValue("t_order", 1);
+
+// 1 % 3 = 1 所以放入 db0.t_order_1 分片表
+jdbcTemplate.execute("INSERT INTO `t_order`(`id`,`order_date`,`order_id`, `order_number`, `customer_id`, `total_amount`, `interval_value`, `user_id`) VALUES (1, '2024-03-20 00:00:00', 1, '1', 1, 1.00, '2024-01-01 00:00:00', 1);");
+hintManager.close();
 ~~~
 
 ## 主从同步
@@ -239,7 +475,7 @@ FLUSH PRIVILEGES;
 7. 在从机上配置主从关系：
 
    ~~~sql
-   CHANGE MASTER TO MASTER_HOST='192.168.0.137', MASTER_USER='replica',MASTER_PASSWORD='grf.2001', MASTER_PORT=3306, MASTER_LOG_FILE='binlog.000002', MASTER_LOG_POS=157;
+   CHANGE MASTER TO MASTER_HOST='192.168.0.137', MASTER_USER='replica',MASTER_PASSWORD='grf.2001', MASTER_PORT=3306, MASTER_LOG_FILE='binlog.000001', MASTER_LOG_POS=157;
    ~~~
 
 8. 启动从机的复制功能：
@@ -304,26 +540,28 @@ rules:
 下面给出一个示例：
 
 ~~~yaml
-rules:
-- !READWRITE_SPLITTING
-  dataSourceGroups:
-    readwrite_ds:
-      writeDataSourceName: write_ds
-      readDataSourceNames:
-        - read_ds_0
-        - read_ds_1
-      transactionalReadQueryStrategy: PRIMARY
-      loadBalancerName: random
-  loadBalancers:
-    random:
-      type: RANDOM		# 随机负载均衡算法
-    round:
-      type: RANDOM
-    weight:
-      tpye: WEIGHT
-      props:
-		read_ds_0: 1
-		read_ds_1: 2
+spring:
+  shardingsphere:
+    rules:
+    - !READWRITE_SPLITTING
+      dataSourceGroups:
+        readwrite_ds:
+          writeDataSourceName: write_ds
+          readDataSourceNames:
+            - read_ds_0
+            - read_ds_1
+          transactionalReadQueryStrategy: PRIMARY
+          loadBalancerName: random
+      loadBalancers:
+        random:
+          type: RANDOM		# 随机负载均衡算法
+        round:
+          type: ROUND
+        weight:
+          tpye: WEIGHT
+          props:
+            read_ds_0: 1
+            read_ds_1: 2
 ~~~
 
 
@@ -367,10 +605,6 @@ sharding-test_1
 ~~~
 
 ~~~yaml
-
-
-schemaName: readwrite_splitting_db
- 
 dataSources:
   write_ds_0:
     url: 
@@ -386,32 +620,33 @@ dataSources:
     url: 
  
 rules:
-- !READWRITE_SPLITTING
-  dataSources:
-    # 读写分离
-    readwrite_ds_0: 	# 逻辑数据源
-      writeDataSourceName: write_ds_0
-      readDataSourceNames:
-        - read_ds_0
-        - read_ds_1
-      loadBalancerName: random
-    readwrite_ds_1:		# 逻辑数据源
-      writeDataSourceName: write_ds_1
-      readDataSourceNames:
-        - read_ds_2
-        - read_ds_3
-      loadBalancerName: random
-  loadBalancers:
-    random:
-      type: RANDOM
+    READWRITE_SPLITTING:
+      dataSources:
+        # 读写分离
+        readwrite_ds_0: 	# 逻辑数据源
+           static-strategy:
+              read-data-source-names:
+                - read_ds_0
+                - read_ds_1
+              write-data-source-name: write_ds_0
+           loadBalancerName: random
+        readwrite_ds_1:		# 逻辑数据源
+          static-strategy:
+              read-data-source-names:
+                - read_ds_0
+                - read_ds_1
+              write-data-source-name: write_ds_0
+           loadBalancerName: random
+      loadBalancers:
+        random:
+          type: RANDOM
  
-- !SHARDING
-  tables:
-  #	分表分库
-    student:		# 逻辑数据源
-     # 这里指定的是读写分离中的逻辑数据源，后面跟一个真实的表名
-      actualDataNodes: readwrite_ds_${0..1}.student_${0..1}
-      
+    SHARDING:
+      tables:
+      #	分表
+        student: 	
+         # 这里指定的是读写分离中的逻辑数据源，后面跟一个真实的表名
+          actualDataNodes: readwrite_ds_${0..1}.student_${0..1}
 ~~~
 
 

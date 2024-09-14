@@ -775,6 +775,96 @@ public class UserService {
 }
 ~~~
 
+## Druid 
+
+Druid 为监控而生的数据池
+
+~~~xml
+<!-- 阿里巴巴的druid数据源 -->
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>druid-spring-boot-3-starter</artifactId>
+    <version>1.2.20</version>
+</dependency>
+
+
+<dependency>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.1.3</version>
+    <exclusions>
+        <!-- 排除默认的 HikariCP 数据源 -->
+        <exclusion>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+~~~
+
+~~~yaml
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.10.106:3306/xj_doc?characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    # druid 连接池管理
+    druid:
+      # 初始化时建立物理连接的个数
+      initial-size: 5
+      # 连接池的最小空闲数量
+      min-idle: 5
+      # 连接池最大连接数量
+      max-active: 20
+      # 获取连接时最大等待时间，单位毫秒
+      max-wait: 60000
+      # 申请连接的时候检测，如果空闲时间大于timeBetweenEvictionRunsMillis，执行validationQuery检测连接是否有效。
+      test-while-idle: true
+      # 既作为检测的间隔时间又作为testWhileIdel执行的依据
+      time-between-eviction-runs-millis: 60000
+      # 销毁线程时检测当前连接的最后活动时间和当前时间差大于该值时，关闭当前连接(配置连接在池中的最小生存时间)
+      min-evictable-idle-time-millis: 30000
+      # 用来检测数据库连接是否有效的sql 必须是一个查询语句(oracle中为 select 1 from dual)
+      validation-query: select 'x'
+      # 申请连接时会执行validationQuery检测连接是否有效,开启会降低性能,默认为true
+      test-on-borrow: false
+      # 归还连接时会执行validationQuery检测连接是否有效,开启会降低性能,默认为true
+      test-on-return: false
+      # 是否缓存preparedStatement, 也就是PSCache,PSCache对支持游标的数据库性能提升巨大，比如说oracle,在mysql下建议关闭。
+      pool-prepared-statements: false
+      # 置监控统计拦截的filters，去掉后监控界面sql无法统计，stat: 监控统计、Slf4j:日志记录、waLL: 防御sqL注入
+      filters: stat,wall,slf4j
+      # 要启用PSCache，必须配置大于0，当大于0时，poolPreparedStatements自动触发修改为true。在Druid中，不会存在Oracle下PSCache占用内存过多的问题，可以把这个数值配置大一些，比如说100
+      max-pool-prepared-statement-per-connection-size: -1
+      # 合并多个DruidDataSource的监控数据
+      use-global-data-source-stat: true
+      # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+      connect-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+
+      web-stat-filter:
+        # 添加过滤规则
+        url-pattern: /*
+        # 忽略过滤的格式
+        exclusions: /druid/*,*.js,*.gif,*.jpg,*.png,*.css,*.ico
+
+      stat-view-servlet:
+        # 访问路径为/druid时，跳转到StatViewServlet
+        url-pattern: /druid/*
+        # 是否能够重置数据
+        reset-enable: false
+        # 需要账号密码才能访问控制台，默认为root
+        login-username: druid
+        login-password: druid
+        # IP白名单
+        allow: 127.0.0.1
+        # IP黑名单（共同存在时，deny优先于allow）
+        deny:
+~~~
+
+控制台的访问地址通常是：http://localhost:30001/druid/login.html。
+
 ## Redis
 
 Redis 客户端有 luttuce、jedis、redisson。性能较好的是 luttuce 与 redisson，因为它们都使用了 Netty。其中 luttuce 简单易用，而 redisson 功能强大。这里就介绍 redisson 了。
@@ -1861,7 +1951,6 @@ class CmowerLombok {
 `@Data` 注解可以生成 `getter / setter`、`equals`、`hashCode`，以及 `toString`
 
 ~~~java
-
 @Data
 class CmowerLombok {
 	private int age;
@@ -1879,25 +1968,11 @@ class CmowerLombok {
 		return this.age;
 	}
 
-	public String getName() {
-		return this.name;
-	}
-
-	public BigDecimal getMoney() {
-		return this.money;
-	}
-
 	public void setAge(int age) {
 		this.age = age;
 	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-
-	public void setMoney(BigDecimal money) {
-		this.money = money;
-	}
+    
+    // ...
 
 	public boolean equals(Object o) {
 		if (o == this) {
@@ -2009,4 +2084,10 @@ public class Student {
 - `@NoArgsConstructor(force = true)`：当有 `final` 字段没有被初始化时，这个选项可以强制 Lombok 生成一个无参数的构造方法，并将所有 `final` 字段初始化为其默认值（0、false、null等）。
 - `@AllArgsConstructor(access = AccessLevel.PROTECTED)`：这个选项可以用来改变生成的构造方法的访问级别。
 - `@RequiredArgsConstructor(staticName = "of")`：这个选项可以让 Lombok 为你生成一个静态的工厂方法，而不是一个构造方法。
+
+
+
+## TinyID
+
+
 
