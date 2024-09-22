@@ -461,4 +461,4 @@ http.cors(c -> {
 1.  Attacker 以一个合法的用户身份登录 www.website.com
 2.  服务器与攻击者 Attacker 建立了一个会话，sessionid 为 1234567
 3.  攻击者Attacker用该会话ID构造了一个URL：`http://www.website.com/login.jsp?sessionid=1234567`，发给了受害者Alice
-4.  受害者 Victim 点击该链接，进行了登录
+    1.  受害者 Victim 点击该链接，进行了登录

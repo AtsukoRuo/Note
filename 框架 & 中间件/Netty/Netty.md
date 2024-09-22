@@ -24,7 +24,7 @@ Netty 是一个异步事件驱动的网络应用框架，用于快速开发可�
 >| EPOLLPRI     | 表示对应的文件描述符有紧急的数据可读（这里应该表示有带外数据到来）； |
 >| EPOLLERR     | 表示对应的文件描述符发生错误；                               |
 >| EPOLLHUP     | 表示对应的文件描述符被挂断；                                 |
->| EPOLLET      | 将 EPOLL设为边缘触发(Edge Triggered)模式（默认为水平触发），这是相对水平触发(Level Triggered)来说的。 |
+>| EPOLLET      | 将 EPOLL设为边缘触发（Edge Triggered）模式（默认为水平触发） |
 >| EPOLLONESHOT | 只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socke的话，需要再次把这个socket加入到EPOLL队列里 |
 
 Netty 的解决方案是通过记录空轮询次数，来判断是否发生了空轮询 Bug（Netty 默认是 512次），若发生空轮询 Bug 则重建 Selector。
@@ -51,10 +51,10 @@ Netty 的解决方案是通过记录空轮询次数，来判断是否发生了�
 public class NettyDiscardServer {
     private final int serverPort;
     ServerBootstrap b = new ServerBootstrap();
-
     public NettyDiscardServer(int port) {
         this.serverPort = port;
     }
+    
     public void runServer() {
         // boss 相当于 Accept Reactor 中的线程池
         EventLoopGroup bossLoopGroup = new NioEventLoopGroup(1);
@@ -87,7 +87,8 @@ public class NettyDiscardServer {
             //6. 开始绑定服务器
             ChannelFuture channelFuture = b.bind().sync();
             
-            //7. 等待通道关闭的异步任务结束
+            // 7. 阻塞至channel关闭，
+            // 在 SpringBoot 中要去掉这两句。并且在下面的 finally 中不要关闭连接
             ChannelFuture closeFuture = channelFuture.channel().closeFuture();
             closeFuture.sync();
         } catch (Exception e) {
@@ -106,7 +107,7 @@ public class NettyDiscardServer {
 }
 ~~~
 
-一个 `Bootstrap` 的例子：
+一个 `Bootstrap` （客户端）的例子：
 
 ~~~java
 NioEventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -118,6 +119,8 @@ bootstrap
         @Override
         public void initChannel(SocketChannel ch) {}
     });
+// 不用分配端口
+
 
 // 4.建立连接
 bootstrap.connect("juejin.cn", 80).addListener(future -> {
@@ -289,6 +292,40 @@ public class MyHandler extends ChannelInboundHandlerAdapter {
         
        	// 动态设置 AttributeMap
         ctx.channel().attr(SESSION_KEY).set(session)
+    }
+}
+~~~
+
+
+
+### SpringBoot
+
+与 SpringBoot 的集成
+
+~~~java
+@Component
+public class NettyServerComponent {
+    @Value("${websocket.port}")
+    private int port;
+
+    private NettyServer nettyServer;
+
+    @PostConstruct
+    public void startServer() {
+        nettyServer = new NettyServer(port); // 配置端口号
+        try {
+            nettyServer.start(); // 启动Netty服务
+        } catch (Exception e) {
+            e.printStackTrace(); // 实际项目中应该使用日志记录异常信息
+            // 处理启动失败的情况，比如停止Spring Boot应用
+        }
+    }
+
+    @PreDestroy
+    public void stopServer() {
+        if (nettyServer != null) {
+            nettyServer.close();
+        }
     }
 }
 ~~~
@@ -643,48 +680,60 @@ Netty 的 `Zero-copy` 在以下几个方面体现
 
 ![image-20240522003224711](./assets/image-20240522003224711.png)
 
-### ChannelHandler   API
+### ChannelHandler
 
 ![Figure 6.2 ChannelHandlerAdapter class hierarchy](./assets/08.png)
 
-ChannelHandlerAdapter 在事件传播中介绍
+注：ChannelHandlerAdapter 将在「事件传播」中介绍。
 
 ChannelHandler 在 Netty 中的作用只是负责处理 IO 逻辑。它并不会感知到它在 pipeline 中的位置，更不会感知和它相邻的两个 ChannelHandler。这样设计就使得 ChannelHandlerContext 和 ChannelHandler 的职责单一，各司其职，具有高度的可扩展性。
 
-`ChannelHandler` 的生命周期
-
-![img](./assets/03.png)
-
 Netty 提供 2个重要的 ChannelHandler 子接口：
 
-- ChannelInboundHandler - 处理进站数据和所有状态更改事件
-- ChannelOutboundHandler - 处理出站数据，允许拦截各种操作
+- `ChannelInboundHandler` - 处理进站数据和所有状态更改事件
+- `ChannelOutboundHandler` - 处理出站数据，允许拦截各种操作
 
-`ChannelInboundHandler` 的方法，这些方法仅仅是回调方法而已，进行一些拦截操作
+`ChannelInboundHandler` 的方法，这些方法仅仅是回调方法而已，进行一些拦截操作：
 
-| 类型                      | 描述                                                         |
-| ------------------------- | ------------------------------------------------------------ |
-| channelRegistered         | Invoked when a Channel is registered to its EventLoop and is able to handle I/O. |
-| channelUnregistered       | Invoked when a Channel is deregistered from its EventLoop and cannot handle any I/O. |
-| channelActive             | Invoked when a Channel is active; the Channel is connected/bound and ready. |
-| channelInactive           | Invoked when a Channel leaves active state and is no longer connected to its remote peer. |
-| channelReadComplete       | Invoked when a read operation on the Channel has completed.  |
-| channelRead               | Invoked if data are read from the Channel.                   |
-| channelWritabilityChanged | Invoked when the writability state of the Channel changes. The user can ensure writes are not done too fast (with risk of an OutOfMemoryError) or can resume writes when the Channel becomes writable again.Channel.isWritable() can be used to detect the actual writability of the channel. The threshold for writability can be set via Channel.config().setWriteHighWaterMark() and Channel.config().setWriteLowWaterMark(). |
-| userEventTriggered(...)   | Invoked when a user calls Channel.fireUserEventTriggered(...) to pass a pojo through the ChannelPipeline. This can be used to pass user specific events through the ChannelPipeline and so allow handling those events. |
+- `handlerAdded`：把 handler 添加到 channelPipeline 后执行该回调。也就是在 channel.pipeline.addLast(new LifeCycleInBoundHandler) 执行完成后，执行该回调
+
+- `channelRegistered`：当该连接分配到具体的 worker 线程后，执行该回调
+
+- `channelActive`：channel 的准备工作已经完成，已经准备就绪后，就执行该回调
+
+- `channelRead`：客户端向服务端发来数据，每次都会回调此方法，表示有数据可读
+
+- `channelReadComplete`：服务端每次读完一次完整的数据之后，回调该方法，表示数据读取完毕
+
+- `channelInactive`：当底层的 TCP 连接断开后，执行该回调。 ChannelInactive 触发场景
+
+  - 客户端发送 close 帧（FIN 包）
+  - 客户端关闭进程（RST 包）
+  - 服务端或客户端主动调用 channel.close()
+
+  底层物理连接断开后，或者网络出现分区，并不会触发 channelInactive。因此此时并没有发送 FIN 包，故 Netty 就认为当前逻辑连接并没有关闭。
+
+- `channelUnRegistered`：当连接关闭后，释放绑定的 workder 线程。执行该回调
+
+- `handlerRemoved`：将 handler 从该 channelPipeline移除后，执行该回调方法
+
+- `exceptionCaught`：called if an error occurs in the ChannelPipeline during processing
+
+- `hannelWritabilityChanged`：Invoked when the writability state of the Channel changes. The user can ensure writes are not done too fast (with risk of an OutOfMemoryError) or can resume writes when the Channel becomes writable again.Channel.isWritable() can be used to detect the actual writability of the channel. The threshold for writability can be set via Channel.config().setWriteHighWaterMark() and Channel.config().setWriteLowWaterMark().
+
+- `userEventTriggered`：Invoked when a user calls Channel.fireUserEventTriggered(...) to pass a pojo through the ChannelPipeline. This can be used to pass user specific events through the ChannelPipeline and so allow handling those events.
+
+
 
 ChannelInboundHandler 的生命周期：
 
-- `Registered`：当处理器挂载到 Pipeline 上
-- `Active`：当连接建立完成
-- `Inactive`：当连接断开时
-- `Unregistered`当处理器从 Pipeline 上卸载时
+![Netty生命周期](./assets/20210507161116404.png)
 
 
 
 
 
-`ChannelOutboundHandler` 的方法，这些方法仅仅是回调方法而已，进行一些拦截操作
+`ChannelOutboundHandler` 的**方法如果一直传播到  HeadContext，那么就会触发底层连接的相应操作**
 
 | 类型       | 描述                                                         |
 | ---------- | ------------------------------------------------------------ |
@@ -699,13 +748,21 @@ ChannelInboundHandler 的生命周期：
 
 
 
-In Netty, the write methods are basically asynchronous. so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes. The write operation is ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called
+In Netty, the write methods are basically asynchronous. so most of the methods in `ChannelOutboundHandler` take a `ChannelPromise` argument to be notified when the operation completes。我们可以再 Promise 上设置一个监听器
+
+~~~java
+// 写入操作完成后就关闭连接
+ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
+~~~
+
+ The write operation is ready to be flushed to the actual [`Channel`](https://netty.io/4.1/api/io/netty/channel/Channel.html) once [`Channel.flush()`](https://netty.io/4.1/api/io/netty/channel/Channel.html#flush--) is called。
 
 ~~~java
 public class OutBoundHandlerA extends ChannelOutboundHandlerAdapter {
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         System.out.println("OutBoundHandlerA: " + msg);
+        // 事件传递
         super.write(ctx, msg, promise);
     }
 }
@@ -725,7 +782,7 @@ b.childHandler(new ChannelInitializer<SocketChannel>() {
 
 **Every new `Channel` that’s created is assigned a new `ChannelPipeline`. This association is permanent.**
 
-A `ChannelHandler` can modify the layout of a `ChannelPipeline` in real time by adding, removing, or replacing other `ChannelHandlers`
+A `ChannelHandler` can modify the layout of a `ChannelPipeline` in real time by adding, removing, or replacing other ChannelHandlers
 
 ![img](./assets/12.png)
 
@@ -757,26 +814,15 @@ b.childHandler(new ChannelInitializer<SocketChannel>() {
 });
 ~~~
 
-
-
 The following table shows the `ChannelPipeline` operations for accessing `ChannelHandlers`，这些方法在热插拔 Handler 时十分有用。
+
 [![img](./assets/14.png)](https://mindawei.github.io/images/00014/14.png)
 
 
 
-The ChannelPipeline API exposes additional methods for invoking inbound and outbound operations
-
-![img](./assets/15.png)
-
-
-
-以下这些方法会真正与底层连接进行交互。
+在 Channel 或者 ChannelPipeline 上调用这些方法，都会把事件在整个管道传播（假设传播未被中断）；而在 ChannelHandler 级别上，事件会从该实例的下一个 Handler 开始传播。 write() 到达 HeadContext 后就准备向对端发送数据。这对于其他方法也是类似的。
 
 ![img](./assets/16.png)
-
-**这里的 next 应当理解为传播方向上的首个 Handler**
-
-这里的 read 方法首先向对端请求更多的数据，然后传播 OutHandler 的 read 事件。
 
 ### ChannelHandlerContext
 
@@ -787,11 +833,13 @@ The following table summarizes the `ChannelHandlerContext` API.
 
 **这里的 next 应当理解为当前处理器的下一个 Handler**
 
-在 Channel 或者 ChannelPipeline 上调用 write() ，都会把事件在整个管道传播（假设传播未被中断）；而在 ChannelHandler 级别上，事件会从该实例的下一个 Handler 开始传播。这些 write() 都向对端发送数据。
-
 ### 事件传播
 
-As shown in figure 6.6, the message flows through the `ChannelPipeline` starting at the *next* `ChannelHandler`, bypassing all the preceding ones.
+ChannelPipeline 下面这些方法从 Pipeline 开始传播事件
+
+![img](./assets/15.png)
+
+而对于 ChannelHandlerContext 的 fire 方法， As shown in figure 6.6, the message flows through the `ChannelPipeline` starting at the *next* `ChannelHandler`, bypassing all the preceding ones.
 
 [![Figure 6.6 Event flow for operations triggered via the ChannelHandlerContext](./assets/23-1716307888940-35.png)](https://mindawei.github.io/images/00014/23.png)
 
@@ -801,6 +849,7 @@ The method bodies provided in `ChannelInboundHandlerAdapter` and `ChannelOutboun
 // 以 ChannelInboundHandlerAdapter#channelRead 为例
 @Override
 public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    // 继续将 channelRead 事件传播下去
     ctx.fireChannelRead(msg);
 }
 ~~~
@@ -830,5 +879,5 @@ public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws E
 }
 ~~~
 
-异常的传播方向与 handler 的添加方向一致，并且不区分是 inboundHandler 还是 outboundHandler。默认情况下，如果不重写`exceptionCaught`方法，那么会把该异常继续向后传播，最终会传播到 tail 节点，tail 节点会打印一条日志表明该异常未被处理
+异常的传播方向与 handler 的添加方向一致，并且不区分是 inboundHandler 还是 outboundHandler。默认情况下，如果不重写`exceptionCaught`方法，那么会把该异常继续向后传播，最终会传播到 tail 节点，tail 节点会打印一条日志表明该异常未被处理。
 

@@ -781,11 +781,13 @@ Druid 为监控而生的数据池
 
 ~~~xml
 <!-- 阿里巴巴的druid数据源 -->
+<!-- https://mvnrepository.com/artifact/com.alibaba/druid-spring-boot-3-starter -->
 <dependency>
     <groupId>com.alibaba</groupId>
     <artifactId>druid-spring-boot-3-starter</artifactId>
-    <version>1.2.20</version>
+    <version>1.2.23</version>
 </dependency>
+
 
 
 <dependency>
@@ -864,6 +866,67 @@ spring:
 ~~~
 
 控制台的访问地址通常是：http://localhost:30001/druid/login.html。
+
+
+
+与 Dynamic-Source 集成
+
+~~~yaml
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    dynamic:
+      primary: mysql
+      strict: false
+      datasource:
+        mysql:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://122.9.7.252:3306/cloud_music_test?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
+          username: root
+          password: grf.2001
+      druid:
+      	# 这里不能配置 filter 了，只能 @Configuration
+~~~
+
+
+
+~~~java
+@Configuration
+public class DruidConfiguration {
+
+    @Bean
+    public ServletRegistrationBean druidStatViewServle() {
+        //注册服务
+        ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean(
+                new StatViewServlet(), "/druid/*");
+        // 白名单(为空表示,所有的都可以访问,多个IP的时候用逗号隔开)
+        servletRegistrationBean.addInitParameter("allow", "127.0.0.1");
+        // IP黑名单 (存在共同时，deny优先于allow) （黑白名单就是如果是黑名单，那么该ip无法登陆该可视化界面）
+        servletRegistrationBean.addInitParameter("deny", "127.0.0.2");
+        // 设置登录的用户名和密码
+        servletRegistrationBean.addInitParameter("loginUsername", "root");
+        servletRegistrationBean.addInitParameter("loginPassword", "123456");
+        // 是否能够重置数据.
+        servletRegistrationBean.addInitParameter("resetEnable", "false");
+        return servletRegistrationBean;
+    }
+
+    @Bean
+    public FilterRegistrationBean druidStatFilter() {
+        FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+                new WebStatFilter());
+        // 添加过滤规则
+        filterRegistrationBean.addUrlPatterns("/*");
+        // 添加不需要忽略的格式信息
+        filterRegistrationBean.addInitParameter("exclusions", "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*");
+        System.out.println("druid初始化成功!");
+        return filterRegistrationBean;
+
+    }
+}
+~~~
+
+
 
 ## Redis
 
@@ -1105,10 +1168,6 @@ System.out.println(itemsByScore); // 输出：[item1, item2]
 // 使用 zset.delete() 方法删除所有元素。
 ~~~
 
-
-
-
-
 ## Kafka
 
 Maven 依赖
@@ -1236,24 +1295,236 @@ maven依赖：
 
 ~~~xml
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+    <groupId>co.elastic.clients</groupId>
+    <artifactId>elasticsearch-java</artifactId>
+    <version>7.16.2</version>
+</dependency>
+
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.12.3</version>
 </dependency>
 ~~~
 
-~~~java
-@Autowired
-private ElasticsearchRestTemplate elasticsearchRestTemplate;
+如果是 Spring Boot 项目，就不用添加第二个依赖了，因为 Spring Boot 的 Web 中默认已经加了这个依赖了，但是 Spring Boot 一般需要额外添加下面这个依赖
 
-@Test
-public void testTemplate() throws Exception {
-	SearchHits<GraphicsCard> hits = elasticsearchRestTemplate.search(
-        new CriteriaQuery(Criteria
-            .where("name")
-            .contains("ROG")), 
-        GraphicsCard.class);
+~~~xml
+<!-- Needed only if you use the spring-boot Maven plugin -->
+<dependency>
+    <groupId>jakarta.json</groupId>
+    <artifactId>jakarta.json-api</artifactId>
+    <version>2.0.1</version>
+</dependency>
+~~~
+
+
+
+~~~java
+public class EsConfig {
+ 
+    @Value(value = "${elasticsearch.clusterNodes}")
+    private String clusterNodes; // es 集群节点 例：//192.168.1.96:9200,192.168.1.97:9200,192.168.1.98:9200
+ 
+    @Value(value = "${elasticsearch.account}")
+    private String account; //账号 例：elastic
+ 
+    @Value(value = "${elasticsearch.passWord}")
+    private String passWord; //密码 例：123456
+ 
+    public static ElasticsearchClient client;
+ 
+    //http集群
+    public void esClient(){
+        HttpHost[] httpHosts = Arrays.stream(clusterNodes.split(",")).map(x -> {
+                      String[] hostInfo = x.split(":");
+                       return new HttpHost(hostInfo[0], Integer.parseInt(hostInfo[1]));
+                   }).toArray(HttpHost[]::new);
+ 
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(
+                AuthScope.ANY, new UsernamePasswordCredentials(account, passWord));//设置账号密码
+ 
+        RestClientBuilder builder = RestClient.builder(httpHosts)
+                .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+ 
+        // Create the low-level client
+        RestClient restClient = builder.build();
+        
+        // Create the transport with a Jackson mapper
+        ElasticsearchTransport transport = new RestClientTransport(
+                restClient, new JacksonJsonpMapper());
+        
+        // 同步客户端
+        client = new ElasticsearchClient(transport);
+ 		
+        // 异步客户端
+        client = new ElasticsearchAsyncClient(transport);
+    }
 }
 ~~~
+
+
+
+创建索引：
+
+~~~java
+ElasticsearchClient client = new ElasticsearchClient(transport);
+
+CreateIndexResponse createIndexResponse = client
+    .indices()
+    .create(i -> i
+            .index("blog")
+            .settings(s -> s
+                      .numberOfShards("2")
+                      .numberOfReplicas("3")
+                     )
+            .mappings(m -> m
+                      .properties("title", t -> t.text(tt -> tt.analyzer("ik_max_word")))
+                      .properties("publish", p -> p.keyword(pp -> pp.index(true)))
+                      .properties("date",d->d.date(dd->dd.format("yyyy-MM-dd")))
+                     )
+            .aliases("my_blog", aa -> aa.isWriteIndex(false))
+           );
+~~~
+
+等同于：
+
+```json
+PUT blog
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 3
+  },
+  "mappings": {
+    "properties": {
+      "title":{
+        "type": "text",
+        "analyzer": "ik_max_word"
+      },
+      "publish":{
+        "type": "keyword"
+      },
+      "date":{
+        "type": "date",
+        "format": "yyyy-MM-dd"
+      }
+    }
+  },
+  "aliases": {
+    "my_blog": {
+      "is_write_index": false
+    }
+  }
+}
+```
+
+
+
+直接使用 JSON 来构建：
+
+~~~java
+//直接使用json
+StringReader input = new StringReader(
+    "{\n" +
+    "  \"settings\": {\n" +
+    "    \"number_of_shards\": 2,\n" +
+    "    \"number_of_replicas\": 3\n" +
+    "  },\n" +
+    "  \"mappings\": {\n" +
+    "    \"properties\": {\n" +
+    "      \"title\":{\n" +
+    "        \"type\": \"text\",\n" +
+    "        \"analyzer\": \"ik_max_word\"\n" +
+    "      },\n" +
+    "      \"publish\":{\n" +
+    "        \"type\": \"keyword\"\n" +
+    "      },\n" +
+    "      \"date\":{\n" +
+    "        \"type\": \"date\",\n" +
+    "        \"format\": \"yyyy-MM-dd\"\n" +
+    "      }\n" +
+    "    }\n" +
+    "  },\n" +
+    "  \"aliases\": {\n" +
+    "    \"my_blog\": {\n" +
+    "      \"is_write_index\": false\n" +
+    "    }\n" +
+    "  }\n" +
+    "}");
+
+CreateIndexResponse createIndexResponse = client.indices().create(i-> i.index("blog").withJson(input));
+~~~
+
+
+
+添加文档：
+
+~~~java
+Book blog = new Book("三国演义", "罗贯中", "2022-01-11");
+IndexResponse response = client.index(i -> i.index("books").document(blog).id("1"));
+
+response.result();
+response.id();
+response.seqNo();
+response.index();
+response.shards();
+~~~
+
+
+
+删除文档：
+
+~~~java
+client.delete(i -> i.index("books").id("1")).whenComplete((success,failure)->{
+    System.out.println(success.index());
+    System.out.println(success.version());
+});
+~~~
+
+
+
+查询文档：
+
+~~~java
+//构造查询条件
+SearchRequest searchRequest = SearchRequest.of(
+    s -> s.index("books")
+    .query(q -> q.match(m -> m.field("title").query("三国演义")))
+    .query(q -> q.term(t -> t.field("author").value("罗")))
+);
+
+//处理响应结果
+SearchResponse<Book> response = client.search(searchRequest, Book.class);
+
+//最大分数
+System.out.println(response.maxScore());
+
+//分片数
+System.out.println(response.shards());
+
+//是否超时
+System.out.println(response.timedOut());
+
+
+//拿到匹配的数据
+HitsMetadata<Book> hitsMetadata = response.hits();
+//得到总数
+System.out.println(hitsMetadata.total());
+//拿到hits命中的数据
+List<Hit<Book>> hits = hitsMetadata.hits();
+for (Hit<Book> hit : hits) {
+    //拿到_source中的数据
+    System.out.println(hit.source());
+    System.out.println(hit.index());
+    System.out.println(hit.id());
+    System.out.println(hit.score());
+}
+、
+~~~
+
+
 
 ## Caffine
 
@@ -2085,9 +2356,76 @@ public class Student {
 - `@AllArgsConstructor(access = AccessLevel.PROTECTED)`：这个选项可以用来改变生成的构造方法的访问级别。
 - `@RequiredArgsConstructor(staticName = "of")`：这个选项可以让 Lombok 为你生成一个静态的工厂方法，而不是一个构造方法。
 
-
-
 ## TinyID
+
+![img](./assets/1460000023942068.png)
+
+在号段用到一定程度的时候，就异步加载下一个号段，保证内存中始终有可用号段，可避免性能波动。
+
+
+
+按照官网说明来安装即可：https://github.com/didi/tinyid。这里有两个坑：
+
+- 要用 Java 8 来继续编译
+
+- 在 pom.xml 依赖中，将 mysql 驱动更新为 8.0 版本的。
+
+  ~~~xml
+  <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.0.20</version>
+  </dependency>
+  ~~~
+
+  
+
+客户端的安装
+
+[maven 仓库中心](https://mvnrepository.com/) 是没有 tinyid-client 依赖的，必须手动进行打包到本地仓库中。踩坑点：
+
+- 必须对根项目进行打包
+- tinyid-server 必须做好配置，否则测试不通过
+- 项目的 Java 版本需调成 11 或 1.8
+  - Project Structure
+  - POM.xml
+
+
+
+~~~xml
+<dependency>
+    <groupId>com.xiaoju.uemc.tinyid</groupId>
+    <artifactId>tinyid-client</artifactId>
+    <version>${tinyid.version}</version>
+</dependency>
+~~~
+
+~~~properties
+tinyid.server=localhost:9999
+tinyid.token=0f673adf80504e2eaa552f5d791b644c
+
+#(tinyid.server=localhost:9999/gateway,ip2:port2/prefix,...)
+~~~
+
+~~~java
+Long id = TinyId.nextId("test");
+List<Long> ids = TinyId.nextId("test", 10);
+~~~
+
+
+
+Rest API
+
+~~~shell
+nextId:
+curl 'http://localhost:9999/tinyid/id/nextId?bizType=test&token=0f673adf80504e2eaa552f5d791b644c'
+response:{"data":[2],"code":200,"message":""}
+
+
+with batchSize:
+curl 'http://localhost:9999/tinyid/id/nextIdSimple?bizType=test&token=0f673adf80504e2eaa552f5d791b644c&batchSize=10'
+response: 4,5,6,7,8,9,10,11,12,13
+~~~
 
 
 

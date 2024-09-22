@@ -1468,7 +1468,7 @@ Press <enter> to keep the current choice[*], or type selection number:
 sudo update-alternatives --install /usr/bin/java java /usr/share/oracle-jdk8/bin/java 1 
 ~~~
 
-
+/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
 
 
 

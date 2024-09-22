@@ -52,7 +52,7 @@ dynamic 属性的取值：
 
 
 
-我们可以通过 create index API 或者 _mapping 端点来显式创建一个 Mapping。在创建完 Mapping 后，还可以继续调用 create index API / PUT _mapping 来向 Mapping 增量添加新的字段。但是不允许修改现有字段的类型，也不能删除现有字段。
+我们可以通过 create index API 或者 _mapping 端点来显式创建一个 Mapping。在创建完 Mapping 后，还可以继续调用 create index API / PUT _mapping 来向 Mapping 增量添加新的字段。但是不允许修改现有字段的类型，也不能删除现有字段。如果执意要执行这种操作，建议使用 Reindex 来完成。
 
 ~~~json
 // 使用 create index API

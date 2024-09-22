@@ -580,7 +580,13 @@ BeanDefinition catDefinition = ctx.getBeanFactory().getMergedBeanDefinition("cat
 
 
 
-这里顺便讲解一下 `@Component` 抽象类（https://segmentfault.com/q/1010000039720497）。接口和抽象类都是可以加`@Component`注解的，但是必须其中至少还有一个方法带有`@Lookup`注解。`@Lookup`注解是一个在单例`bean`中使用一个多例`bean`的解决方案。考虑下面这个场景：
+这里顺便讲解一下 `@Component` 抽象类（https://segmentfault.com/q/1010000039720497）。虽然抽象类是不能实例化的，但是 @Component 工作方式是通过代理类代理的方式来实例化的，从而避开了这一点。
+
+接口和抽象类都是可以加`@Component`注解的，但是**推荐**其中至少还有一个方法带有`@Lookup`注解，否则就不是候选的组件了。
+
+![image.png](./assets/bVcQPxi.png)
+
+`@Lookup`注解是一个在单例`bean`中使用一个多例`bean`的解决方案。考虑下面这个场景：
 
 ~~~java
 @Component
@@ -617,7 +623,7 @@ public class A {
 }
 ~~~
 
-但这有点侵入代码的味道，我们可以这样写：
+但这仍有点侵入代码的味道，我们可以这样写：
 
 ~~~java
 @Component
@@ -638,6 +644,12 @@ public class A {
 ~~~
 
 这就是可以有 `@Component` 抽象类的原因。
+
+
+
+去掉抽象类的`@Component`，子类被注入的时候，抽象类的`@PostConstruct`照样会被执行的。有一种例外情况，父子类 @PostConstruct 方法同名了，这样导致抽象父类的 @PostConstruct 方法没有执行到。因为构建 LifecycleMetadata 后，有一步 check 动作，metadata.checkConfigMembers(beanDefinition)，分别对同名的 initMethods 或者 destroyMethods 去重，只留一个。
+
+此外，只要抽象类有子类，而且子类能正常注入 IOC，那么捎带着抽象类本身所依赖的 Bean 也间接注入了，无需在抽象类本身加`@Component`; 
 
 ## 后置处理器
 

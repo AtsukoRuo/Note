@@ -1078,6 +1078,17 @@ public DataSource readDruidDataSource() {
 }
 ~~~
 
+~~~java
+@Component
+@PropertySource({"classpath:remote.properties"})
+@ConfigurationProperties(prefix = "remote")
+public class RemoteConfig {
+    private String address;
+    private int port;
+    // getter 和 setter 方法
+}
+~~~
+
 
 
 #### 任务抽象（线程）

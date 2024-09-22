@@ -165,7 +165,6 @@ mvn -version
 
 ~~~xml
 <mirrors>
-
     <mirror>
         <id>alimaven</id>
         <name>aliyun maven</name>

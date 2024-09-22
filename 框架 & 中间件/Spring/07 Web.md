@@ -610,10 +610,6 @@ public ResponseEntity<List<MenuItem>> createBatch(
 
 
 
-
-
-将 HTTP 请求体作为一个`InputStream`接收。这样，数据就可以作为流被读取，而不是一次性载入内存。当需要发送大量数据时，可以使用`HttpServletResponse`的输出流。
-
 分块上传的大致思路：
 
 1. 前端做分块逻辑，然后分批上传到服务端
@@ -697,7 +693,23 @@ public void download(
 }
 ~~~
 
+##  Tomcat
 
+如果参数是 GET queryString 方式，那么所有参数都在报文头中，会一次性全部读取至内存。
+
+Tomcat 在处理 POST 类型报文时，会先读取前面的 Header 部分。剩下的 Payload 部分并不会一次性读取，而是包装了一个 InputStream。对 HttpServletRequest 调用涉及读取 Payload 部分的 getParameter/getInputStream 等这些方法时，就会从 InputStream 内部的 Socket RCV_BUF 中读取 Payload 数据。
+
+Tomcat 并不会主动读取 InputStream，一般由 Web 框架（比如 SpringMVC）主动调用 getParameter 等方法，进行 read 操作来读取 Socket 里的 RCV_BUF 数据。
+
+对于 multipart 类型的请求，Tomcat 增加了一个暂存文件的概念，**在解析（Web 框架调用 HttpServletRequest#getParts）报文时，会将该字段中的数据全部写入到磁盘中**。如下图所示，Tomcat 对每一个字段都包装为一个 DiskFileItem。
+
+![tomcat_form_data_threshold (5).png](./assets/e130f81fa9ab49778412ea86ac4729detplv-k3u1fbpfcp-zoom-in-crop-mark1512000.webp)
+
+DiskFileItem 内又分为 Header 部分和 Content 部分。Content 中一部分存储在内存，剩下的存储至磁盘。而这一部分通过一个 sizeThreshold 进行分割；**不过这个值默认为 0**，也就是说默认会把内容部分全部存储至磁盘。
+
+Tomcat 在处理 multipart 类型的报文时，如果某个字段不是文件，会将这个字段的 key/value 添加到 parameterMap 中，也就是说通过 request.getParameter/getParameterMap 可以获取到这些非文件的字段。
+
+为什么要先写入临时文件，直接包装 InputStream 交给应用层读取不行吗？如果应用层不（及时）读取 RCV_BUF，那么当收到的数据写满 RCV_BUF 时，就不会再返回 ACK 了，客户端的的数据也会存储在 SND_BUF 中，无法继续发送数据，当 SND_BUF 被应用层写满时，这条连接就被阻塞了。
 
 ## WebSocket 
 
