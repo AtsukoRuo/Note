@@ -168,9 +168,7 @@ protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throw
 2. 借助 `ConfigurationClassParser`，解析配置类上的注解（如 `@Import` 、`@ImportResource` 、`@PropertySource` 等）
 3. 借助 `ConfigurationClassBeanDefinitionReader`：解析配置类中的 `@Bean` 并封装 `BeanDefinition`
 
-注意：在 SpringFramework 4.0 中，`ImportSelector`有一个子接口 `DeferredImportSelector`，它**在完成解析配置类的所有工作后**才执行。而`ImportSelector` 在处理@ImportResource、@Bean之前就完成了。它在 Spring Boot 中却有大量的应用，配合着`@Conditional`注解（尤其是`@ConditionalOnBean`，使用它要确保我们导入的 Bean 已经存在了）时，可以体现自动装配中约定大于配置的思想
-
-
+注意：在 SpringFramework 4.0 中，`ImportSelector`有一个子接口 `DeferredImportSelector`，它**在完成解析配置类的所有工作后**才执行。而`ImportSelector` 在处理 @ImportResource、@Bean 之前就完成了。它在 Spring Boot 中却有大量的应用，配合着`@Conditional`注解（尤其是`@ConditionalOnBean`，使用它要确保我们导入的 Bean 已经存在了）时，可以体现自动装配中约定大于配置的思想
 
 
 
@@ -250,15 +248,39 @@ public void preInstantiateSingletons() throws BeansException {
   - 不是：直接返回 bean
   - 是并且以 & 符号开头：直接返回 bean，也就是 factoryBean 本身
   - 是但不以  & 符号开头：返回从 `FactoryBean#getObject()`中获取的 Bean 对象。
-- `createBean`：
-  - 调用 `resolveBeforeInstantiation` 方法来回调`InstantiationAwareBeanPostProcessor`接口的`postProcessBeforeInstantiation` 方法
-  -  ，如果它返回一个 `Bean` 对象，那么就直接退出 `createBean` 方法
-  - 调用 `doCreateBean` 完成以下三件事情：
-    - 实例化 Bean 对象：找到符合要求的构造函数，然后构造出 Bean 对象
-    - 属性赋值 & 依赖注入
-    - Bean 对象的初始化
+- `createBean`：调用 `resolveBeforeInstantiation` 方法来回调`InstantiationAwareBeanPostProcessor`接口的`postProcessBeforeInstantiation` 方法。如果返回一个 `Bean` 对象，那么就直接退出 `createBean` 方法。否则调用 `doCreateBean`
 
-## Bean的初始化
+
+
+doCreateBean 是一个很重要的方法，它是 Bean 完整的创建过程，包括 Bean 实例化、依赖注入、初始化全部操作。
+
+~~~java
+protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, 
+        final @Nullable Object[] args) throws BeanCreationException {
+    BeanWrapper instanceWrapper = null;
+    if (mbd.isSingleton()) {
+        instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
+    }
+    // 2. 实例化 Bean，构造器注入或工厂方法注入
+    if (instanceWrapper == null) {
+        instanceWrapper = createBeanInstance(beanName, mbd, args);
+    }
+    
+    // 3. 属性注入、初始化 ...
+    Object exposedObject = bean;
+    populateBean(beanName, mbd, instanceWrapper);
+    exposedObject = initializeBean(beanName, exposedObject, mbd);
+    ...
+}
+~~~
+
+而 doCreateBean 的 createBeanInstance 方法负责 Bean 的实例化：
+
+- 构造函数自动注入初始化：`autowireConstructor()`
+- 默认构造函数注入：`instantiateBean()`
+- ...
+
+## Bean 的初始化
 
 下面我们介绍 `doCreateBean` 剩下的部分，它是 `Bean` 的初始化生命周期：
 
@@ -365,16 +387,14 @@ IOC 无法解决的两种循环依赖：
 
 1. 非单例对象：因为非单例对象不会放入缓存的，每次都是按需要创建
 
-2. 构造器注入：调用构造器创建实例是在 `createBeanInstance` 方法，而解决循环依赖是在`populateBean`（负责属性注入的方法）这个方法中，执行顺序也决定了无法解决该种循环依赖。
-
-   可以给构造器参数添加 @Lazy 来解决构造器之间的循环依赖问题：
+2. 构造器注入：调用构造器创建实例是在 `createBeanInstance` 方法，而解决循环依赖是在`populateBean`（负责属性注入的方法）这个方法中，执行顺序也决定了无法解决该种循环依赖。可以给构造器参数添加 @Lazy 来解决构造器之间的循环依赖问题：
 
    ~~~java
    public CycleB(@Lazy CycleA cycleA){
        this.cycleA = cycleA;
    }
    ~~~
-
+   
    
 
 三级缓存如下：
@@ -396,7 +416,7 @@ IOC 无法解决的两种循环依赖：
 
 
 
-从理论上来说，使用二级缓存是可以解决 AOP 代理 Bean 的循环依赖的。即在 doCreateBean方法中，直接生成基于 AOP 的代理对象，将代理对象存入二级缓存 earlySingleton。但是这样做的话，就把 AOP 中创建代理对象的时机提前了，不管是否发生循环依赖，都在 doCreateBean 方法中完成了 AOP 的代理。这不仅没有必要，而且违背 了Spring 违反了 Bean 的生命周期的设计。
+从理论上来说，使用二级缓存是可以解决 AOP 代理 Bean 的循环依赖的。即在 doCreateBean方法中，直接生成基于 AOP 的代理对象，将代理对象存入二级缓存 earlySingleton。但是这样做的话，就把 AOP 中创建代理对象的时机提前了，不管是否发生循环依赖，都在 doCreateBean 方法中完成了 AOP 的代理。这不仅没有必要，而且违背 了Spring 违反了 Bean 的生命周期的设计：
 
 1. 创建实例 createBeanInstance
 2. 填充依赖 populateBean 

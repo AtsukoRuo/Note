@@ -694,6 +694,74 @@ mount -t ext4 /dev/sdf2 /home/extra
    /tmp/swapfile   swap  swap   defaults  0 0
    ~~~
 
+### NFS
+
+NFS 的服务端：
+
+~~~shell
+sudo apt update
+sudo apt install -y nfs-kernel-server
+sudo mkdir -p /mnt/nfs_share
+sudo chmod -R 777 /mnt/nfs_share
+~~~
+
+在 /etc/exports 文件中添加如下内容：
+
+~~~shell
+/mnt/nfs_share *(rw,sync,no_subtree_check,insecure,no_root_squash)
+~~~
+
+~~~shell
+sudo systemctl restart nfs-kernel-server
+sudo systemctl enable nfs-kernel-server
+sudo exportfs -v		# 检查挂载情况
+~~~
+
+通过 rpcinfo -p 查看要开放的 NFS 端口（它会随机启动很多端口）：
+
+~~~shell
+[root@pgb sysconfig]# rpcinfo -p 
+   program vers proto   port
+    100000    2   tcp    111  portmapper
+    100000    2   udp    111  portmapper
+    100024    1   udp    923  status
+    100024    1   tcp    926  status
+    100011    1   udp    927  rquotad
+    100011    2   udp    927  rquotad
+    100011    1   tcp    930  rquotad
+    100011    2   tcp    930  rquotad
+    100003    2   udp   2049  nfs
+    100003    3   udp   2049  nfs
+    100003    4   udp   2049  nfs
+    100021    1   udp   4004  nlockmgr
+......
+~~~
+
+
+
+
+
+客户端：
+
+~~~shell
+sudo apt update
+sudo apt install -y nfs-common
+sudo mkdir -p /mnt/nfs_clientshare
+sudo mount 192.168.1.100:/mnt/nfs_share /mnt/nfs_clientshare
+df -h # 验证挂载
+~~~
+
+
+
+对于 Windows 客户端，要升级到「专业版」。然后，开启 NFS 功能。
+
+~~~shell
+showmount -e # 查看服务端的挂载点
+mount 192.168.15.60:/data/mdlib_data X: 	# 挂载到 X 盘上
+~~~
+
+
+
 ## 系统配置
 
 ### 用户信息

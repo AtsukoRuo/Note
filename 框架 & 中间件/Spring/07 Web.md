@@ -1226,8 +1226,8 @@ void cachedContent(ResposeEntity resposeEntity) {
 
 连接池有：
 
-- Java HttpURLConnection
-- Java11 HttpClient
+- Java HttpURLConnection，内置于`JDK`中
+- Java11 HttpClient，JDK 提供的，旨在替代原有的`HttpURLConnection`，支持`HTTP/2`和异步操作。
 - Apache HttpClient
 - OkHttp
 

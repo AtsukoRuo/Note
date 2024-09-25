@@ -218,8 +218,6 @@ public class BinaryTeaApplication {
 
 
 
-### 配置
-
 自动配置类其实就是一个 `@Configuration` 类（基于 Java 类的配置）。
 
 ~~~java
@@ -918,42 +916,6 @@ public static void main(String[] args) {
 
 
 
-我们可以通过 FailureAnalyzer 提供SrpingBoot应用启动失败的原因分析，Spring Boot 内置了近 20 种不同的分析器，这里只展示一小部分：
-
-| `FailureAnalyzer` 实现类                          | 功能                                        |
-| :------------------------------------------------ | :------------------------------------------ |
-| `BindFailureAnalyzer`                             | 提示属性绑定相关异常                        |
-| `DataSourceBeanCreationFailureAnalyzer`           | 提示数据源创建相关异常                      |
-| `InvalidConfigurationPropertyNameFailureAnalyzer` | 提示配置属性名不正确                        |
-| `NoSuchBeanDefinitionFailureAnalyzer`             | 提示 Spring 上下文中找不到需要的 Bean 定义  |
-| `NoUniqueBeanDefinitionFailureAnalyzer`           | 提示要注入一个 Bean，但实际却找到了不止一个 |
-
-我们也可以根据实际情况，提供自己的 `FailureAnalyzer` 实现类：
-
-- 创建一个类并继承`AbstractFailureAnalyzer<T>`，其中的泛型 `T` 就是要分析的异常。然后，重写`analyze()`方法，用于分析异常并返回`FailureAnalysis`对象
-
-  ~~~java
-  class PortInUseFailureAnalyzer extends AbstractFailureAnalyzer<PortInUseException> {
-      @Override
-      protected FailureAnalysis analyze(Throwable rootFailure, PortInUseException cause) {
-          return new FailureAnalysis("Web server failed to start. Port " + cause.getPort() + " was already in use.",
-                 "Identify and stop the process that's listening on port " + cause.getPort() + " or configure this "
-                 + "application to listen on another port.", cause);
-      }
-  }
-  ~~~
-
-- 将自定义的`FailureAnalyzer`类注册到`spring.factories`文件中
-
-  ~~~xml
-  org.springframework.boot.diagnostics.FailureAnalyzer=\
-  com.example.demo.RequiredPropertyFailureAnalyzer
-  ~~~
-
-  
-
-
-
 我们也可以自定义`Banner`栏，可以通过 `spring.main.banner-mode` 属性来控制 Banner 的输出方式：
 
 - **`Banner.Mode.OFF`**（属性值为 `off`），关闭输出；
@@ -1116,8 +1078,39 @@ Lombok是一个解放生产力的利器，它通过一系列注解消灭了上�
    </dependencies>
    ~~~
 
-3. 创建一个用 `@Configuration` 注释的配置类
+3. 创建一个用 `@Configuration` 注释的配置类，建议命名为 XXXXAutoConfiguration
+
+   ~~~java
+   @Configuration
+   // 通过 EnableConfigurationProperties 来导入配置
+   @EnableConfigurationProperties(HttpProperties.class)
+   public class HttpAutoConfiguration {
+       @Resource
+       private HttpProperties properties; // 使用配置
+   
+       // 在Spring上下文中创建一个对象
+       @Bean
+       @ConditionalOnMissingBean
+       public HttpClient init() {
+           HttpClient client = new HttpClient();
+   
+           String url = properties.getUrl();
+           client.setUrl(url);
+           return client;
+       }
+   }
+   
+   
+   
+   @Setter
+   @Getter
+   @ConfigurationProperties(prefix = "http")
+   public class HttpProperties {
+       // 如果配置文件中配置了http.url属性，则该默认属性会被覆盖
+       private String url = "http://www.baidu.com/";
+   }
+   ~~~
 
 4. 在`src/main/resources/META-INF`目录下创建`spring.factories`文件，并在`org.springframework.boot.autoconfigure.EnableAutoConfiguration`关键字下列出您的自动配置类
 
-5. 
+   

@@ -960,7 +960,7 @@ ctx.refresh();	// 手动刷新。
 
 ### FactoryBean
 
-FactoryBean 将复杂的 Bean 创建逻辑抽离出来了
+在某些情况下，实例化 Bean 过程比较复杂，如果按照传统的方式，则需要在中提供大量的配置信息。配置方式的灵活性是受限的，这时采用编码的方式，可能会得到一个简单的方案。Spring 为此提供了一个 org.springframework.bean.factory.FactoryBean 的工厂类接口，用户可以通过实现该接口定制实例化 Bean 的逻辑。简而言之，FactoryBean 将复杂的 Bean 创建逻辑抽离出来了
 
 ~~~java
 public interface FactoryBean<T> {

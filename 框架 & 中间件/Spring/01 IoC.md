@@ -450,7 +450,14 @@ public class Person { }
 | `@Resource`  | JSR-250 的注解，**根据名称注入依赖** |
 | `@Inject`    | JSR-330 的注解，同 `@Autowired`      |
 
+@Autowired 可以直接注入泛型类型，但 @Resource 却不可以。
 
+~~~java
+@Autowired
+private Repository<User> userRepository;
+~~~
+
+Spring 中大量使用反射，需要获取泛型的具体类型，为此专门提供了一个工具类解析泛型 - ResolvalbeType。ResolvableType 是对 Class，Field，Method 获取 Type 的抽象。
 
 
 
@@ -945,7 +952,7 @@ public class DevConfig {
     @Bean
     public Hello hello() {
         Hello hello = new Hello();
-        hello.setName("dev");
+        hello.setName("dev");@
         return hello;
     }
 }
@@ -1086,6 +1093,27 @@ public class RemoteConfig {
     private String address;
     private int port;
     // getter 和 setter 方法
+}
+~~~
+
+
+
+`@EnableConfigurationProperties` 注解的主要作用将 ConfigurationProperties 注解的类注入到 IOC 容器中。这样 Config 类就无需再通过 @Component 来注入了。
+
+~~~java
+@RestController
+@EnableConfigurationProperties(MyConfigurationProperties.class)
+public class HelloController {
+    @Autowired
+    private MyConfigurationProperties config;
+}
+
+@ConfigurationProperties(prefix = "..")
+// 这里就无需添加 @Component
+public class MyConfigurationProperties {
+    private String name;
+    private Integer age;
+    private String gender;
 }
 ~~~
 

@@ -188,7 +188,7 @@ Kafka 在 2.8 版本之后，就不再依赖 Zookeeper
 
    - `node.id`：这将作为集群中的节点 ID，唯一标识。
    - `process.roles`：一个节点可以充当 broker 或 controller 。
-   - `listeners`：broker 将使用 9092 端口，而 kraft controller 控制器将使用 9093 端口。
+   - `listeners`：broker 将使用 9092 端口，而 kraft controller 控制器将使用 9093 端口。注意：公网 EIP 是没有绑定到网卡上面的，这里仍要填写内网地址网卡。
    - `advertised.listeners`：这里指定 kafka 通过代理暴漏的地址，如果都是在局域网中使用，就配置`PLAINTEXT://192.168.58.130:9092`即可。这里一定要填写公网地址！
    - `controller.quorum.voters`：这个配置用于指定 **controller 主控**选举的投票节点，所有`process.roles`包含 controller 角色的规划节点都要参与，即：zimug1、zimug2、zimug3。其配置格式为:`node.id1@host1:9093,node.id2@host2:9093`
    - `log.dirs`：kafka 将存储数据的日志目录，在准备工作中创建好的目录。
