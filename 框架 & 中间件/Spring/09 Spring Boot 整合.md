@@ -84,6 +84,7 @@ log4j2 的 Maven 依赖。注意在所有包含 `spring-boot-starter-*` 的依�
         </exclusion>
     </exclusions>
 </dependency>
+
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-log4j2</artifactId>
@@ -126,7 +127,7 @@ xml 配置模板如下：
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <!--<Configuration status="WARN" monitorInterval="30"> -->
-    <!--monitorterval：是用于指定log4j自动重新检测读取配置内容的间隔时间-->
+    <!--monitorterval：是用于指定 log4j 自动重新检测读取配置内容的间隔时间-->
     <properties>
         <!--定义一些变量-->
         <property name="LOG_HOME">./service-logs</property>
@@ -146,9 +147,10 @@ xml 配置模板如下：
         <!--*********************文件日志***********************-->
         <!-- all 级别日志 -->
         <!--%i 是一个递增的数字-->
+        <!-- 触发滚动时，会按照 filePattern 来创建文件-->
         <RollingFile name="allFileAppender"
                      fileName="${LOG_HOME}/all.log"
-                    
+                  
                      filePattern="${LOG_HOME}/$${date:yyyy-MM}/all-%d{yyyy-MM-dd}-%i.log">
             <!-- 设置日志格式 -->
             <PatternLayout>
@@ -162,10 +164,10 @@ xml 配置模板如下：
                 <!--设置日志基础文件大小，超过该大小就触发日志文件滚动更新-->
                 <SizeBasedTriggeringPolicy size="100 MB"/>
                 
-                <!--设置日志文件滚动更新的时间，默认情况下，这个策略是根据每天的更替（午夜）来创建新文件。它常常与 PatternLayout 中的 filePattern 选项一同使用-->
+                <!--设置日志文件滚动更新的时间->
                 <!--<TimeBasedTriggeringPolicy/>-->
             </Policies>
-            <!--设置日志的文件个数上限，不设置默认为7个，超过大小后会被覆盖；依赖于filePattern中的%i-->
+            <!--设置日志的文件个数上限，不设置默认为7个，超过大小后会被覆盖-->
             <DefaultRolloverStrategy max="100"/>
         </RollingFile>
 
@@ -187,58 +189,8 @@ xml 配置模板如下：
             <DefaultRolloverStrategy max="100"/>
         </RollingFile>
 
-        <!--info级别日志-->
-        <RollingFile name="infoFileAppender"
-                     fileName="${LOG_HOME}/info.log"
-                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/info-%d{yyyy-MM-dd}-%i.log.gz">
-            <Filters>
-                <!--过滤掉warn及更高级别日志-->
-                <ThresholdFilter level="warn" onMatch="DENY" onMismatch="NEUTRAL"/>
-            </Filters>
-            
-            <PatternLayout>
-                <pattern>%d %p %C{} [%t] %m%n</pattern>
-            </PatternLayout>
-            <Policies>
-                <SizeBasedTriggeringPolicy size="100 MB"/>
-                <TimeBasedTriggeringPolicy interval="1" modulate="true" />
-            </Policies>
-        </RollingFile>
-
-        <!--warn级别日志-->
-        <RollingFile name="warnFileAppender"
-                     fileName="${LOG_HOME}/warn.log"
-                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/warn-%d{yyyy-MM-dd}-%i.log.gz">
-            <Filters>
-                <!--过滤掉error及更高级别日志-->
-                <ThresholdFilter level="error" onMatch="DENY" onMismatch="NEUTRAL"/>
-            </Filters>
-            <!--设置日志格式-->
-            <PatternLayout>
-                <pattern>%d %p %C{} [%t] %m%n</pattern>
-            </PatternLayout>
-            <Policies>
-                <SizeBasedTriggeringPolicy size="100 MB"/>
-                <TimeBasedTriggeringPolicy/>
-            </Policies>
-            <DefaultRolloverStrategy max="100"/>
-        </RollingFile>
-
-        <!--error及更高级别日志-->
-        <RollingFile name="errorFileAppender"
-                     fileName="${LOG_HOME}/error.log"
-                     filePattern="${LOG_HOME}/$${date:yyyy-MM}/error-%d{yyyy-MM-dd}-%i.log.gz">
-            <PatternLayout>
-                <pattern>%d %p %C{} [%t] %m%n</pattern>
-            </PatternLayout>
-            <Policies>
-                <SizeBasedTriggeringPolicy size="100 MB"/>
-                <TimeBasedTriggeringPolicy/>
-            </Policies>
-            <DefaultRolloverStrategy max="100"/>
-        </RollingFile>
-
-        <!--json格式error级别日志-->
+       
+        <!-- json 格式 error 级别日志-->
         <RollingFile name="errorJsonAppender"
                      fileName="${LOG_HOME}/error-json.log"
                      filePattern="${LOG_HOME}/error-json-%d{yyyy-MM-dd}-%i.log.gz">
@@ -255,6 +207,7 @@ xml 配置模板如下：
         <!--<Root> 元素表示的是根日志器。在Log4j2中，所有的Logger都派生自Root Logger-->
         <!--这里 level=debug 意味着该应用程序会记录所有debug及以上级别的日志-->
         <Root level="debug">
+            <!--可以同时应用多个 Appender -->
             <AppenderRef ref="consoleAppender" level="debug"/>
             <!--
             <AppenderRef ref="allFileAppender" level="all"/>
@@ -297,6 +250,11 @@ xml 配置模板如下：
 | 日志事件的发生位置 | %l                           |                          |
 
 
+
+TimeBasedTriggeringPolicy 基于时间的触发策略：
+
+- interval：指定滚动时间间隔，filePattern 日期格式精确到哪一位，interval 也精确到哪一个单位
+- modulate：是否以 0 点为边界进行偏移计算。比如，modulate=true，interval=4 hours， 那么假设上次封存日志的时间为03:00，则下次封存日志的时间为 04:00， 之后的封存时间依次为 08:00，12:00，16:00
 
 
 
@@ -2366,7 +2324,11 @@ public class Student {
 
 按照官网说明来安装即可：https://github.com/didi/tinyid。这里有两个坑：
 
-- 要用 Java 8 来继续编译
+- 要用 Java 8 来编译
+
+  ~~~bash
+  /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java -jar output/tinyid-server-0.1.0-SNAPSHOT.jar
+  ~~~
 
 - 在 pom.xml 依赖中，将 mysql 驱动更新为 8.0 版本的。
 

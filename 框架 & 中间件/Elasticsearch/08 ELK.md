@@ -37,14 +37,15 @@ tar xzvf filebeat-7.13.4-linux-x86_64.tar.gz
 mv filebeat-7.13.4-linux-x86_64 filebeat
 ~~~
 
-下面是一份 Filebeat 的配置：
+下面是一份 Filebeat 的配置（filebeat.yml）：
 
 ```yaml
 filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /home/ubuntu/OrderService.log 
+    - /home/logs/*.txt
+    - /home/logs/**/*.log
 
   #fields:
   #  level: debug
@@ -108,7 +109,7 @@ Logstash 简单来说就是一个数据处理管道（ pipeline） 。既然是�
 下面我们使用 wget 下载 tar 包进行安装：
 
 ```bash
-bash复制代码# 下载 tar 包
+# 下载 tar 包
 wget https://artifacts.elastic.co/downloads/logstash/logstash-7.13.0-linux-x86_64.tar.gz
 
 # 解压
@@ -120,8 +121,8 @@ mv logstash-7.13.0 logstash
 
 进入 logstash 的 config 目录，创建 OrderServiceLog.conf 配置文件：
 
-```bash
-bash复制代码# 进入配置目录
+```conf
+
 cd logstash/config
 
 # 创建 OrderServiceLog.conf 配置文件
@@ -161,6 +162,8 @@ output {
         cacert => "/home/ubuntu/ES/logstash/config/es_ca.pem"
     }
 }
+
+
 ```
 
 如上示例，我们使用 kafka input 插件从 kafka 中获取数据，使用 elasticsearch output 插件将处理后的数据保存到 ES 中，使用了 mutate 和 grok 插件对数据进行处理。
@@ -212,7 +215,73 @@ mutate 插件允许我们对修改字段的数据，例如执行字段重命名�
 完成了 Logstash 配置后，执行下面指令来启动 Logsatsh：
 
 ```bash
-bash
-nohup ./bin/logstash -f config/OrderServiceLog.conf >> ./run.log 2>&1 &
+nohup ./bin/logstash -f config/logs.conf >> ./run.log 2>&1 &
 ```
+
+
+
+
+
+多个 input 的示例：
+
+~~~j'son
+input {
+    kafka {
+            bootstrap_servers => ["122.9.7.252:9092"]
+            topics => ["authorization-service-log"]
+            codec => "json"
+            auto_offset_reset => "latest"
+            decorate_events=> "basic"
+            group_id => "logstash"
+            type => "authorization-service"
+    }
+    kafka {
+            bootstrap_servers => ["122.9.7.252:9092"]
+            topics => ["eureka-server-log"]
+            codec => "json"
+            auto_offset_reset => "latest"
+            decorate_events=> "basic"
+            group_id => "logstash"
+            type => "eureka-server"
+    }
+}
+
+filter {
+    if[type] == "authorization-service" {
+        mutate {
+            add_tag => ["authorization-service"]
+            lowercase => [ "level" ]
+            remove_field => ["beat"]
+        }
+    }
+    if[type] == "eureka-server" {
+        mutate {
+            add_tag => ["eureka-server"]
+            lowercase => [ "level" ]
+            remove_field => ["beat"]
+        }
+    }
+}
+
+output {
+    if "authorization-service" in [tags] {
+        elasticsearch {
+            hosts => ["http://114.116.220.197:9201"]
+            ilm_rollover_alias => "authorization-service-log"
+            ilm_pattern => "000001"
+            ilm_policy => "log_policy"
+            template_name => "authorization-service-log-template"
+        }
+    }
+    if "eureka-server" in [tags] {
+        elasticsearch {
+            hosts => ["http://114.116.220.197:9201"]
+            ilm_rollover_alias => "eureka-server-log"
+            ilm_pattern => "000001"
+            ilm_policy => "log_policy"
+            template_name => "eureka-server-log-template"
+        }
+    }
+}
+~~~
 

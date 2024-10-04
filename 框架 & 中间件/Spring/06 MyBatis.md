@@ -1073,79 +1073,66 @@ SpringFramework / SpringBoot 整合 MyBatis 后，如果在 Service 方法中没
 
 ## 注解
 
-简单的 SQL 编写
-
 ~~~java
-public interface DepartmentAnnotationMapper {
-    @Select("select * from tbl_department")
-    List<Department> findAll();
-}
+@Select("SELECT * FROM users WHERE id = #{id}")
+User getUserById(@Param("id") Long id);
 ~~~
 
-使用示例：
+在 Mybatis 中，如果接口的返回类型为基本类型，那么就是统计信息。但是 SQL 返回单个整型字段，也可以用基本类型接收。此时如果返回 0，就没办法判断是没有数据，还是这个数据就是零。因此推荐使用包装类型来接收，这样当没有数据时，就会返回 null
 
 ~~~java
-DepartmentAnnotationMapper departmentMapper = sqlSession.getMapper(DepartmentAnnotationMapper.class);
-List<Department> departmentList = departmentMapper.findAll();
+@Insert("INSERT INTO users(name, age) VALUES(#{name}, #{age})")
+int addUser(User user);
 ~~~
 
-复杂SQL编写，十分不推荐使用这种方式。
+Mapper的 insert 方法返回类型是一个整数，这个整数代表受影响的记录行数。返回类型也可以是 void。
+
+给 @Insert 指定一个类型转换：
 
 ~~~java
-    @Select("<script>select * from tbl_department "
-                    + "<where>"
-                    + "<if test='id != null'>and id = #{id} </if>"
-                    + "<if test='name != null'>and name like concat('%', #{name}, '%') </if>"
-                    + "<if test='tel != null'>and tel = #{id} </if>"
-                    + "</where>"
-                    + "</script>")
-    List<Department> findAllByExample(Department example);
-
+@Insert("INSERT INTO `order`( `status`, `amount`)" +
+        " VALUES(#{status, typeHandler=org.apache.ibatis.type.EnumOrdinalTypeHandler}, #{amount})")
+    void createOrder(Order order);
 ~~~
 
 
 
-`@Results` 和 ResultMap 标签类似，用于手动指定字段的填入。它的 one 以及 many 属性，可以设置嵌套查询
+
 
 ~~~java
-@Select("select * from tbl_department")
-@Results({
-    @Result(id = true, property = "id", column = "id"),
-    @Result(property = "name", column = "tel"),
-    @Result(property = "tel", column = "name")
+@Update("UPDATE users SET name = #{name}, age = #{age} WHERE id = #{id}")
+int updateUser(User user)
+~~~
+
+~~~java
+@Delete("DELETE FROM users WHERE id = #{id}")
+int deleteUserById(@Param("id") Long id);
+~~~
+
+
+
+@Results & @Result 用于指定结果集映射，作用在 Select 语句上。
+
+~~~java
+@Select("SELECT * FROM users WHERE id = #{id}")
+@Results(id = "userResultMap", value = {
+    @Result(property = "id", column = "id"),
+    @Result(property = "name", column = "name"),
+    @Result(property = "age", column = "age")
 })
-List<Department> findAllByResults();
+User getUserById(@Param("id") Long id);
 ~~~
 
-
-
-使用示例：
-
-~~~java
-public class Post {
-    private Long id;
-    private String title;
-    private List<Comment> comments;
-    // getters and setters...
-}
-
-public class Comment {
-    private Long id;
-    private String content;
-    private Post post;
-    // getters and setters...
-}
-~~~
-
-然后，创建 mapper 接口来操作这两个表：
+其中，@Result 的 one 以及 many 属性，可以设置嵌套查询
 
 ~~~java
 public interface PostMapper {
     @Select("SELECT * FROM post WHERE id = #{id}")
     @Results({
-        @Result(id = true, column = "id", property = "id"),
-        @Result(column = "title", property = "title"),
-        @Result(property = "comments", javaType = List.class, column = "id", 
+        @Result(
+            property = "comments", 
+            javaType = List.class, 
+            column = "id", 
             many = @Many(select = "org.mybatis.spring.sample.mapper.CommentMapper.selectByPostId"))
     })
     Post selectById(Long id);
@@ -1154,67 +1141,46 @@ public interface PostMapper {
 public interface CommentMapper {
     @Select("SELECT * FROM comment WHERE post_id = #{postId}")
     @Results({
-        @Result(id = true, column = "id", property = "id"),
-        @Result(column = "content", property = "content"),
-        @Result(property = "post", javaType = Post.class, column = "post_id",
+        @Result(
+            property = "post", 
+            javaType = Post.class, 
+            column = "post_id",
             one = @One(select = "org.mybatis.spring.sample.mapper.PostMapper.selectById"))
     })
     List<Comment> selectByPostId(Long postId);
 }
 ~~~
 
-
-
-
-
-在 MyBatis 中，无法直接在一个 `@Results` 中引用另外一个 `@Results` 的 ID。 `@ResultMap`可以解决这种问题，`@ResultMap`可以引用在 XML 文件中定义的结果映射，或者`@Results`
+@Result 可以指定一个类型处理器：
 
 ~~~java
-public interface PostMapper {
-    @Select("SELECT * FROM post WHERE id = #{id}")
-    @ResultMap("postMap")
-    Post selectById(Long id);
-}
-~~~
-
-~~~xml
-<resultMap id="postMap" type="Post">
-    <id column="id" property="id" />
-    <result column="title" property="title" />
-    <collection property="comments" column="postId" javaType="List" 
-        resultMap="com.example.mapper.CommentMapper.commentMap" />
-</resultMap>
-~~~
-
-~~~java
-@Select("select * from tbl_department")
-@Results(id = "departmentUseResultsId", value = {
-    @Result(id = true, property = "id", column = "id"),
-    @Result(property = "name", column = "tel"),
-    @Result(property = "tel", column = "name")
+@Results({
+        @Result(column = "strings", property = "strings", typeHandler = StringArrayTypeHandler.class)
 })
-List<Department> findAllByResults();
-
-
-@Select("select * from tbl_department")
-// 复用
-@ResultMap("departmentUseResultsId")
-List<Department> findAll();
+@Select("SELECT * FROM ${name} ORDER BY id ASC;")
+List<StringObject> getStringObjects(@Param("name") String name);
 ~~~
 
 
 
 
 
-`@Insert`的使用
+@ResultMap 来引用一个 @Results 所指定的规则
 
 ~~~java
-@Insert("insert into tbl_dept2 (name, tel) values (#{name}, #{tel})")
-@Options(useGeneratedKeys = true, keyProperty = "id")
-int saveUseGeneratedKeys(Department department);
+@Select("SELECT * FROM users WHERE id = #{id}")
+@ResultMap("userResultMap")
+User getUserById(@Param("id") Long id);
+
+
+@Select("SELECT * FROM users WHERE id = #{id}")
+@Results(id = "userResultMap", value = {
+    //...
+})
+User getUserById(@Param("id") Long id);
 ~~~
 
-Mapper的 insert 方法返回类型是一个整数，这个整数代表受影响的记录行数。返回类型也可以是 void。
+
 
 
 
@@ -1231,10 +1197,12 @@ boolean useGeneratedKeys() default false;
 String keyProperty() default "";
 String keyColumn() default "";
 String resultSets() default "";
-String databaseId() default "";
+String databaseId() default "";			
 ~~~
 
 useGeneratedKeys 参数设置为 true。参数对象的自增字段会自动被 Mybatis 框架设置。同时也要设置 keyProperty 属性，指定自增字段。
+
+
 
 
 
@@ -1354,6 +1322,10 @@ public String deleteById(String id) {
     return sql.toString();
 }
 ~~~
+
+
+
+
 
 ## 事务
 
@@ -1475,34 +1447,6 @@ User selectById(int userId);
 
 
 
-获取自增主键：
-
-~~~java
-@Options(useGeneratedKeys = true, keyProperty = "id")
-@Insert("INSERT INTO user(....)")
-void insertUser(User user);
-~~~
-
-
-
-批量插入：
-
-~~~java
-public String insertToInbox(Integer from,  Integer inbox, List<Integer> ids) {
-    SQL sql = new SQL();
-    sql.INSERT_INTO("inbox(user_id, post_id, create_time, from_id)");
-    StringBuilder builder = new StringBuilder();
-    builder.append(" VALUES ");
-    for (Integer id : ids) {
-        Date date = new Date(System.currentTimeMillis());
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String value = "(" + inbox + "," + id + ",'" + df.format(date) +"'," +  from + "),";
-        builder.append((value));
-    }
-    return sql + builder.substring(0, builder.length() - 1);
-}
-~~~
-
 
 
 关于时间的处理：
@@ -1513,3 +1457,108 @@ public String insertToInbox(Integer from,  Integer inbox, List<Integer> ids) {
 - 微秒：time(6)、datetime(6)
 
 使用 java.sql.Timestamp 来插入、获取时间
+
+
+
+## 枚举值的处理
+
+对于枚举类型，MyBatis 内置了两种 typeHandler，分别是
+
+- `org.apache.ibatis.type.EnumTypeHandler`：（默认）使用枚举实例名称来转换
+- ``org.apache.ibatis.type.EnumOrdinalTypeHandler`：枚举实例的 ordinal 值来转换
+
+假设我们有这样一个枚举类：
+
+~~~java
+public enum OrderStatus {
+    Paying(100, "待支付"),
+    Paid(101, "已经支付成功");
+
+    private int code;
+    private String desc;
+    OrderStatus(int code, String desc) {
+        this.code = code;
+        this.desc = desc;
+    }
+}
+~~~
+
+那么上述两个 Handler 就不能满足我们的需求了。为此，我们必须自定义一个 TypeHandler。
+
+由于我们想要从 code 转换为一个具体枚举实例，因此我们先抽象出一个接口：
+
+~~~java
+public interface BaseEnum {
+    int code();
+}
+
+public enum OrderStatus implements BaseEnum { 
+	//...
+}
+~~~
+
+然后编写如下工具类：
+
+~~~java
+public class EnumUtils {
+    public static <T extends Enum<?> & BaseEnum> T codeOf(Class<T> enumClass, int code) {
+        T[] enumConstants = enumClass.getEnumConstants();
+        for (T t : enumConstants) {
+            if (t.code() == code) {
+                return t;
+            }
+        }
+        return null;
+    }
+}
+~~~
+
+实现我们的 TypeHandler
+
+~~~java
+@MappedTypes({OrderStatus.class})
+@MappedJdbcTypes({JdbcType.INTEGER,JdbcType.TINYINT,JdbcType.SMALLINT})
+public class EnumCodeTypeHandler<E extends Enum<E> & BaseEnum> extends BaseTypeHandler<E> {
+    private final Class<E> type;
+
+    public EnumCodeTypeHandler(Class<E> type) {
+        if (type == null) {
+            throw new IllegalArgumentException("Type argument cannot be null");
+        }
+        this.type = type;
+    }
+
+    @Override
+    public void setNonNullParameter(PreparedStatement ps, int i, E parameter, JdbcType jdbcType) throws SQLException {
+        ps.setInt(i, parameter.code());
+    }
+
+    @Override
+    public E getNullableResult(ResultSet rs, String columnName) throws SQLException {
+        int code = rs.getInt(columnName);
+        return rs.wasNull() ? null : EnumUtils.codeOf(this.type, code);
+    }
+
+    @Override
+    public E getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
+        int code = rs.getInt(columnIndex);
+        return rs.wasNull() ? null : EnumUtils.codeOf(this.type, code);
+    }
+
+    @Override
+    public E getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
+        int code = cs.getInt(columnIndex);
+        return cs.wasNull() ? null : EnumUtils.codeOf(this.type, code);
+    }
+}
+~~~
+
+注册 Handler：
+
+~~~~properties
+mybatis.type-handlers-package=cn.followtry.typehandler
+#mybatis.type-aliases-package=cn.followtry.typehandler
+mybatis.configuration.map-underscore-to-camel-case=true
+~~~~
+
+使用时，无需显式指定 TypeHandler

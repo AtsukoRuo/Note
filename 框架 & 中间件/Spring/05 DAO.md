@@ -319,7 +319,7 @@ SpEL基本表达式：
 
 ## 事务
 
-### JDBC中的事务
+### JDBC 中的事务
 
 ~~~java
 public class JdbcTransactionApplication {

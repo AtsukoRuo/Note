@@ -59,8 +59,6 @@ public void refresh() throws BeansException, IllegalStateException {
 }
 ~~~
 
-
-
 这张图混淆了 IOC 容器初始化过程与 Bean 生命周期。在 `BeanFactoryPostProcessor` 之前（包括它），都是 IOC 初始化的主要过程。在 IOC 初始化的最后一步 `finishBeanFactoryInitialization`中，才开始 Bean 的生命周期，在图中对应的是 `InstantiationAwareBeanPostProcessor`。而且 IOC 容器初始化过程是线性的，而各个 Bean 的生命周期是交错的，当调用 getBean 时，它们生命周期就开始了。
 
 IOC 容器的切入点如下：

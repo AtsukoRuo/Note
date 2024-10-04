@@ -121,12 +121,10 @@ $ net start winnat
 
 
 
-
-
 下面介绍如何将镜像推送到 harbor：
 
 1. ~~~shell
-   docker login http://harbor.snow.com
+   docker login http://harbor.snow.com:20014
    ~~~
 
    docker login : 登陆到 一个Docker 镜像仓库，如果未指定镜像仓库地址，默认为官方仓库 Docker Hub。这里我们登录到 Harbor 私有镜像仓库中
@@ -136,13 +134,13 @@ $ net start winnat
    ~~~shell
    # hub.demo.com 是 harbor 的域名，test 是 harbor 中项目名，busybox:v1 是镜像的名称和版本号
    #busybox 是
-   $ docker tag busybox:latest harbor.snow.com/test/busybox:v1
+   $ docker tag busybox:latest harbor.snow.com:20014/test/busybox:v1
    ~~~
 
 3. 然后再推送镜像
 
    ~~~shell
-   $ docker push harbor.snow.com/test/busybox:v1
+   $ docker push harbor.snow.com:20014/test/busybox:v1
    ~~~
 
 

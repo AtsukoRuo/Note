@@ -4,65 +4,149 @@
 
 Seata 是一款开源的分布式事务解决方案，致力于提供高性能和简单易用的分布式事务服务。Seata 提供了 AT、TCC、SAGA 和 XA 事务模式。它是由以下三个角色构成的：
 
-<img src="./assets/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20240709104018-1720492847467-2.jpg" alt="微信图片_20240709104018" style="zoom:25%;" />
+![{82072C00-EF19-45B2-A152-EB71CD57F62A}](./assets/%7B82072C00-EF19-45B2-A152-EB71CD57F62A%7D.png)
 
 - TC (Transaction Coordinator) - 事务协调者：维护全局事务和分支事务的状态，驱动全局事务提交或回滚
 - TM (Transaction Manager) - 事务管理器：与 TC 交互，开启、提交、回滚全局事务
 - RM (Resource Manager) - 资源管理器：与 TC 交互，注册分支事务和报告分支事务的状态，并驱动分支事务提交或回滚。
 
-其中 TM、RM 是以 SDK 的形式作为 Steata 的客户端，与业务系统集成在一起，而 TC 作为 Seata 的服务端，来独立部署的。
+其中，TC 为单独部署的 **Server** 服务端，TM 和 RM 为嵌入到应用中的 **Client** 客户端。
 
 Seata 处理分布式事务的主要流程（XA、AT、TCC 基本上都依赖于 2PC 模型）：
 
-<img src="./assets/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20240709111108-1720494704612-5.jpg" alt="微信图片_20240709111108" style="zoom: 33%;" />
+![架构图](./assets/01.png)
 
-1. TM 向 TC 开启全局事务
-2. 事务参与者通过 RM 与资源交互，并通过 RM 向 TC 注册分支事务
-3. 事务参与者在完成资源操作后，通过 RM 向上报分支事务状态
-4. TM 向 TC 提交/回滚全局事务
-5. TC 让 RM 发起二阶段提交/回滚
+1. TM 请求 TC 开启一个全局事务。TC 会生成一个 **XID** 作为该全局事务的编号。
+2. RM 请求 TC 将本地事务注册为全局事务的分支事务，通过全局事务的 **XID** 进行关联。
+3. TM 请求 TC 告诉 **XID** 对应的全局事务是进行提交还是回滚。
+4. TC 驱动 RM 们将 **XID** 对应的自己的本地事务进行提交还是回滚。
+
+
 
 本质上，AT、TCC、Sage 都是补偿性的。它们的事务处理机制构建在框架或者应用中。事务资源本身对分布式事务是无感知的。但是在 XA 模式下，事务资源对分布式事务是有所感知的。XA 模式是传统分布式强一致性的解决方案，性能较低，在实际业务中使用得较少。
+
+## 安装服务端
+
+下载服务端：https://seata.apache.org/zh-cn/unversioned/download/seata-server/#:~:text=%E7%A8%B3%E5%AE%9A%E7%89%88.%20ASF
+
+
+
+按照 `application.example.yml` 来修改 `application.yml` 文件。
+
+1. 在 logging 配置中 `${log.home:${user.home}/logs/seata}` ，`${log.home}` 是首选属性，如果该属性存在且有值，那么表达式的值就是 `${log.home}` 的值；如果 `${log.home}` 不存在或者没有值，那么这个表达式的值就是 `${user.home}/logs/seata`。
+
+2. 不要删除 security 配置项
+
+3. Seata Server 需要对全局事务与分支事务进行存储，以便对它们进行管理。其存储模式目前支持三种：file、db 与 redis。
+
+   根据` script/server/db` 下的 `mysql.sql` 文件，来创建 db 所需的表
+
+4. 由于 Seata 不支持 mysql8，所以要将 [mysql-connector-j-8.3.0.jar](..\..\..\..\.m2\repository\com\mysql\mysql-connector-j\8.3.0\mysql-connector-j-8.3.0.jar) 包放在 lib 目录下。
+
+5. `script/config-center`下的` config.txt` 文件**要先**上传到配置中心的，这样客户端才可以使用到
+
+   1. 将 `store.mode`、`store.lock.mode`、`store.session.mode` 中原来的 file 值修改为 db。再将公钥行注释掉。
+
+      ![image](./assets/1699002-20231112212649575-1498527082.png)
+
+   2. 修改 store.db 下的相关配置项
+
+      ![image](./assets/1699002-20231112212714569-1564946995.png)
+
+   3. 由于这里指定的存储模式是db，所以需要将file模式与redis模式相关的配置全部删除。
+
+      ![image](./assets/1699002-20231112212726622-988374691.png)
+
+在 cmd 中运行 bin 目录下的脚本即可，这样可以看报错信息。
+
+
+
+~~~yaml
+server:
+  port: 7091    # 管理页面的端口
+
+spring:
+  application:
+    name: seata-server
+
+logging:
+  config: classpath:logback-spring.xml
+  file:
+    path: ${log.home:${user.home}/logs/seata}
+
+console:
+  user:
+    username: seata
+    password: seata
+
+seata:
+  config:
+    type: file
+  registry:
+    type: file
+  server:
+    service-port: 8091 #If not configured, the default is '${server.port} + 1000'
+    max-commit-retry-timeout: -1
+    max-rollback-retry-timeout: -1
+    rollback-retry-timeout-unlock-enable: false
+    enable-check-auth: true
+    enable-parallel-request-handle: true
+    enable-parallel-handle-branch: false
+    retry-dead-threshold: 130000
+    xaer-nota-retry-timeout: 60000
+    enableParallelRequestHandle: true
+    applicationDataLimitCheck: true
+    applicationDataLimit: 64000
+    recovery:
+      committing-retry-period: 1000
+      async-committing-retry-period: 1000
+      rollbacking-retry-period: 1000
+      timeout-retry-period: 1000
+    undo:
+      log-save-days: 7
+      log-delete-period: 86400000
+    session:
+      branch-async-queue-size: 5000 #branch async remove queue size
+      enable-branch-async-remove: false #enable to asynchronous remove branchSession
+  store:
+    mode: db
+    db:
+      datasource: druid
+      db-type: mysql
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://116.63.9.166:3306/seata?rewriteBatchedStatements=true
+      user: root
+      password: grf.2001
+      min-conn: 10
+      max-conn: 100
+      global-table: global_table
+      branch-table: branch_table
+      lock-table: lock_table
+      distributed-lock-table: distributed_lock
+      query-limit: 1000
+      max-wait: 5000
+
+  security:
+    secretKey: SeataSecretKey0c382ef121d778043159209298fd40bf3850a017
+    tokenValidityInMilliseconds: 1800000
+    ignore:
+      urls: /,/**/*.css,/**/*.js,/**/*.html,/**/*.map,/**/*.svg,/**/*.png,/**/*.jpeg,/**/*.ico,/api/v1/auth/login
+~~~
+
+
+
+## 客户端
 
 Maven 依赖如下：
 
 ~~~xml
+<!-- https://mvnrepository.com/artifact/io.seata/seata-spring-boot-starter -->
 <dependency>
-    <groupId>com.alibaba.cloud</groupId>
-    <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+    <groupId>io.seata</groupId>
+    <artifactId>seata-spring-boot-starter</artifactId>
+    <version>2.0.0</version>
 </dependency>
 ~~~
-
-在分布式场景下，最好使用 cloud 版本的 Seata 框架。因为它会自动帮我们处理好事务 ID 在各个请求中的传播。否则我需要借助 HTTP 拦截器来手动传递事务 ID，事实上 cloud 也是这么做的。cloud 用 `SeataFeignClient`替换了默认的`feignClient`，把`xid`放到了`requestHeader`里。下游通过 `SeataHandlerInterceptor.preHandle()` MVC 拦截器来获取到 XID。
-
-下面讲解如何手动注入：
-
-~~~java
-public class XIDInterceptor implements ClientHttpRequestInterceptor {
-     @Override
-    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
-        if (StringUtils.isEmpty(RootContext.getXID())) {
-            httpRequest.getHeaders().add(RootContext.KEY_XID, RootContext.getXID());
-        }
-    }
-    
-}
-~~~
-
-Seata 的事务上下文由 RootContext 来管理。应用开启一个全局事务后，RootContext 会自动绑定该事务的 XID，事务结束（提交或回滚完成），RootContext 会自动解绑 XID。
-
-```java
-// 绑定 XID
-RootContext.bind(xid);
-// 解绑 XID
-String xid = RootContext.unbind();
-```
-
-RootContext 的实现是基于 *ThreadLocal* 的，即 XID 绑定在当前线程上下文中。通过上述基本原理，我们可以很容易理解：跨服务调用场景下的事务传播，本质上就是要把 XID 通过服务调用传递到服务提供方，并绑定到 RootContext 中去。
-
-
-
-
 
 Seata 的配置文件如下：
 
@@ -75,23 +159,24 @@ seata:
 		type: file	# type 用于指定配置中心
 	service:
 		vgroup-mapping:
-			default_tx_group: default		 # Key 为 事务组的名称，在下面的 ex-service-group 来配置，而 Value 为 Seata 服务端名称
+			default_tx_group: default		 # Key 为事务组的名称，在下面的 tx-service-group 来配置，而 Value 为集群的名称
             
-        # #只在 registry.type=file 时，才能使用此项配置
+        # 在 registry.type=file 时，才能使用此项配置
 		grouplist:
 			default: 192.168.198.128:8091  # 名为 default 的 seata 服务端的地址
 			
-		disable-global-transcation: false  # 开启全局事务
+		disable-global-transcation: false  # 是否禁用全局事务
 		
 	application_id: abc					  # 用于标识客户端的
-	ex-service-group: default_tx_group	   # 指定事务组的名称
+	tx-service-group: default_tx_group	   # 指定事务组的名称
 	enable-auto-data-source-proxy: true	   # 开启自动代理
-	data-srouce-proxy-mode: XA			  # 使用 XA 事务模式
+	data-source-proxy-mode: XA			  # 使用 XA 事务模式，还支持 AT
 ~~~
 
 自动代理就是框架对 `DataSource` 封装一层，这样在调用`getConnection()`时，不直接返回一个`Connection`，而是返回`ConnectionProxy`。如果我们设置 `enable-auto-data-source-proxy: false`，则必须手动代理，否则 Seata 拦截不到 SQL 语句的执行，从而导致事务机制失效。
 
 ~~~java
+// 多层代理
 @Bean
 public DataSource druidDataSource() {
     return new DruidDataSource()
@@ -101,9 +186,94 @@ public DataSource druidDataSource() {
 @Primary
 @Bean("dataSource")
 public DataSourceProxy dataSource(DataSource druidDataSource) {
+    //AT 代理 二选一
     return new DataSourceProxy(druidDataSource);
+    //XA 代理
+    return new DataSourceProxyXA(druidDataSource)
 }
 ~~~
+
+
+
+
+
+在分布式场景下，可以使用 cloud 版本的 Seata 框架。因为它会自动帮我们处理好事务 ID 在各个请求中的传播。否则我需要借助 HTTP 拦截器来手动传递事务 ID，事实上 cloud 也是这么做的。cloud 用 `SeataFeignClient`替换了默认的`feignClient`，把`xid`放到了`requestHeader`里。下游通过 `SeataHandlerInterceptor.preHandle()` MVC 拦截器来获取到 XID。
+
+~~~xml
+<dependency>
+    <groupId>com.alibaba.cloud</groupId>
+    <artifactId>spring-cloud-starter-alibaba-seata</artifactId>
+</dependency>
+~~~
+
+> [!warning]
+>
+> seata cloud 并不兼容 RestClient 客户端，因此我们必须手动拦截并注入 XID
+
+~~~java
+// 上游通过 HTTP客户端（RestClient） 的拦截器来获取
+public class XIDInterceptor implements ClientHttpRequestInterceptor {
+     @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+        if (StringUtils.isEmpty(RootContext.getXID())) {
+            httpRequest.getHeaders().add(RootContext.KEY_XID, RootContext.getXID());
+        }
+    }
+}
+~~~
+
+RootContext 的实现是基于 ThreadLocal 的，即 XID 绑定在当前线程上下文中。通过上述基本原理，我们可以很容易理解：跨服务调用场景下的事务传播，本质上就是要把 XID 通过服务调用传递到服务提供方，并绑定到 RootContext 中去。
+
+~~~java
+public class SeataHandlerInterceptor implements HandlerInterceptor {
+
+    private static final Logger log = LoggerFactory
+            .getLogger(SeataHandlerInterceptor.class);
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response,
+                             Object handler) {
+
+        String xid = RootContext.getXID();
+        String rpcXid = request.getHeader(RootContext.KEY_XID);
+        System.err.println("xid in RootContext " + xid + "  xid in RpcContext {}" + rpcXid);
+
+        if (xid == null && rpcXid != null) {
+            RootContext.bind(rpcXid);
+            System.err.println("bind " + rpcXid + " to RootContext");
+        }
+        return true;
+    }
+
+    @Override
+    public void afterCompletion(
+        HttpServletRequest request, 
+        HttpServletResponse response,
+        Object handler, 
+        Exception e) {
+        String rpcXid = request.getHeader(RootContext.KEY_XID);
+
+        if (StringUtils.isEmpty(rpcXid)) {
+            return;
+        }
+
+        String unbindXid = RootContext.unbind();
+        if (log.isDebugEnabled()) {
+            log.debug("unbind {} from RootContext", unbindXid);
+        }
+        if (!rpcXid.equalsIgnoreCase(unbindXid)) {
+            log.warn("xid in change during RPC from {} to {}", rpcXid, unbindXid);
+            if (unbindXid != null) {
+                RootContext.bind(unbindXid);
+                log.warn("bind {} back to RootContext", unbindXid);
+            }
+        }
+    }
+
+}
+~~~
+
+
 
 
 
@@ -111,8 +281,6 @@ public DataSourceProxy dataSource(DataSource druidDataSource) {
 
 - 分支事务抛出异常，被 `@Transcation` 捕获到。此时，调用 `report(false)` 来通知 TM 该分支事务要回滚。
 - TM 捕获到下游系统上抛的异常，即发起全局事务标有`@GlobalTransactional`注解的方法捕获到的异常。
-
-
 
 如果 OpenFeign 等框架吞掉了异常，导致无法触发全局事务的回滚时，我们此时就要将下述代码添加到各种异常情况的回调方法中，例如，降级方法、Controller 的全局异常处理器。
 
@@ -126,17 +294,44 @@ if (RootContext.inGlobalTransaction()) {
 }
 ~~~
 
+## 事务分组
 
+事务分组就是指定了与Seata 服务端集群的映射关系
 
-## 安装
+1. 在 SpringBoot 应用中，通过 seata.tx-service-group 指定要使用的逻辑分组
+2. 客户端在配置中心获取 `service.vgroupMapping.${seata.tx-service-group}`，即对应的集群名称
+3. 借助集群名称构造服务名，从注册中心中获取服务列表。
 
-下面介绍通过 Docker 来安装：
+下面以 eureka 来进行说明：
 
-~~~shell
-docker run -d --name seata -p 8091:8091 -p 7091:7091 seataio/seata-server:1.5.2
+客户端的配置：
+
+~~~yaml
+seata:
+  tx-service-group: default_tx_group
+  service:
+    vgroup-mapping:
+      default_tx_group: seata-server # 此处配置对应 Server 端配置 registry.eureka.application 的值
+      
+  registry:
+    type: eureka
+    eureka:
+      service-url: http://localhost:8761/eureka
 ~~~
 
-访问 `localhost:7091` 网址来进入 SEATA 控制台
+服务端的配置
+
+~~~yaml
+seata:
+  registry:
+    type: eureka
+    eureka:
+      service-url: http://localhost:8761/eureka
+      application: seata-server
+      weight: 1
+~~~
+
+
 
 ## 集成 ShardingSphere
 
@@ -152,6 +347,14 @@ ShardingSphere 对外提供 begin/commit/rollback 传统事务接口，通过 LO
 
 Apache ShardingSphere 集成了 SEATA 作为柔性（BASE）事务的使用方案。@Transactional 和 @ShardingTransactionType 注解必须同时添加才能使分布式事务生效，不再使用 `@GlobalTransaction`
 
+~~~xml
+<dependency>
+  <groupId>org.apache.shardingsphere</groupId>
+  <artifactId>shardingsphere-transaction-base-seata-at</artifactId>
+  <version>${sharding-sphere.version}</version>
+</dependency>
+~~~
+
 ~~~java
 @PostMapping("/saveTestShardingSphere")
 @Transactional(rollbackFor = Exception.class)
@@ -160,6 +363,62 @@ public Result<Long> saveTestShardingSphere() {
     
 }
 ~~~
+
+
+
+在 5.4.0 版本后，全局事务仍可以使用 @GlobalTransaction，而分支事务配置是这样的
+
+~~~xml
+<project>
+    <dependencies>
+      <dependency>
+         <groupId>org.apache.shardingsphere</groupId>
+         <artifactId>shardingsphere-jdbc</artifactId>
+         <version>${shardingsphere.version}</version>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.shardingsphere</groupId>
+         <artifactId>shardingsphere-transaction-base-seata-at</artifactId>
+         <version>${shardingsphere.version}</version>
+      </dependency>
+      <dependency>
+         <groupId>io.seata</groupId>
+         <artifactId>seata-all</artifactId>
+         <version>2.0.0</version>
+         <exclusions>
+            <exclusion>
+               <groupId>org.antlr</groupId>
+               <artifactId>antlr4-runtime</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+    </dependencies>
+</project>
+~~~
+
+
+
+在 classpath 的根目录中增加 `seata.conf` 文件
+
+~~~conf
+shardingsphere.transaction.seata.at.enable = true
+shardingsphere.transaction.seata.tx.timeout = 60
+
+client {
+    application.id = example
+    transaction.service.group = default_tx_group
+}
+~~~
+
+
+
+
+
+
+
+
+
+
 
 ## XA
 
@@ -185,7 +444,7 @@ AT 模式是 Seata 创新的一种非侵入式的分布式事务解决方案。�
 
 如果分布式事务成功提交了，那么我们后续只需清理每个数据源中对应的日志数据即可；而如果分布式事务需要回滚，就要根据日志数据自动产生用于补偿的「逆向SQL」。所以，基于这种补偿方式，分布式事务中所涉及的每一个数据源都可以单独提交，然后立刻释放锁和资源。相比 2PC 极大地提升了系统的吞吐量水平。**而使用的代价就是大幅度地牺牲了隔离性，甚至直接影响到了原子性。**
 
-比如，当在本地事务提交之后、分布式事务完成之前，该数据被补偿之前又被其他操作修改过，即出现了**脏写（Dirty Wirte）**，而这个时候一旦出现分布式事务需要回滚，就不可能再通过自动的逆向SQL来实现补偿，只能由人工介入处理了。所以，GTS增加了一个「**全局锁**」（Global Lock）的机制来实现写隔离，
+比如，当在本地事务提交之后、分布式事务完成之前，该数据被补偿之前又被其他操作修改过，即出现了**脏写（Dirty Wirte）**，而这个时候一旦出现分布式事务需要回滚，就不可能再通过自动的逆向SQL来实现补偿，只能由人工介入处理了。所以，GTS增加了一个「**全局锁**」（Global Lock）的机制来实现写隔离：
 
 1. 一阶段本地事务提交前，需要确保先拿到**全局锁** 。
 2. 拿不到**全局锁** ，不能提交本地事务。
@@ -220,7 +479,7 @@ Seata（AT 模式）的默认全局隔离级别是**读未提交（Read Uncommit
 
 
 
-AT 在每个本地中需要一张 Undo 表：
+在 **AT** 模式中，需要在参与全局事务的数据库中，添加一个 undo_log 表
 
 | Field         | Type         |
 | ------------- | ------------ |
@@ -235,7 +494,7 @@ AT 在每个本地中需要一张 Undo 表：
 以 MySQL 为例：
 
 ```sql
--- 注意此处0.7.0+ 增加字段 context
+-- 注意此处 0.7.0+ 增加字段 context
 CREATE TABLE `undo_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `branch_id` bigint(20) NOT NULL,
@@ -368,34 +627,29 @@ DEFAULT CHARSET = utf8mb4;
 ~~~java
 //需要添加mybtais相关依赖 作⽤域provided
 public interface BaseMapper {
-    //try⽇志添加
+    // try ⽇志添加
     @Insert("insert into try_log values(#{xid},now())")
     void insertTryLog(String xid);
     
-    //查询是否有try⽇志
+    // 查询是否有 try ⽇志
     @Select("select count(1) from try_log where xid=#{xid}")
     int existsTryLog(String xid);
     
-    //commit的⽇志添加
+    // commit 的⽇志添加
     @Insert("insert into commit_log values(#{xid},now())")
     void insertCommitLog(String xid);
     
-    //查询是否有commit⽇志
+    // 查询是否有 commit ⽇志
     @Select("select count(1) from commit_log where xid=#{xid}")
     int existsCommitLog(String xid);
     
-    //rollback⽇志添加
+    // rollback ⽇志添加
     @Insert("insert into rollback_log values(#{xid},now())")
     void insertRollbackLog(String xid);
     
-    //查看是够有rollback⽇志
+    // 查看是够有 rollback ⽇志
     @Select("select count(1) from rollback_log where xid=#{xid}")
     int existsRollbackLog(String xid);
-}
-
-public interface AccountMapper extends BaseMapper {
-    @Select("....")
-    Account findAccountByID(int accountID);
 }
 
 

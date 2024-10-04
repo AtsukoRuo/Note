@@ -54,7 +54,7 @@ Maven 是开源的 Java 项目管理工具，所有项目的配置信息都在 p
 Maven 的主要环节：
 
 - 清理（clean）：删除以前的编译结果
-- 编译（compile）：将Java 源程序编译为字节码文件
+- 编译（compile）：将 Java 源程序编译为字节码文件
 - 测试（test）
 - 打包（package）：在 pom.xml 里，项目的打包方式有 pom，war，jar 三种。
   - pom 用在父级工程或聚合工程中，做所有子模块的公共配置：
@@ -147,10 +147,9 @@ Maven 的主要环节：
 
 在 Maven 构建时请注意：
 
-- 有关 Maven 的 Build 配置请在子项目中编写，即使它们的 Build 配置是相同的，也不要在父项目中编写。父项目仅仅起到提供默认依赖 dependency 的作用
+- 有关 Maven 的 Build 配置请在子项目中编写，即使它们的 Build 配置是相同的，也不要在父项目中编写。**父项目仅仅起到提供默认依赖 dependency 的作用**
 -  优先 install 父项目以及公共模块，然后再 package 其他微服务项目
-
-
+-  公共项目请不要引入 Build 配置
 
 ## 安装
 

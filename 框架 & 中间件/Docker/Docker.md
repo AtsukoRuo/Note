@@ -1024,66 +1024,53 @@ docker-compose 里不直接体现容器这个概念，而是把 service 作为�
 Docker Maven plugin allow us to manage the Docker images and containers from our Maven pom.xml file
 
 ```xml
+
 <plugin>
     <groupId>com.spotify</groupId>
     <artifactId>dockerfile-maven-plugin</artifactId>
     <version>1.4.10</version>
-    <configuration>
-        <repository>${docker.image.prefix}/
-            ${project.artifactId}</repository>
-        <tag>${project.version}</tag>
-        <buildArgs>
-            <JAR_FILE>target/${project.build.finalName}
-                .jar</JAR_FILE>
-        </buildArgs>
-    </configuration>
     <executions>
         <execution>
-        <id>default</id>
-        <phase>install</phase>
+            <id>default</id>
             <goals>
                 <goal>build</goal>
                 <goal>push</goal>
             </goals>
         </execution>
     </executions>
+    <configuration>
+       	<!-- 这里的 repository 指定了 image 的名字-->
+        <repository>${project.artifactId}</repository>
+        <tag>${project.version}</tag>
+        <buildArgs>
+            <JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
+        </buildArgs>
+    </configuration>
 </plugin>
-```
-
-设置`docker.image.prefix`变量：
-
-```xml
-<properties>
-    <java.version>17</java.version>
-    <docker.image.prefix>ostock</docker.image.prefix>
-</properties>
 ```
 
 `Dockerfile`文件一定要放在和`pom.xml`文件一起的最外层目录
 
 [![image-20240119135553450](./assets/image-20240119135553450.png)](https://github.com/AtsukoRuo/note/blob/7b1966b713d9705c960218d896aa8d8746798419/框架 %26 中间件/SpringCloud/assets/image-20240119135553450.png)
 
-可以使用 Basic Dockerfile 或者 Multistage Build Dockerfile 来构建微服务。它们的主要区别在于，使用基础的 Dockerfile，你会复制整个 Spring Boot 微服务；而使用多阶段构建，你只会复制构建微服务所需的部分。
+可以使用 Basic Dockerfile 或者 Multistage Build Dockerfile 来构建微服务。它们的主要区别在于，使用 Basic Dockerfile ，你会复制整个 Spring Boot 微服务；而使用多阶段构建，你只会复制构建微服务所需的部分。
 
 - 基础的 Dockerfile：
 
   ```shell
   #Start with a base image containing Java runtime
   FROM openjdk:17-slim
-  
-  # Add Maintainer Info
-  LABEL maintainer="Illary Huaylupo <illaryhs@gmail.com>"
-  
+  EXPOSE 8080
   # The application's jar file
   ARG JAR_FILE
   
   # Add the application's jar to the container
-  COPY ${JAR_FILE} app.jar
+  ADD target/${JAR_FILE} /app.jar
   
   # Execute the application
   ENTRYPOINT ["java","-jar","/app.jar"]
   ```
-
+  
 - 多阶段构建
 
   ```shell
@@ -1124,14 +1111,13 @@ Docker Maven plugin allow us to manage the Docker images and containers from our
    LicenseServiceApplication"]
   ```
 
-接着开始构建项目
+接着开始构建项目，此时 package 会自动构建镜像
 
 ```
 $ mvn clean package
-$ mvn package dockerfile:build
 ```
 
-记得打开Docker，以及开启`Expose daemon on tcp://localhost:2375 without TLS`选项。注：左下角Docker图标为绿色的，说明Docker正在运行
+记得打开 Docker，以及开启`Expose daemon on tcp://localhost:2375 without TLS`选项。注：左下角Docker图标为绿色的，说明Docker正在运行
 
 [![image-20240111181508213](./assets/image-20240111181508213.png)](https://github.com/AtsukoRuo/note/blob/7b1966b713d9705c960218d896aa8d8746798419/框架 %26 中间件/SpringCloud/assets/image-20240111181508213.png)
 
@@ -1141,37 +1127,48 @@ $ mvn package dockerfile:build
 
 Now that we have the Docker image
 
-我们可以使用Docker-compose up来加载镜像
 
-Let’s create our first docker-compose.yml file（与pom.xml在同一目录下）
 
-```yaml
-version: '3.7'
-services:
-	licensingservice:
-        image: ostock/licensing-service:0.0.1-SNAPSHOT
-        ports:
-            - "8080:8080"
-        environment:
-            - "SPRING_PROFILES_ACTIVE=dev"
-        networks:
-            backend:
-                aliases:
-                    - "licenseservice" 
-networks:
-	backend:
-    	driver: bridge
-```
+然后我们使用 docker-maven-plugin 插件将 image 推送到我们私人仓库中：
 
-执行以下命令来启动应用程序：
-
-```shell
-$ docker-compose up
-```
-
-如果你想在后台执行该服务可以加上 **-d** 参数：
-
-```shell
-$ docker-compose up -d
-```
+~~~xml
+<plugin>
+    <groupId>com.spotify</groupId>
+    <artifactId>docker-maven-plugin</artifactId>
+    <version>1.0.0</version>
+    <configuration>
+        <!--镜像名称-->
+        <imageName>10.211.55.4:5000/${project.artifactId}</imageName>
+        <!--指定dockerfile路径-->
+        <!--<dockerDirectory>${project.basedir}/src/main/resources</dockerDirectory>-->
+        <!--指定标签-->
+        <imageTags>
+            <imageTag>latest</imageTag>
+        </imageTags>
+        <!--远程仓库地址-->
+        <registryUrl>10.211.55.4:5000</registryUrl>
+        <pushImage>true</pushImage>
+        <!--基础镜像jdk1.8-->
+        <baseImage>java</baseImage>
+        <!--制作者提供本人信息-->
+        <maintainer>niceyoo apkdream@163.com</maintainer>
+        <!--切换到ROOT目录-->
+        <workdir>/ROOT</workdir>
+        <cmd>["java","-version"]</cmd>
+        <entryPoint>["java","-jar","${project.build.finalName}.jar"]</entryPoint>
+        <!--指定远程docker地址-->
+        <dockerHost>http://10.211.55.4:2375</dockerHost>
+        <!--这里是复制jar包到docker容器指定目录配置-->
+        <resources>
+            <resource>
+                <targetPath>/ROOT</targetPath>
+                <!--指定需要复制的根目录，${project.build.directory}表示target目录-->
+                <directory>${project.build.directory}</directory>
+                <!--用于指定需要复制的文件，${project.build.finalName}.jar表示打包后的jar包文件-->
+                <include>${project.build.finalName}.jar</include>
+            </resource>
+        </resources>
+    </configuration>
+</plugin>
+~~~
 

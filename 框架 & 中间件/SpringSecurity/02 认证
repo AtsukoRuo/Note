@@ -412,7 +412,7 @@ public interface AuthenticationProvider {
 
 
 
-`SecurityContext` 接口的定义如下：
+`SecurityContext` 表示安全上下文，它的接口定义如下：
 
 ~~~java
 public interface SecurityContext extends Serializable {
@@ -432,29 +432,23 @@ public interface Authentication extends Principal, Serializable {
     boolean isAuthenticated();
     void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException;
 }
-
-public interface Principal {
-    public String getName();
-    // ...
-}
-
 ~~~
 
-- `getPrincipal()`方法，当用户成功登录后，可以通过调用`Authentication.getPrincipal()`方法获取到一个`UserDetails`对象。也就是说，`UserDetails` 被封装到认证对象`Authentication`中
-- `isAuthenticated()`：如果身份验证过程结束则返回 true，如果仍在进行中则返回 false
-- `getAuthorities()`：返回已授予的权限集合
-- `getCredentials()`：返回用户提供的用于进行身份验证的凭据，通常是密码。
+- `getPrincipal()`方法，获取用户的基本信息，例如用户名等。
+- `getCredentials()`：返回用户提供的用于进行身份验证的凭据，通常是密码。出于安全起见，建议设置为 null
 - `getDetails()` 方法用于获取更详细的身份验证信息。这可能包括 IP 地址、证书细节或者自定义的信息。
+- `isAuthenticated()`：如果身份验证过程结束则返回 true，如果仍在进行中则返回 false。
+- `getAuthorities()`：返回已授予的权限集合
 
-UsernamePasswordAuthenticationToken 实现了 `Authentication` 接口。
+`UsernamePasswordAuthenticationToken` 实现了 `Authentication` 接口。我们可以仿照着 `UsernamePasswordAuthenricationToken` 来实现自己的接口。
 
 
 
 
 
-当前用户实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。请求结束后，`SpringSecurity`将认证结果存储到 `Session`，对应的 `Key` 是：`SPRING_SECURITY_CONTEXT`，并且会生成一个与此 `Session` 相关联的 `JSESSIONID`。每次请求携带 `JSESSIONID`，再从 `Session` 对象中取回认证信息。这些都是由 `SecurityContextPersistenceFilter` 来完成的
+当前用户实际上指的是当前这个请求所对应的用户。由于一个请求从开始到结束都由一个线程处理，所以在这段时间内，相当于这个线程跟当前用户是一一对应的。请求结束后，`SpringSecurity`将认证结果存储到 `Session`，对应的 `Key` 是：`SPRING_SECURITY_CONTEXT`，并且会生成一个与此 `Session` 相关联的 `JSESSIONID`。每次请求携带 `JSESSIONID`，再从 `Session` 对象中取回认证信息。这些都是由 `SecurityContextPersistenceFilter` 来完成的。
 
-`SecurityContextHolder` 是 `SecurityContext` 的工具类，`Controller` 类可以通过它获取 `SecurityContext`：
+`SecurityContextHolder` 是 `SecurityContext` 的工具类，`Controller` 类可以通过它获取 `SecurityContext`。缺省情况下，`SecurityContextHolder`使用了`ThreadLocal`机制来保存每个使用者的安全上下文。SpringSeucirty 框架会自动清理 ThreadLocal 里面的上下文的，用户无需担心。
 
 ~~~java
 @GetMapping("/hello")
@@ -604,8 +598,6 @@ public class ProjectConfig {
 ~~~
 
 `Spring Security` 默认提供的 `AuthenticationProvider`，它的实现验证的逻辑与我们上述代码的思路类似，都是委托给 `PasswordEncoder` 与 `UserDetailsService` 来完成验证。
-
-
 
 ## 登录、登出
 

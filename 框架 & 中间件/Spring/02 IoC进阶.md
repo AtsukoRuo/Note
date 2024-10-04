@@ -541,16 +541,17 @@ public class Cat extends Animal {
 
 ~~~xml
 <bean id="person" class="com.linkedbear.spring.definition.d_merge.bean.Person"/>
+
 <bean class="com.linkedbear.spring.definition.d_merge.bean.Cat" parent="abstract-animal">
     <property name="person" ref="person"/>
     <property name="name" value="咪咪"/>
 </bean>
 ~~~
 
-如果要创建多个 Cat Bean，那么必须在每个 Bean 中注入 People 的 Property。此时，可以使用 `BeanDefinition` 合并的特性来避免繁琐的代码编写
+如果要创建多个 Cat Bean，那么必须在每个 Bean 中注入 People 的 Property。此时，可以使用 `BeanDefinition` 合并的特性来避免繁琐的代码编写。
 
 ~~~xml
-<!--在 Spring 配置文件中将 bean 标记为抽象，那么这个 bean 不能被实例化。-->
+<!--在 Spring 配置文件中将 bean 标记为抽象，那么这个 bean 不能被实例化。一般作为 Bean 模板，避免繁琐的代码编写-->
 <bean id="abstract-animal" class="com.linkedbear.spring.definition.d_merge.bean.Animal" abstract="true">
     <property name="person" ref="person"/>
 </bean>
@@ -577,79 +578,6 @@ BeanDefinition catDefinition = ctx.getBeanFactory().getMergedBeanDefinition("cat
 ~~~
 
 ![img](./assets/be105a8a0d7f4c7c906783887d990d90tplv-k3u1fbpfcp-jj-mark1512000q75.webp)
-
-
-
-这里顺便讲解一下 `@Component` 抽象类（https://segmentfault.com/q/1010000039720497）。虽然抽象类是不能实例化的，但是 @Component 工作方式是通过代理类代理的方式来实例化的，从而避开了这一点。
-
-接口和抽象类都是可以加`@Component`注解的，但是**推荐**其中至少还有一个方法带有`@Lookup`注解，否则就不是候选的组件了。
-
-![image.png](./assets/bVcQPxi.png)
-
-`@Lookup`注解是一个在单例`bean`中使用一个多例`bean`的解决方案。考虑下面这个场景：
-
-~~~java
-@Component
-public class A {
-    @Autowired
-    B b;
-    
-    public void print() {
-        System.out.println(b);
-    }
-}
-
-@Component
-@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
-public class B {
-    
-}
-~~~
-
-这里自动注入的对象 B 是不变的。如果想要在每次调用 print 时，打印一个新的 b 对象，那么可以考虑实现`ApplicationContextAware`接口，执行 `ApplicationContext#getBean(String beanName)` 来获取 Bean，但这样代码过于笨重。此时我们就可以引入 @Lookup 来优雅地解决这个问题：
-
-~~~java
-@Component
-public class A {
-    public void print() {
-        System.out.println(this.getB());
-    }
-    
-    @Lookup
-    public B getB () {
-        // 容器会自动帮你覆盖实现，改为调用 BeanFactory 的 getBean 方法
-        return null;
-    }
-}
-~~~
-
-但这仍有点侵入代码的味道，我们可以这样写：
-
-~~~java
-@Component
-public interface BCreator {
-    @Lookup
-    B getB();
-}
-
-@Component
-public class A {
-    @Autowired
-    BCreator bCreator;
-    
-    public void print() {
-        System.out.println(bCreator.getB());
-    }
-}
-~~~
-
-这就是可以有 `@Component` 抽象类的原因。
-
-
-
-去掉抽象类的`@Component`，子类被注入的时候，抽象类的`@PostConstruct`照样会被执行的。有一种例外情况，父子类 @PostConstruct 方法同名了，这样导致抽象父类的 @PostConstruct 方法没有执行到。因为构建 LifecycleMetadata 后，有一步 check 动作，metadata.checkConfigMembers(beanDefinition)，分别对同名的 initMethods 或者 destroyMethods 去重，只留一个。
-
-此外，只要抽象类有子类，而且子类能正常注入 IOC，那么捎带着抽象类本身所依赖的 Bean 也间接注入了，无需在抽象类本身加`@Component`; 
 
 ## 后置处理器
 

@@ -716,6 +716,77 @@ Dog dog = dogProvider.getIfAvailable(Dog::new);
 dogProvider.ifAvailable(dog -> System.out.println(dog));
 ~~~
 
+### Bean 的继承
+
+这里顺便讲解一下 `@Component` 抽象类（https://segmentfault.com/q/1010000039720497）。虽然抽象类是不能实例化的，但是 @Component 工作方式是通过代理类代理的方式来实例化的，从而避开了这一点。
+
+接口和抽象类都是可以加`@Component`注解的，但是**推荐**其中至少还有一个方法带有`@Lookup`注解，否则就不是候选的组件了。
+
+![image.png](./assets/bVcQPxi.png)
+
+`@Lookup`注解是一个在单例`bean`中使用一个多例`bean`的解决方案。考虑下面这个场景：
+
+~~~java
+@Component
+public class A {
+    @Autowired
+    B b;
+    
+    public void print() {
+        System.out.println(b);
+    }
+}
+
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class B {
+    
+}
+~~~
+
+这里自动注入的对象 B 是不变的。如果想要在每次调用 print 时，打印一个新的 b 对象，那么可以考虑实现`ApplicationContextAware`接口，执行 `ApplicationContext#getBean(String beanName)` 来获取 Bean，但这样代码过于笨重。此时我们就可以引入 @Lookup 来优雅地解决这个问题：
+
+~~~java
+@Component
+public class A {
+    public void print() {
+        System.out.println(this.getB());
+    }
+    
+    @Lookup
+    public B getB () {
+        // 容器会自动帮你覆盖实现，改为调用 BeanFactory 的 getBean 方法
+        return null;
+    }
+}
+~~~
+
+但这仍有点侵入代码的味道，我们可以这样写：
+
+~~~java
+@Component
+public interface BCreator {
+    @Lookup
+    B getB();
+}
+
+@Component
+public class A {
+    @Autowired
+    BCreator bCreator;
+    
+    public void print() {
+        System.out.println(bCreator.getB());
+    }
+}
+~~~
+
+这就是可以有 `@Component` 抽象类的原因。
+
+
+
+去掉抽象类的`@Component`，子类被注入的时候，抽象类的`@PostConstruct`照样会被执行的。有一种例外情况，父子类 @PostConstruct 方法同名了，这样导致抽象父类的 @PostConstruct 方法没有执行到。因为构建 LifecycleMetadata 后，有一步 check 动作，metadata.checkConfigMembers(beanDefinition)，分别对同名的 initMethods 或者 destroyMethods 去重，只留一个。
+
 ## 定制容器与 Bean 的行为
 
 ### Bean的生命周期
@@ -1081,6 +1152,7 @@ spring.datasource.druid.read.driver-class-name=com.mysql.jdbc.Driver
 @Bean(name = "readDruidDataSource")
 public DataSource readDruidDataSource() {
     // spring.datasource.druid.read 开头的配置项都注入到 DruidDataSource 中了
+    // DruidDataSource 中要提供相应的 setter 方法
     return new DruidDataSource();
 }
 ~~~
@@ -1092,7 +1164,7 @@ public DataSource readDruidDataSource() {
 public class RemoteConfig {
     private String address;
     private int port;
-    // getter 和 setter 方法
+    // 必须 setter 方法
 }
 ~~~
 

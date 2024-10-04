@@ -173,7 +173,7 @@ this 和 target 之间的区别，下面我们通过一个例子来说明
 | 模式                             | 描述                                                         |
 | -------------------------------- | ------------------------------------------------------------ |
 | `this(com.learn.model.Member)`   | 当前 AOP 对象实现了 Member 接口/抽象类的某些方法，Member 的父类未覆写的方法不会被处理 |
-| `target(com.learn.model.Member)` | 当前目标对象（非AOP对象）实现了Member接口/抽象类的某些方法，Member 的父类未覆写的方法也会被处理 |
+| `target(com.learn.model.Member)` | 当前目标对象（非 AOP 对象）实现了 Member接口/抽象类的某些方法，Member 的父类未覆写的方法也会被处理 |
 
 ~~~java
 public abstract class User {
@@ -417,8 +417,11 @@ Spring AOP 中有多种通知类型：
       Class<?> returnType = signature.getReturnType(); // 获取返回类型
       
   
-      //获取传入目标方法的参数
+      // 获取目标方法的参数值
       Object[] args = joinPoint.getArgs();
+      
+      // 获取目标方法的参数名
+      String[] paramNames = ((CodeSignature) joinPoint.getSignature()).getParameterNames();
       
       // 被代理的对象
       joinPoint.getTarget();
@@ -617,10 +620,10 @@ public class MailService {
 }
 ~~~
 
-之所以会报空指针异常，是因为 CGLIB 生成代理对象时，在子类（代理对象）构造函数中并不会生成调用 super() 构造函数的代码，因此父类（被代理对象）的字段并不会按照预期进行初始化，只能赋值对应的空值。解决方法很简单，就是通过 getter 方法来访问字段：
+之所以会报空指针异常，是因为 CGLIB 生成代理对象时，在子类（代理对象）构造函数中并不会生成调用 super() 构造函数的代码，因此父类的字段并不会按照预期进行初始化，只能赋值对应的空值。解决方法很简单，就是通过 getter 方法来访问字段：
 
 ~~~java
-// 不要直接访问UserService的字段:
+// 不要直接访问 UserService 的字段:
 ZoneId zoneId = userService.getZoneId();
 ~~~
 
@@ -631,7 +634,7 @@ public UserService$$EnhancerBySpringCGLIB extends UserService {
     UserService target = ...
         ...
 
-        public ZoneId getZoneId() {
+    public ZoneId getZoneId() {
         return target.getZoneId();
     }
 }

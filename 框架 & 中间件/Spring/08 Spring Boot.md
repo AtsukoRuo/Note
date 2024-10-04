@@ -318,8 +318,8 @@ Spring Boot 有 18 种方式来加载属性，且存在同名覆盖关系，其�
 
 Spring Boot 还为我们指定了默认的配置文件，以 `application` 为文件名，有 `.properties` 和` .yml`格式。 Spring Boot 会按如下优先级加载属性：
 
-- Jar包外的`application-{profile}.properties`；
-- Jar包外的`application.properties`；
+- Jar 包外的`application-{profile}.properties`；
+- Jar 包外的`application.properties`；
 - Jar 包内部的 `application-{profile}.properties`；
 - Jar 包内部的 `application.properties`。
 

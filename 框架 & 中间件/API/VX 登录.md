@@ -164,7 +164,7 @@ access_token 是公众号的全局唯一接口调用凭据，开发者需要进�
    ~~~
 
    ~~~json
-   HTTP GET https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=gQE87zwAAAAAAAAAAS5odHRwOi8vd2VpeGluLnFxLmNvbS9xLzAyaE54QnNJUE1jWEcxVjRpTHhDY2oAAgTUeu9mAwRwFwAA
+   HTTP GET https://mp.weixin.qq.com/cgi-bin/showqrcode?ticket=gQGn7zwAAAAAAAAAAS5odHRwOi8vd2VpeGluLnFxLmNvbS9xLzAydVJhT3RoUE1jWEcxVC1rWk5DY3AAAgSOPf1mAwRwFwAA
    ~~~
 
    在 ticket 正确情况下，http 返回码是200，是一张图片，可以直接展示或者下载。
@@ -368,58 +368,3 @@ public class SubscribeHandler implements WxMpMessageHandler {
     }
 }
 ~~~
-
-## WS 长连接的设计
-
-![{6032F302-D6A4-4E9C-82CC-D208EE3ECAD6}](./assets/%7B6032F302-D6A4-4E9C-82CC-D208EE3ECAD6%7D.png)
-
-Provider 仅仅是完成「服务器向 Client 推送消息」的工作而已。具体来说就是，自动做消息路由的工作，找到 ChannelID 对应的长连接，并发送消息。
-
-同一个微服务下的所有实例，共用一个 ServiceID 来向 Netty 注册连接。
-
-|   属性    |  类型   |   说明   |
-| :-------: | :-----: | :------: |
-|  command  | Integer | 指令类型 |
-| channelId |  Long   | 连接标识 |
-|   dest    |  Long   |  目的地  |
-|  cotent   | String  | 消息内容 |
-
-| ServerId |    服务    |
-| :------: | :--------: |
-|    1     | 授权服务器 |
-
-|      Command      |      含义      | 标识 |
-| :---------------: | :------------: | :--: |
-|    DeliveryID     | 下发 ChannelId |  1   |
-| RegisterServiceID | 注册 ServiceID |  2   |
-|      REPLAY       |  向客户端回复  |  3   |
-
-
-
-
-
-影响长连接稳定的因素如下：
-
-1. 在 NAT 网关中，它的地址转换表中有一个老化时间字段，如果连接空闲超过这个时间，转换记录就会被删除
-
-   |          地区/网络           | NAT Aging-time |
-   | :--------------------------: | :------------: |
-   |         中国移动 4G          |     1分钟      |
-   |       中国移动 3G、2G        |     5分钟      |
-   |     中国联通 2G、3G、4G      |     5分钟      |
-   |         中国电信 4G          |     5分钟      |
-   |       中国电信 2G、3G        |   大于28分钟   |
-   | 台湾和香港各大运营商  4G、3G |   大于28分钟   |
-   |    美国各大运营商 4G、3G     |   大于28分钟   |
-
-2. 防火墙会记录一条 tcp 会话数据，这个会话的也是有一个老化时间
-
-**「心跳」**是指不间断的发送一个较小的数据包。通过心跳机制，可以解决因老化问题而导致的长连接丢失的问题。这就是心跳的**保活**作用。此外，心跳还可以用于检测连接是否存活，如果检测到失活，那么就立即**自动重连**。
-
-像由于网络异常而导致的长连接丢失，只能不断尝试重连。如果服务器下线，那么不断的重连也无济于事。此时我们就要引入「智能路由」，将重连请求分发到一台正常运行的服务器上。这里有两种方案：
-
-- 使用 **SLB（Server Load Balancer）**作为网关服务的负载层，例如使用 Nginx 等应用型负载均衡 ALB（Application Load Balancer）作为七层负载，或者使用传统型负载均衡 CLB（Classic Load Balancer）作为四层负载。
-
-- **CLB（Client Load Balancer）**：把节点选择的逻辑放到了客户端，通过配置或者接口返回一批网关地址，由客户端选择一个正常的网关建立连接。
-
-  

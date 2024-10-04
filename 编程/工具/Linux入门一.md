@@ -709,11 +709,13 @@ sudo chmod -R 777 /mnt/nfs_share
 
 ~~~shell
 /mnt/nfs_share *(rw,sync,no_subtree_check,insecure,no_root_squash)
+# 只读 ro，不能有空格
 ~~~
 
 ~~~shell
 sudo systemctl restart nfs-kernel-server
-sudo systemctl enable nfs-kernel-server
+
+
 sudo exportfs -v		# 检查挂载情况
 ~~~
 

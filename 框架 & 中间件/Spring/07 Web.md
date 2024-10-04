@@ -1007,9 +1007,16 @@ public interface HandlerInterceptor {
 
 ![在这里插入图片描述](assets/watermark,type_ZHJvaWRzYW5zZmFsbGJhY2s,shadow_50,text_Q1NETiBA5aSn6bmPY29vbA==,size_20,color_FFFFFF,t_70,g_se,x_16.png)
 
-当多个拦截器同时工作时，它们的`preHandle()`方法会按照配置文件中拦截器的配置顺序执行，而它们的`postHandle()`方法和`afterCompletion()`方法则会逆序执行。注意如果某个拦截器的 preHandle 返回 false，那么仍执行完整的 afterCompletion 链
+当多个拦截器同时工作时，它们的`preHandle()`方法会按照配置文件中拦截器的配置顺序执行，而它们的`postHandle()`方法和`afterCompletion()`方法则会逆序执行。
 
 ![在这里插入图片描述](assets/watermark,type_ZHJvaWRzYW5zZmFsbGJhY2s,shadow_50,text_Q1NETiBA5aSn6bmPY29vbA==,size_20,color_FFFFFF,t_70,g_se,x_16-1703604740681-5.png)
+
+假设我们有 i1、i2、i3 这三个拦截器：
+
+- 在 i2 的 preHandle 中返回 false，那么只会执行 i1 的 afterCompletion。
+- 在 i2 的 preHandle 中抛出异常，那么只会执行 i1 的 afterCompletion。Controller 视为抛出异常，可被 @ControllerAdvice 捕获到。
+- 在 i2 的 postHandle 中抛出异常，不再执行 i1 的 postHandle，而是执行完整的 afterCompletion 链，并正常返回 Controller 的结果。
+- 在 i2 的 afterCompletion 抛出异常，继续执行 i1 的 afterCompletion，并正常返回 Controller 的结果。
 
 
 
@@ -1049,6 +1056,17 @@ public class MvcConfig implements WebMvcConfigurer {
             .addPathPatterns("/**")
             .excludePathPatterns("/login");
     }
+}
+~~~
+
+
+
+拦截器一般配合 ThreadLocal 使用：
+
+~~~java
+class TokenInterceptor implements HandlerInterceptor {
+    private static final ThreadLocal<String> threadLocal = new ThreadLocal<String>();
+	//...
 }
 ~~~
 
@@ -1241,6 +1259,8 @@ void cachedContent(ResposeEntity resposeEntity) {
 
 
 
+
+
 GET 请求：
 
 读取 Body 的内容
@@ -1281,7 +1301,7 @@ Pet pet = restClient.get()
 
 
 
-默认情况下，`RestClient`在接收到4xx和5xx状态码的时候，会抛出一个`RestClientException`的子类。对于这个动作，我们可以通过`onStatus`方法去重写它
+默认情况下，`RestClient`在接收到 4xx 和 5xx 状态码的时候，会抛出一个`RestClientException`的子类。对于这个动作，我们可以通过`onStatus`方法去捕获它
 
 ~~~java
 String result = restClient.get()
@@ -1303,7 +1323,7 @@ POST 操作：
 Pet pet = ...
 ResponseEntity<Void> response = restClient.post()
   .uri("https://petclinic.example.com/pets/new")
-  .contentType(APPLICATION_JSON)
+  .contentType(MediaType.APPLICATION_JSON)
   .body(pet)
   .retrieve()
   .toBodilessEntity();
@@ -1332,5 +1352,31 @@ ResponseEntity<String> responseEntity = restClient
     .body(httpEntity::writeTo) // 把编码后的请求体写入到服务器
     .retrieve()
     .toEntity(String.class)
+~~~
+
+
+
+拦截器：
+
+~~~java
+@Component
+public class RestClientInterceptor implements ClientHttpRequestInterceptor {
+
+    @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws IOException {
+        request.getHeaders().add("header1", "header 1 value");
+        return execution.execute(request, body);
+    }
+
+}
+
+@Configuration
+public class RestClientConfig {
+
+    @Bean
+    RestClient restClient() {
+        return RestClient.builder().baseUrl(null).requestInterceptor(new RestClientInterceptor()).build();
+    }
+}
 ~~~
 
